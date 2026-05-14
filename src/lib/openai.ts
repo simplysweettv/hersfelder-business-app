@@ -8,9 +8,10 @@ export function getOpenAIClient(apiKey?: string) {
 
 const BRAND_DESCRIPTION = `Marke: Hersfelder Schützenbekleidung (schuetzen-ausstatter.de)
 Farben: Dunkelgrün #1a5c2a (Hauptfarbe), Weiß, Rot (Akzent), Holz/Naturelemente
-Logo: Hersfelder Wappen mit Rot und Grün
-Produkte: Schützenröcke, Westen, Uniformen, Festtagsbekleidung — alle in Dunkelgrün mit Hersfelder Wappen
-Werte: Gemeinschaft, Tradition, Zusammenhalt, Vereinsleben, Schützenfest, Freude, Heimat
+Kleidung: Dunkelgrüne Schützenröcke, Westen, Uniformen mit Hersfelder Wappen — getragen von echten Vereinsmenschen
+Content-Strategie: KEIN Produktmarketing. Zeige echtes Vereinsleben — die Kleidung ist Teil der Szene, nicht das Thema.
+Themen: Zusammenhalt beim Schützenfest, gemeinsames Feiern, Generationen im Verein, Stolz auf Tradition, Lachen und Freude
+Stil: Authentisch wie Reportagefotografie — keine gestellten Werbeshootings
 Zielgruppe: Schützenverein-Mitglieder in Deutschland, alle Altersgruppen`;
 
 const SAFETY_RULES = `ABSOLUT VERBOTEN — niemals zeigen:
@@ -40,47 +41,52 @@ Kernbotschaft: "${input.message}"`;
   if (style === "typography") {
     return `${baseContext}
 
-Erstelle eine grafische Text-Kachel im Stil moderner Instagram-Typografie-Posts der Marke Hersfelder.
-Design-Vorgaben:
-- Hintergrund: Sattes Dunkelgrün (#1a5c2a) oder ein eleganter dunkelgrün-schwarzer Gradient
-- Haupttext: 3-6 Wörter aus der Kernbotschaft in WEISSEN oder ROTEN Großbuchstaben, sehr groß, bold, zentriert
-- Schrift: Modernes serifenloses Font, extra-bold, wie Plakat-Typografie
-- Unterelement: kleines Hersfelder Wappen oder "HERSFELDER" Schriftzug dezent am unteren Rand
-- URL: "schuetzen-ausstatter.de" sehr klein, kaum sichtbar am unteren Rand
-- Kein Foto-Hintergrund — reines Grafik-Design
-- Wirkt professionell wie ein Poster, minimalistisch, kraftvoll
+Erstelle eine Instagram-Typografie-Grafik im Stil eines modernen Vereins-Posters.
+Design exakt nach diesen Vorgaben:
+- Hintergrund: Tiefes Dunkelgrün (#1a5c2a) — satt, kein Gradient, keine Textur
+- Haupttext: 3-5 Wörter, die die Kernbotschaft ausdrücken — WEISSE Großbuchstaben, extra-bold, serifenlos
+- Schriftgröße: sehr groß, nimmt ca. 60% der Bildfläche ein, zentriert
+- Optional: ein kurzes zweites Wort/Zeile in Rot (#c0392b), kleiner, darunter
+- Unten mittig: kleines weißes Wappen-Symbol oder "HERSFELDER" in sehr kleinen Großbuchstaben, dezent
+- Kein Foto, keine Menschen — reines kraftvolles Grafik-Design
+- Wirkt wie ein Plakat: minimalistisch, mutig, einprägsam — ähnlich wie @schuetzenausstatter auf Instagram
 Format: 1024x1024 quadratisch.`;
   }
 
   if (style === "product") {
     return `${baseContext}
-Produkt im Fokus: ${input.product}
+Szene: ${input.product}
+${input.visualDetails ? `Details: ${input.visualDetails}` : ""}
 
-Erstelle ein professionelles Produktfoto im Premium-Fashion-Stil.
-Design-Vorgaben:
-- Hintergrund: Dunkles Dunkelgrün oder elegantes Grau-Schwarz, Studio-Lichtstimmung
-- Im Vordergrund: ${input.product} — sauber drapiert oder auf Holz/Stein abgelegt, perfekt ausgeleuchtet
-- Beleuchung: Weiches Studiolicht von oben-links, leichte Reflexion
-- Kleines Hersfelder Wappen oder Logo sichtbar am Produkt oder als Wasserzeichen
-- Qualität: Wirkt wie ein Katalog-Produktbild einer Premium-Trachtenmarke
+Erstelle ein authentisches Vereins-Lifestyle-Foto — KEIN Produktkatalog-Stil.
+Szene: 2-3 Vereinsmitglieder in dunkelgrünen Hersfelder Schützen-Uniformen bei einer alltäglichen Vereinsmoment:
+z.B. beim Gespräch nach dem Training, beim Aufbauen eines Festzelts, beim gemeinsamen Lachen am Rand des Festplatzes.
+Die Kleidung ist sichtbar und hochwertig, aber die Menschen und der Moment stehen im Vordergrund.
+Stimmung: Warm, echt, dokumentarisch — wie ein guter Freund der fotografiert.
+Licht: Natürliches Tageslicht oder goldene Stunde, kein Studio.
+Keine Waffen, keine politischen Symbole.
 Format: 1024x1024 quadratisch.`;
   }
 
-  // Default: lifestyle photo
+  // Default: lifestyle photo (Vereinsleben)
   return `${baseContext}
-Szenen-Produkt: ${input.product}
+Szene: ${input.product}
 ${input.visualDetails ? `Visuelle Details: ${input.visualDetails}` : ""}
 
-Erstelle ein hochwertiges Lifestyle-Foto im Stil eines professionellen Vereins-Fotoshootings.
-Szene: 3-5 Personen (verschiedene Altersgruppen, divers) in dunkelgrünen Schützen-Uniformen, ähnlich dem Hersfelder Sortiment.
-${input.theme.toLowerCase().includes("jung") ? "Fokus auf jungen Menschen (18-30 Jahre), modern und energetisch." : "Natürlicher Mix aus jungen und erfahrenen Vereinsmitgliedern."}
-Stimmung: ${
+Erstelle ein hochwertiges Reportage-Foto vom Vereinsleben — wie ein professioneller Fotograf beim Schützenfest.
+Menschen: 3-5 Personen in dunkelgrünen Hersfelder Schützen-Uniformen, verschiedene Altersgruppen, divers.
+${input.theme.toLowerCase().includes("jung") || input.theme.toLowerCase().includes("nachwuchs")
+  ? "Fokus auf junge Menschen (18-30 Jahre) — lebendig, modern, voller Energie."
+  : "Mix aus jungen und erfahrenen Vereinsmitgliedern — Generationen kommen zusammen."}
+Moment: ${
     input.theme.toLowerCase().includes("fest") || input.theme.toLowerCase().includes("feier")
-      ? "Ausgelassenes Feiern, goldenes Abendlicht, Menschen lachen und stoßen an (mit Biergläsern oder Limonade), Festatmosphäre."
-      : "Warme, authentische Gemeinschaft — Menschen umarmen sich, lachen, stehen stolz zusammen."
+      ? "Ausgelassenes Feiern — goldenes Abendlicht, echtes Lachen, Menschen stoßen mit Getränken an, Festatmosphäre mit Lichtern."
+      : input.theme.toLowerCase().includes("zusammen") || input.theme.toLowerCase().includes("gemeinschaft")
+      ? "Herzlicher Moment — Umarmungen, Schulterklopfen, Augen die leuchten, echter Zusammenhalt sichtbar."
+      : "Authentischer Vereinsmoment — Menschen sind bei sich, reden, lachen, gehören dazu."
   }
-Kein Alkohol prominent, keine Waffen, keine politischen Symbole.
-Qualität: Editorial-Style, warm und lebendig wie Reportagefotografie.
+Stil: Warm, lebendig, wie Reportagefotografie — KEIN gestelltes Werbe-Shooting.
+Keine Waffen, kein Alkohol prominent, keine politischen Symbole.
 Format: 1024x1024 quadratisch.`;
 }
 
@@ -90,40 +96,73 @@ export function buildCaptionPrompt(input: {
   message: string;
   platforms?: string[];
 }): string {
-  const forLinkedIn = input.platforms?.includes("linkedin") ?? false;
+  const platforms = input.platforms ?? ["instagram"];
+
+  const hasInstagram = platforms.includes("instagram");
+  const hasFacebook = platforms.includes("facebook");
+  const hasTikTok = platforms.includes("tiktok");
+  const hasLinkedIn = platforms.includes("linkedin");
 
   const systemContext = `Thema: ${input.theme}
-Produkt/Fokus: ${input.product}
-Kernbotschaft: ${input.message}
-Ton: Authentisch, warmherzig, gemeinschaftlich — wie ein echter Vereinsmensch schreibt. Nicht übertrieben werblich.
-Sprache: Deutsch. Kein Rassismus, keine Waffen, keine politischen Aussagen.`;
+Kontext: ${input.product}
+Kernbotschaft: "${input.message}"
 
-  if (forLinkedIn) {
-    return `Du bist Social-Media-Texter für Hersfelder Schützenbekleidung (schuetzen-ausstatter.de).
-${systemContext}
+WICHTIG — Content-Strategie:
+- KEIN Produktmarketing oder Werbung für Kleidung
+- Zeige echtes Vereinsleben: Zusammenhalt, Freude, Tradition, Gemeinschaft beim Schützenfest
+- Die Hersfelder Kleidung ist im Hintergrund sichtbar — sie gehört dazu, wird aber nicht beworben
+- Schreibe wie ein echter Vereinsmensch: warmherzig, authentisch, stolz auf die Gemeinschaft
+- Sprache: Deutsch. Kein Rassismus, keine Waffen, keine politischen Aussagen.`;
 
-Erstelle ZWEI Versionen:
+  const blocks: string[] = [];
 
-INSTAGRAM (max. 160 Zeichen, emotional, direkt):
-[Kurzer kraftvoller Satz mit Emoji] dann auf neuer Zeile 5 Hashtags.
+  if (hasInstagram) {
+    blocks.push(`---INSTAGRAM---
+Instagram-Caption (max. 125 Zeichen sichtbar, dann wird abgeschnitten):
+- Erster Satz: emotional, direkt, stoppt den Scroll — max. 100 Zeichen
+- 1-2 passende Emojis eingebaut (nicht am Ende geklatscht)
+- Zweite Zeile: genau 3-5 Hashtags, immer #hersfelder dabei
+- Kein Hashtag-Spam, nur wirklich passende Tags
+Beispielformat: "Wenn der Verein zur Familie wird. 🟢\n\n#hersfelder #schützenfest #vereinsleben"`);
+  }
 
----LINKEDIN---
-LINKEDIN POST (150-250 Wörter, professionell-persönlich):
-Beginne mit einer starken Frage oder Aussage über Vereinskultur, Gemeinschaft oder Tradition.
-Erzähle eine kleine Geschichte oder teile einen Gedanken zum Thema.
-Verknüpfe es mit Hersfelder und dem Produkt/Thema.
-Schließe mit einem Call-to-Action oder einer Frage an die Community.
-Dann eine Leerzeile, dann 8-10 LinkedIn-Hashtags (mix Deutsch/Englisch).
+  if (hasFacebook) {
+    blocks.push(`---FACEBOOK---
+Facebook-Post (40-80 Zeichen für maximale Reichweite, alternativ kurze Geschichte bis 150 Wörter):
+- Beginne mit einer Frage oder einer persönlichen Aussage
+- Schreibe für die Vereins-Community — familiär, einladend
+- Optional: Ein kurzer Aufruf zu Kommentaren ("Wer kennt das?", "Wie war das bei euch?")
+- Keine Hashtags oder max. 2`);
+  }
 
-Antworte NUR mit den Texten — zuerst Instagram Caption, dann ---LINKEDIN---, dann LinkedIn Post. Keine Anführungszeichen.`;
+  if (hasTikTok) {
+    blocks.push(`---TIKTOK---
+TikTok-Caption (kurz und knackig, max. 100 Zeichen):
+- Hook in den ersten 3 Wörtern — muss sofort neugierig machen
+- Umgangssprache, jung, lebendig
+- 4-6 Hashtags: mix aus reichweiten-stark (#schützenfest, #vereinsleben) und nischen (#schützenverein, #hersfelder)
+- Kein komplizierter Satz, kein Fließtext`);
+  }
+
+  if (hasLinkedIn) {
+    blocks.push(`---LINKEDIN---
+LinkedIn-Post (150-250 Wörter, professionell-persönlich):
+- Erster Satz: starke Aussage oder Frage über Vereinskultur, Gemeinschaft, Tradition oder Ehrenamt — kein Produkt
+- Absätze: kurz, je 2-3 Sätze, Leerzeile dazwischen (mobile-optimiert)
+- Erzähle eine kleine Geschichte oder teile einen echten Gedanken zum Vereinsleben
+- Verbindung zu Hersfelder als Unterstützer von Vereinskultur (nicht als Verkäufer)
+- Schließe mit einer offenen Frage an die Community
+- Letzte Zeile: 3 Hashtags (mix Deutsch/Englisch), z.B. #Vereinsleben #Schützenfest #CommunityFirst`);
   }
 
   return `Du bist Social-Media-Texter für Hersfelder Schützenbekleidung (schuetzen-ausstatter.de).
 ${systemContext}
 
-Schreibe eine Instagram-Caption (max. 180 Zeichen, auf Deutsch, mit 1-2 Emojis) gefolgt von 5 relevanten Hashtags auf einer neuen Zeile.
-Kein Hashtag-Spam — wähle 5 die wirklich passen. Immer #hersfelder dabei.
-Antworte NUR mit der fertigen Caption. Keine Anführungszeichen.`;
+Erstelle für jede der folgenden Plattformen eine maßgeschneiderte Version:
+
+${blocks.join("\n\n")}
+
+Antworte NUR mit den Texten in der angegebenen Reihenfolge mit den Trennern (---INSTAGRAM---, ---FACEBOOK--- etc.). Keine Anführungszeichen, keine Erklärungen.`;
 }
 
 export async function generateBrief(opts: {

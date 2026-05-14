@@ -10,23 +10,42 @@ import { Pencil, Check, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
 import type { Post } from "@/types";
 import { formatDateTime } from "@/lib/date-utils";
 
-function splitCaption(caption: string) {
-  const sep = "---LINKEDIN---";
-  const idx = caption.indexOf(sep);
-  if (idx === -1) return { instagram: caption, linkedin: null };
-  return {
-    instagram: caption.slice(0, idx).trim(),
-    linkedin: caption.slice(idx + sep.length).trim(),
-  };
+const PLATFORM_SEPS = ["---INSTAGRAM---", "---FACEBOOK---", "---TIKTOK---", "---LINKEDIN---"] as const;
+type PlatformKey = "instagram" | "facebook" | "tiktok" | "linkedin";
+
+function splitCaption(caption: string): Partial<Record<PlatformKey, string>> {
+  const result: Partial<Record<PlatformKey, string>> = {};
+  const parts = caption.split(/(---(?:INSTAGRAM|FACEBOOK|TIKTOK|LINKEDIN)---)/);
+  let currentKey: PlatformKey | null = null;
+  for (const part of parts) {
+    const sep = PLATFORM_SEPS.find((s) => s === part.trim());
+    if (sep) {
+      currentKey = sep.replace(/---/g, "").toLowerCase() as PlatformKey;
+    } else if (currentKey && part.trim()) {
+      result[currentKey] = part.trim();
+    }
+  }
+  // Fallback: if no separators found, treat whole caption as instagram
+  if (Object.keys(result).length === 0 && caption.trim()) {
+    result.instagram = caption.trim();
+  }
+  return result;
 }
+
+const PLATFORM_LABELS: Record<PlatformKey, string> = {
+  instagram: "Instagram",
+  facebook: "Facebook",
+  tiktok: "TikTok",
+  linkedin: "LinkedIn",
+};
 
 export function ApprovalCard({ post }: { post: Post }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [expanded, setExpanded] = useState(false);
 
-  const { instagram, linkedin } = splitCaption(post.caption ?? "");
-  const hasLinkedIn = !!linkedin;
+  const captions = splitCaption(post.caption ?? "");
+  const captionEntries = Object.entries(captions) as [PlatformKey, string][];
 
   function approve() {
     start(async () => {
@@ -110,29 +129,19 @@ export function ApprovalCard({ post }: { post: Post }) {
               </div>
             )}
 
-            {/* Caption */}
-            <div className="flex-1 p-4 space-y-4 bg-muted/30">
-              {/* Instagram */}
-              <div>
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
-                  Instagram / Facebook / TikTok
-                </div>
-                <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                  {instagram || "—"}
-                </p>
-              </div>
-
-              {/* LinkedIn */}
-              {hasLinkedIn && (
-                <div className="pt-3 border-t border-border">
-                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
-                    LinkedIn
-                  </div>
-                  <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                    {linkedin}
-                  </p>
-                </div>
+            {/* Captions per platform */}
+            <div className="flex-1 p-4 space-y-4 bg-muted/30 overflow-y-auto max-h-96">
+              {captionEntries.length === 0 && (
+                <p className="text-sm text-muted-foreground">Keine Caption vorhanden.</p>
               )}
+              {captionEntries.map(([platform, text], i) => (
+                <div key={platform} className={i > 0 ? "pt-3 border-t border-border" : ""}>
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                    {PLATFORM_LABELS[platform]}
+                  </div>
+                  <p className="text-sm whitespace-pre-wrap leading-relaxed">{text}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
