@@ -93,11 +93,15 @@ export async function GET(req: NextRequest) {
   );
 
   const created: string[] = [];
+  const errors: string[] = [];
+
+  console.log(`[generate-week] Starting KW${week}/${year}, existingTimes: ${existingTimes.size}`);
 
   for (const slot of WEEKLY_TEMPLATE) {
     try {
       // Skip this slot if it was already generated
       const when = setMinutes(setHours(addDays(nextMonday, slot.dayOffset), slot.hour), 0);
+      console.log(`[generate-week] Slot ${slot.themeCategory} → ${when.toISOString()} skip=${existingTimes.has(when.toISOString())}`);
       if (existingTimes.has(when.toISOString())) continue;
 
       // Samstags-Post rotiert jede Woche zwischen hook / typography / photo
@@ -105,6 +109,7 @@ export async function GET(req: NextRequest) {
         slot.styleType === "hook"
           ? HOOK_ROTATION[(week - 1) % HOOK_ROTATION.length]
           : slot.styleType;
+      console.log(`[generate-week] styleType=${effectiveStyleType} size=${slot.imageSize}`);
 
       // Step 1: AI generates a creative brief for this slot
       const brief = await generateBrief({
@@ -184,9 +189,12 @@ export async function GET(req: NextRequest) {
         });
       }
     } catch (e) {
-      console.error("generate-week error", slot.themeCategory, e);
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[generate-week] ERROR", slot.themeCategory, msg, e);
+      errors.push(`${slot.themeCategory}: ${msg}`);
     }
   }
 
-  return NextResponse.json({ created: created.length, week, year, ids: created });
+  console.log(`[generate-week] Done: created=${created.length} errors=${errors.length}`);
+  return NextResponse.json({ created: created.length, week, year, ids: created, errors });
 }
