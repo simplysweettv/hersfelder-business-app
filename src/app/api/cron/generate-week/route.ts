@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { loadSettings } from "@/lib/settings";
 import {
   buildCaptionPrompt,
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
   if (!authorized(req))
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const settings = await loadSettings();
   const apiKey = process.env.OPENAI_API_KEY || settings["openai_api_key"] || undefined;
   if (!apiKey) {
