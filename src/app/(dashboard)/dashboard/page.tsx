@@ -29,13 +29,13 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <div className="flex-1 p-5 bg-background">
-      <h1 className="text-2xl font-semibold mb-1">Dashboard</h1>
-      <p className="text-sm text-muted-foreground mb-6">
+    <div className="flex-1 p-3 md:p-5 bg-background">
+      <h1 className="text-xl md:text-2xl font-semibold mb-1">Dashboard</h1>
+      <p className="text-sm text-muted-foreground mb-4 md:mb-6">
         Überblick über deine Hersfelder Business Suite
       </p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {stats.map((s) => (
           <Card key={s.label} className="p-5">
             <div className="flex items-center justify-between mb-3">

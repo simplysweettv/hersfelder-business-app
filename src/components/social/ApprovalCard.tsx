@@ -97,9 +97,9 @@ export function ApprovalCard({ post }: { post: Post }) {
   return (
     <Card className="overflow-hidden">
       {/* Header row */}
-      <div className="p-3 flex items-center gap-3">
+      <div className="p-3 flex items-start gap-3">
         <div
-          className="w-[52px] h-[52px] rounded-md shrink-0 flex items-center justify-center cursor-pointer"
+          className="w-[52px] h-[52px] rounded-md shrink-0 flex items-center justify-center cursor-pointer mt-0.5"
           onClick={() => setExpanded((v) => !v)}
           style={{
             background: post.image_url
@@ -119,42 +119,51 @@ export function ApprovalCard({ post }: { post: Post }) {
           <div className="mt-1.5">
             <PlatformPills platforms={post.platforms} />
           </div>
+          {/* Buttons auf Mobile: kompakt unter dem Titel */}
+          <div className="mt-2 flex items-center gap-1.5 flex-wrap md:hidden">
+            <Button variant="ghost" size="sm" onClick={() => setExpanded((v) => !v)}
+              className="text-muted-foreground h-7 px-2 text-xs gap-1">
+              {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              {expanded ? "Einklappen" : "Vorschau"}
+            </Button>
+            <Button variant="outline" size="sm" disabled={pending || regenerating}
+              onClick={() => { setExpanded(true); setEditing((v) => !v); }}
+              className="h-7 px-2 text-xs gap-1">
+              <Pencil className="w-3 h-3" />
+              {editing ? "Abbrechen" : "Bearbeiten"}
+            </Button>
+            <Button variant="outline" size="sm" disabled={pending || regenerating}
+              onClick={regenerate} className="h-7 px-2 text-xs gap-1">
+              <RefreshCw className={`w-3 h-3 ${regenerating ? "animate-spin" : ""}`} />
+              {regenerating ? "…" : "Neu"}
+            </Button>
+            <Button size="sm" disabled={pending || regenerating} onClick={approve}
+              className="h-7 px-2 text-xs gap-1"
+              style={{ background: "var(--brand-primary)", color: "white" }}>
+              <Check className="w-3 h-3" />
+              Freigeben
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setExpanded((v) => !v)}
-            className="text-muted-foreground"
-          >
+        {/* Buttons auf Desktop: rechts neben dem Titel */}
+        <div className="hidden md:flex items-center gap-2 shrink-0">
+          <Button variant="ghost" size="sm" onClick={() => setExpanded((v) => !v)}
+            className="text-muted-foreground">
             {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             {expanded ? "Einklappen" : "Vorschau"}
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={pending || regenerating}
-            onClick={() => { setExpanded(true); setEditing((v) => !v); }}
-          >
+          <Button variant="outline" size="sm" disabled={pending || regenerating}
+            onClick={() => { setExpanded(true); setEditing((v) => !v); }}>
             <Pencil className="w-3.5 h-3.5" />
             {editing ? "Abbrechen" : "Bearbeiten"}
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={pending || regenerating}
-            onClick={regenerate}
-            title="Neuen Post generieren"
-          >
+          <Button variant="outline" size="sm" disabled={pending || regenerating}
+            onClick={regenerate} title="Neuen Post generieren">
             <RefreshCw className={`w-3.5 h-3.5 ${regenerating ? "animate-spin" : ""}`} />
             {regenerating ? "Lädt…" : "Neu"}
           </Button>
-          <Button
-            size="sm"
-            disabled={pending || regenerating}
-            onClick={approve}
-            style={{ background: "var(--brand-primary)", color: "white" }}
-          >
+          <Button size="sm" disabled={pending || regenerating} onClick={approve}
+            style={{ background: "var(--brand-primary)", color: "white" }}>
             <Check className="w-3.5 h-3.5" />
             Freigeben
           </Button>

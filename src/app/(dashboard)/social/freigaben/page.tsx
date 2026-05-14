@@ -18,21 +18,21 @@ export default async function FreigabenPage() {
   const posts = (data ?? []) as Post[];
 
   return (
-    <div className="flex-1 p-5 bg-background space-y-4">
-      <Card className="p-4 flex items-center gap-4">
+    <div className="flex-1 p-3 md:p-5 bg-background space-y-3 md:space-y-4">
+      <Card className="p-3 md:p-4 flex items-center gap-3 md:gap-4">
         <div
-          className="w-11 h-11 rounded-lg flex items-center justify-center text-white shrink-0"
+          className="w-10 h-10 md:w-11 md:h-11 rounded-lg flex items-center justify-center text-white shrink-0"
           style={{ background: "var(--brand-primary)" }}
         >
           <Inbox className="w-5 h-5" />
         </div>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <div className="font-medium text-sm">
             {posts.length === 0
               ? "Keine Posts warten auf Freigabe"
               : `${posts.length} Post${posts.length === 1 ? "" : "s"} warte${posts.length === 1 ? "t" : "n"} auf Freigabe`}
           </div>
-          <div className="text-xs text-muted-foreground">
+          <div className="text-xs text-muted-foreground hidden sm:block">
             Prüfe Bild und Caption, dann gib die Posts frei. Sie werden zum
             geplanten Zeitpunkt automatisch veröffentlicht.
           </div>
