@@ -4,6 +4,7 @@ import { loadSettings } from "@/lib/settings";
 import {
   buildCaptionPrompt,
   buildImagePrompt,
+  generateBrief,
   generateCaption,
   generateImage,
 } from "@/lib/openai";
@@ -13,61 +14,26 @@ import type { Platform } from "@/types";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-const WEEKLY_PLAN: Array<{
+const WEEKLY_TEMPLATE: Array<{
   dayOffset: number; // 0 = Mon
   hour: number;
-  theme: string;
-  product: string;
-  message: string;
+  themeCategory: string;
+  styleType: "photo" | "typography" | "product";
   platforms: Platform[];
 }> = [
   {
-    dayOffset: 0,
-    hour: 11,
-    theme: "Vereinsleben",
-    product: "Schützenverein im Alltag",
-    message: "Stark gemeinsam — Hersfelder steht hinter eurem Verein.",
-    platforms: ["instagram", "facebook"],
-  },
-  {
-    dayOffset: 2,
+    dayOffset: 2, // Mittwoch
     hour: 17,
-    theme: "Produktvorstellung",
-    product: "Schützenrock Klassik",
-    message: "Tradition trifft Qualität — der Klassiker aus Hersfeld.",
-    platforms: ["instagram", "facebook", "tiktok"],
-  },
-  {
-    dayOffset: 3,
-    hour: 18,
-    theme: "Schützenfest",
-    product: "Festtagsbekleidung 2026",
-    message: "Bereit für die Saison? Wir statten dich aus.",
+    themeCategory: "Vereinsleben & Gemeinschaft",
+    styleType: "photo",
     platforms: ["instagram", "facebook", "tiktok", "linkedin"],
   },
   {
-    dayOffset: 4,
-    hour: 16,
-    theme: "Tradition & Werte",
-    product: "Hersfelder Handwerk",
-    message: "Handgefertigt in Deutschland seit Jahrzehnten.",
-    platforms: ["instagram", "linkedin"],
-  },
-  {
-    dayOffset: 5,
+    dayOffset: 5, // Samstag
     hour: 12,
-    theme: "Gewinnspiel/Aktion",
-    product: "Wochenend-Special",
-    message: "Mitmachen lohnt sich — Aktion nur dieses Wochenende.",
-    platforms: ["instagram", "facebook"],
-  },
-  {
-    dayOffset: 6,
-    hour: 11,
-    theme: "Jungschützen",
-    product: "Nachwuchsförderung",
-    message: "Die nächste Generation in Hersfelder Grün.",
-    platforms: ["instagram", "tiktok"],
+    themeCategory: "Produkt-Highlight & Schützenfest",
+    styleType: "product",
+    platforms: ["instagram", "facebook", "tiktok", "linkedin"],
   },
 ];
 
@@ -92,10 +58,11 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  // Always generate for NEXT week
   const now = new Date();
-  const monday = startOfISOWeek(now);
-  const week = getISOWeek(now);
-  const year = getISOWeekYear(now);
+  const nextMonday = addDays(startOfISOWeek(now), 7);
+  const week = getISOWeek(nextMonday);
+  const year = getISOWeekYear(nextMonday);
 
   const { count: existing } = await supabase
     .from("posts")
@@ -106,31 +73,49 @@ export async function GET(req: NextRequest) {
   if ((existing ?? 0) > 0) {
     return NextResponse.json({
       skipped: true,
-      reason: `Week ${week}/${year} already has ${existing} posts.`,
+      reason: `KW${week}/${year} already has ${existing} posts.`,
     });
   }
 
   const created: string[] = [];
-  for (const plan of WEEKLY_PLAN) {
+
+  for (const slot of WEEKLY_TEMPLATE) {
     try {
-      const when = setMinutes(setHours(addDays(monday, plan.dayOffset), plan.hour), 0);
+      // Step 1: AI generates a creative brief for this slot
+      const brief = await generateBrief({
+        apiKey,
+        themeCategory: slot.themeCategory,
+        styleType: slot.styleType,
+        weekNumber: week,
+        year,
+      });
+
+      // Step 2: Build prompts using the AI-generated brief
       const imagePrompt = buildImagePrompt({
         brandStyle: settings["brand_style_prompt"],
-        theme: plan.theme,
-        product: plan.product,
-        message: plan.message,
+        theme: brief.theme,
+        product: brief.product,
+        message: brief.message,
+        styleType: slot.styleType,
+        visualDetails: brief.visualDetails,
       });
+
       const captionPrompt = buildCaptionPrompt({
-        theme: plan.theme,
-        product: plan.product,
-        message: plan.message,
+        theme: brief.theme,
+        product: brief.product,
+        message: brief.message,
+        platforms: slot.platforms as string[],
       });
+
+      // Step 3: Generate image and caption in parallel
+      const when = setMinutes(setHours(addDays(nextMonday, slot.dayOffset), slot.hour), 0);
 
       const [image, caption] = await Promise.all([
         generateImage({ apiKey, prompt: imagePrompt }),
         generateCaption({ apiKey, prompt: captionPrompt }),
       ]);
 
+      // Step 4: Upload image to Supabase Storage
       let imageUrl: string | null = null;
       if (image.b64) {
         const buffer = Buffer.from(image.b64, "base64");
@@ -148,14 +133,15 @@ export async function GET(req: NextRequest) {
         imageUrl = image.url;
       }
 
+      // Step 5: Save post to database
       const { data: post } = await supabase
         .from("posts")
         .insert({
-          title: `${plan.theme}: ${plan.product}`,
+          title: `KW${week} ${brief.theme}`,
           image_url: imageUrl,
           caption,
           status: "pending",
-          platforms: plan.platforms,
+          platforms: slot.platforms,
           scheduled_at: when.toISOString(),
           week_number: week,
           year,
@@ -167,15 +153,15 @@ export async function GET(req: NextRequest) {
         created.push(post.id);
         await supabase.from("post_briefs").insert({
           post_id: post.id,
-          theme: plan.theme,
-          occasion: plan.theme,
-          product: plan.product,
-          message: plan.message,
+          theme: brief.theme,
+          occasion: slot.themeCategory,
+          product: brief.product,
+          message: brief.message,
           prompt_used: imagePrompt,
         });
       }
     } catch (e) {
-      console.error("week-plan error", plan.theme, e);
+      console.error("generate-week error", slot.themeCategory, e);
     }
   }
 
