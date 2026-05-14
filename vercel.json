@@ -1,6 +1,6 @@
 {
   "crons": [
-    { "path": "/api/cron/publish", "schedule": "* * * * *" },
+    { "path": "/api/cron/publish", "schedule": "0 9 * * *" },
     { "path": "/api/cron/generate-week", "schedule": "0 8 * * 1" }
   ]
 }
