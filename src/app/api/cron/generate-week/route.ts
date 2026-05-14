@@ -64,23 +64,27 @@ export async function GET(req: NextRequest) {
   const week = getISOWeek(nextMonday);
   const year = getISOWeekYear(nextMonday);
 
-  const { count: existing } = await supabase
+  // Fetch already-existing scheduled_at times for this week to skip completed slots
+  const { data: existingPosts } = await supabase
     .from("posts")
-    .select("id", { count: "exact", head: true })
+    .select("scheduled_at")
     .eq("week_number", week)
     .eq("year", year);
 
-  if ((existing ?? 0) > 0) {
-    return NextResponse.json({
-      skipped: true,
-      reason: `KW${week}/${year} already has ${existing} posts.`,
-    });
-  }
+  const existingTimes = new Set(
+    (existingPosts ?? []).map((p: { scheduled_at: string }) =>
+      new Date(p.scheduled_at).toISOString()
+    )
+  );
 
   const created: string[] = [];
 
   for (const slot of WEEKLY_TEMPLATE) {
     try {
+      // Skip this slot if it was already generated
+      const when = setMinutes(setHours(addDays(nextMonday, slot.dayOffset), slot.hour), 0);
+      if (existingTimes.has(when.toISOString())) continue;
+
       // Step 1: AI generates a creative brief for this slot
       const brief = await generateBrief({
         apiKey,
@@ -108,8 +112,6 @@ export async function GET(req: NextRequest) {
       });
 
       // Step 3: Generate image and caption in parallel
-      const when = setMinutes(setHours(addDays(nextMonday, slot.dayOffset), slot.hour), 0);
-
       const [image, caption] = await Promise.all([
         generateImage({ apiKey, prompt: imagePrompt }),
         generateCaption({ apiKey, prompt: captionPrompt }),
