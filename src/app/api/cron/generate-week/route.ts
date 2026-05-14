@@ -14,27 +14,42 @@ import type { Platform } from "@/types";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
+// imageSize: portrait for IG/TikTok-first posts, landscape for FB/LI-first, square for mixed
 const WEEKLY_TEMPLATE: Array<{
-  dayOffset: number; // 0 = Mon
+  dayOffset: number;
   hour: number;
   themeCategory: string;
-  styleType: "photo" | "typography" | "product";
+  styleType: "photo" | "typography" | "product" | "hook";
   platforms: Platform[];
+  imageSize: "1024x1024" | "1024x1536" | "1536x1024";
 }> = [
   {
-    dayOffset: 2, // Mittwoch
+    dayOffset: 2, // Mittwoch — Lifestyle Foto, Portrait für IG/TikTok
     hour: 17,
-    themeCategory: "Vereinsleben & Gemeinschaft",
+    themeCategory: "Feiern & Zusammensein beim Schützenfest",
     styleType: "photo",
     platforms: ["instagram", "facebook", "tiktok", "linkedin"],
+    imageSize: "1024x1536",
   },
   {
-    dayOffset: 5, // Samstag
+    dayOffset: 5, // Samstag — Hook-Text auf Foto oder Typografie
     hour: 12,
-    themeCategory: "Produkt-Highlight & Schützenfest",
-    styleType: "product",
+    themeCategory: "Tradition & Stolz auf den Verein",
+    styleType: "hook",
     platforms: ["instagram", "facebook", "tiktok", "linkedin"],
+    imageSize: "1024x1024",
   },
+];
+
+// Rotierender Stil — jede Woche wechselt der Samstags-Post
+const HOOK_ROTATION: Array<"typography" | "photo" | "hook"> = [
+  "hook", "typography", "hook", "photo", "hook", "typography", "hook", "photo",
+  "hook", "hook", "typography", "photo", "hook", "typography", "hook", "photo",
+  "hook", "hook", "typography", "photo", "hook", "typography", "hook", "photo",
+  "hook", "hook", "typography", "photo", "hook", "typography", "hook", "photo",
+  "hook", "hook", "typography", "photo", "hook", "typography", "hook", "photo",
+  "hook", "hook", "typography", "photo", "hook", "typography", "hook", "photo",
+  "hook", "hook", "typography", "photo",
 ];
 
 function authorized(req: NextRequest) {
@@ -85,11 +100,17 @@ export async function GET(req: NextRequest) {
       const when = setMinutes(setHours(addDays(nextMonday, slot.dayOffset), slot.hour), 0);
       if (existingTimes.has(when.toISOString())) continue;
 
+      // Samstags-Post rotiert jede Woche zwischen hook / typography / photo
+      const effectiveStyleType =
+        slot.styleType === "hook"
+          ? HOOK_ROTATION[(week - 1) % HOOK_ROTATION.length]
+          : slot.styleType;
+
       // Step 1: AI generates a creative brief for this slot
       const brief = await generateBrief({
         apiKey,
         themeCategory: slot.themeCategory,
-        styleType: slot.styleType,
+        styleType: effectiveStyleType,
         weekNumber: week,
         year,
       });
@@ -100,7 +121,7 @@ export async function GET(req: NextRequest) {
         theme: brief.theme,
         product: brief.product,
         message: brief.message,
-        styleType: slot.styleType,
+        styleType: effectiveStyleType,
         visualDetails: brief.visualDetails,
       });
 
@@ -113,7 +134,7 @@ export async function GET(req: NextRequest) {
 
       // Step 3: Generate image and caption in parallel
       const [image, caption] = await Promise.all([
-        generateImage({ apiKey, prompt: imagePrompt }),
+        generateImage({ apiKey, prompt: imagePrompt, size: slot.imageSize }),
         generateCaption({ apiKey, prompt: captionPrompt }),
       ]);
 

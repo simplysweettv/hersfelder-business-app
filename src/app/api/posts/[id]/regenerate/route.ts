@@ -40,11 +40,14 @@ export async function POST(
 
   // Determine styleType from existing prompt or default to photo
   const promptUsed: string = brief?.prompt_used ?? "";
-  const styleType = promptUsed.includes("Text-Kachel") || promptUsed.includes("Typografie")
-    ? "typography"
-    : promptUsed.includes("Produktfoto") || promptUsed.includes("Vereins-Lifestyle")
-    ? "product"
-    : "photo";
+  const styleType: "photo" | "typography" | "product" | "hook" =
+    promptUsed.includes("Text-Kachel") || promptUsed.includes("Typografie") || promptUsed.includes("Typografie-Grafik")
+      ? "typography"
+      : promptUsed.includes("Hook-Post") || promptUsed.includes("Text-Overlay") || promptUsed.includes("Scroll-Stopper")
+        ? "hook"
+        : promptUsed.includes("Produktfoto") || promptUsed.includes("Vereins-Lifestyle")
+          ? "product"
+          : "photo";
 
   // Re-generate brief with fresh creativity
   const newBrief = await generateBrief({

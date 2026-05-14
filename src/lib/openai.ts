@@ -20,12 +20,26 @@ const SAFETY_RULES = `ABSOLUT VERBOTEN — niemals zeigen:
 - Diskriminierende Darstellungen jeglicher Art
 NUR ERLAUBT: Freude, Gemeinschaft, Feiern, Uniformen/Trachten, Sport, Vereinsleben, Natur`;
 
+// Scene pool for variety — picked randomly per call
+const PHOTO_SCENES = [
+  "Menschen stoßen mit Gläsern an, lachen laut, Festatmosphäre mit Lichterketten im Hintergrund, goldenes Abendlicht",
+  "Marschkapelle zieht durch die Straße — Uniformierte marschieren, Zuschauer jubeln, buntes Treiben",
+  "Junge und ältere Vereinsmitglieder sitzen gemeinsam an einem Holztisch im Festzelt, erzählen, lachen",
+  "Gruppe tanzt oder klatscht zu Musik auf dem Festplatz — echte Freude, natürliche Bewegung",
+  "Zwei Generationen: Großvater und Enkel in Uniform, stehen nebeneinander, stolzes Lächeln",
+  "Siegerehrung oder Ehrung — jemand bekommt eine Medaille, alle applaudieren, Stolz im Blick",
+  "Aufbau des Festzelts: Männer und Frauen arbeiten zusammen, Witz und Gemeinschaft sichtbar",
+  "Nach dem Umzug — kleine Gruppe steht erschöpft und glücklich zusammen, Uniformjacken offen",
+  "Abendstimmung: Vereinsmitglieder sitzen draußen, Kerzen auf dem Tisch, warmes Licht, entspannte Unterhaltung",
+  "Freundinnen in Uniform machen ein Selfie und lachen herzlich — modern und authentisch zugleich",
+];
+
 export function buildImagePrompt(input: {
   brandStyle?: string | null;
   theme: string;
   product: string;
   message: string;
-  styleType?: "photo" | "typography" | "product";
+  styleType?: "photo" | "typography" | "product" | "hook";
   visualDetails?: string;
 }): string {
   const style = input.styleType ?? "photo";
@@ -50,44 +64,58 @@ Design exakt nach diesen Vorgaben:
 - Unten mittig: kleines weißes Wappen-Symbol oder "HERSFELDER" in sehr kleinen Großbuchstaben, dezent
 - Kein Foto, keine Menschen — reines kraftvolles Grafik-Design
 - Wirkt wie ein Plakat: minimalistisch, mutig, einprägsam — ähnlich wie @schuetzenausstatter auf Instagram
-Format: 1024x1024 quadratisch.`;
+Format: quadratisch.`;
+  }
+
+  if (style === "hook") {
+    const scene = PHOTO_SCENES[Math.floor(Math.random() * PHOTO_SCENES.length)];
+    return `${baseContext}
+Szene: ${input.visualDetails || scene}
+
+Erstelle ein Instagram-Hook-Post: authentisches Vereinsfoto mit GROSSEM Text im Bild.
+
+Foto-Hintergrund:
+- Echte Vereinsmenschen in dunkelgrünen Hersfelder Uniformen
+- Szene: ${scene}
+- Stil: Reportagefotografie — warm, lebendig, kein Studio
+- Stimmung: Freude, Zusammenhalt, echte Emotionen
+
+Text-Overlay (direkt im Bild, Teil des Designs):
+- Maximal 4-6 Wörter aus der Kernbotschaft: "${input.message}"
+- WEISS oder GELB, extra-bold serifenlose Schrift
+- SEHR GROSS — nimmt 30-40% der Bildfläche ein
+- Leicht dunkler Schatten oder halbtransparenter dunkler Streifen hinter dem Text für Lesbarkeit
+- Text unten oder mittig platziert, Gesichter der Menschen bleiben sichtbar
+- Wirkt wie ein "Scroll-Stopper": mutig, plakativ, sofort lesbar
+
+Vorbild: Wie @schuetzenausstatter auf Instagram — z.B. "WO SCHÜTZEN FEIERN, BEBT DAS DORF." über einem Festfoto.
+Keine Waffen, keine politischen Symbole.`;
   }
 
   if (style === "product") {
+    const scene = PHOTO_SCENES[Math.floor(Math.random() * PHOTO_SCENES.length)];
     return `${baseContext}
 Szene: ${input.product}
-${input.visualDetails ? `Details: ${input.visualDetails}` : ""}
+${input.visualDetails ? `Details: ${input.visualDetails}` : `Szene: ${scene}`}
 
 Erstelle ein authentisches Vereins-Lifestyle-Foto — KEIN Produktkatalog-Stil.
-Szene: 2-3 Vereinsmitglieder in dunkelgrünen Hersfelder Schützen-Uniformen bei einer alltäglichen Vereinsmoment:
-z.B. beim Gespräch nach dem Training, beim Aufbauen eines Festzelts, beim gemeinsamen Lachen am Rand des Festplatzes.
+2-3 Vereinsmitglieder in dunkelgrünen Hersfelder Schützen-Uniformen bei einem echten Vereinsmoment.
 Die Kleidung ist sichtbar und hochwertig, aber die Menschen und der Moment stehen im Vordergrund.
 Stimmung: Warm, echt, dokumentarisch — wie ein guter Freund der fotografiert.
 Licht: Natürliches Tageslicht oder goldene Stunde, kein Studio.
-Keine Waffen, keine politischen Symbole.
-Format: 1024x1024 quadratisch.`;
+Keine Waffen, keine politischen Symbole.`;
   }
 
   // Default: lifestyle photo (Vereinsleben)
+  const scene = PHOTO_SCENES[Math.floor(Math.random() * PHOTO_SCENES.length)];
   return `${baseContext}
-Szene: ${input.product}
-${input.visualDetails ? `Visuelle Details: ${input.visualDetails}` : ""}
+Szene: ${input.visualDetails || scene}
 
 Erstelle ein hochwertiges Reportage-Foto vom Vereinsleben — wie ein professioneller Fotograf beim Schützenfest.
-Menschen: 3-5 Personen in dunkelgrünen Hersfelder Schützen-Uniformen, verschiedene Altersgruppen, divers.
-${input.theme.toLowerCase().includes("jung") || input.theme.toLowerCase().includes("nachwuchs")
-  ? "Fokus auf junge Menschen (18-30 Jahre) — lebendig, modern, voller Energie."
-  : "Mix aus jungen und erfahrenen Vereinsmitgliedern — Generationen kommen zusammen."}
-Moment: ${
-    input.theme.toLowerCase().includes("fest") || input.theme.toLowerCase().includes("feier")
-      ? "Ausgelassenes Feiern — goldenes Abendlicht, echtes Lachen, Menschen stoßen mit Getränken an, Festatmosphäre mit Lichtern."
-      : input.theme.toLowerCase().includes("zusammen") || input.theme.toLowerCase().includes("gemeinschaft")
-      ? "Herzlicher Moment — Umarmungen, Schulterklopfen, Augen die leuchten, echter Zusammenhalt sichtbar."
-      : "Authentischer Vereinsmoment — Menschen sind bei sich, reden, lachen, gehören dazu."
-  }
+Menschen: 3-5 Personen in dunkelgrünen Hersfelder Schützen-Uniformen, verschiedene Altersgruppen.
+Moment: ${scene}
 Stil: Warm, lebendig, wie Reportagefotografie — KEIN gestelltes Werbe-Shooting.
-Keine Waffen, kein Alkohol prominent, keine politischen Symbole.
-Format: 1024x1024 quadratisch.`;
+Keine Waffen, kein Alkohol prominent, keine politischen Symbole.`;
 }
 
 export function buildCaptionPrompt(input: {
@@ -168,7 +196,7 @@ Antworte NUR mit den Texten in der angegebenen Reihenfolge mit den Trennern (---
 export async function generateBrief(opts: {
   apiKey?: string;
   themeCategory: string;
-  styleType: "photo" | "typography" | "product";
+  styleType: "photo" | "typography" | "product" | "hook";
   weekNumber: number;
   year: number;
 }): Promise<{
@@ -193,10 +221,12 @@ export async function generateBrief(opts: {
 
   const styleDescription =
     opts.styleType === "typography"
-      ? "Grafik-Text-Post (nur Text und Design, kein Foto)"
-      : opts.styleType === "product"
-        ? "Produktfoto-Post (Produkt im Fokus)"
-        : "Lifestyle-Foto-Post (Menschen im Verein)";
+      ? "Grafik-Text-Post (nur Text und Design, kein Foto) — kraftvoller Spruch auf dunkelgrünem Hintergrund"
+      : opts.styleType === "hook"
+        ? "Hook-Post (Vereinsfoto mit GROSSEM Text-Overlay im Bild) — Scroll-Stopper, emotional, plakativ"
+        : opts.styleType === "product"
+          ? "Produktfoto-Post (Uniform/Kleidung sichtbar, aber Menschen und Moment im Fokus)"
+          : "Lifestyle-Foto-Post (echte Menschen beim Feiern, Marschieren, Lachen im Verein)";
 
   const prompt = `Du bist kreativer Social-Media-Stratege für Hersfelder Schützenbekleidung (schuetzen-ausstatter.de).
 Erstelle ein originelles, abwechslungsreiches Briefing für KW ${opts.weekNumber}/${opts.year}.
