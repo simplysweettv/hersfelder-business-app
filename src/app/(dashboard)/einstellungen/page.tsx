@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, AlertCircle, Facebook, Instagram, Loader2 } from "lucide-react";
+import { CheckCircle2, AlertCircle, Share2, Camera, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 
@@ -66,8 +66,8 @@ export default function EinstellungenPage() {
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
               <div className="flex items-center gap-1.5">
-                <Facebook className="w-4 h-4 text-blue-600" />
-                <Instagram className="w-4 h-4 text-pink-500" />
+                <Share2 className="w-4 h-4 text-blue-600" />
+                <Camera className="w-4 h-4 text-pink-500" />
               </div>
               <h2 className="font-medium">Facebook & Instagram</h2>
             </div>
