@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { CheckCircle2, AlertCircle, Share2, Camera, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
@@ -114,16 +113,17 @@ export default function EinstellungenPage() {
           </div>
 
           <div className="shrink-0">
-            <Button
-              asChild
-              variant={isConnected ? "outline" : "default"}
-              size="sm"
+            <a
+              href="/api/auth/meta"
+              className={`inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                isConnected
+                  ? "border border-input bg-background hover:bg-accent hover:text-accent-foreground"
+                  : "text-white hover:opacity-90"
+              }`}
               style={!isConnected ? { background: "var(--brand-primary)" } : undefined}
             >
-              <a href="/api/auth/meta">
-                {isConnected ? "Neu verbinden" : "Facebook verbinden"}
-              </a>
-            </Button>
+              {isConnected ? "Neu verbinden" : "Facebook verbinden"}
+            </a>
           </div>
         </div>
       </Card>
