@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   try {
     // 1. Code → kurzlebiger User-Token
     const tokenRes = await fetch(
-      `https://graph.facebook.com/v25.0/oauth/access_token?` +
+      `https://graph.facebook.com/v21.0/oauth/access_token?` +
         `client_id=${appId}` +
         `&redirect_uri=${encodeURIComponent(`${appUrl}/api/auth/meta/callback`)}` +
         `&client_secret=${appSecret}` +
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
 
     // 2. Kurzlebig → langlebiger User-Token (60 Tage)
     const longRes = await fetch(
-      `https://graph.facebook.com/v25.0/oauth/access_token?` +
+      `https://graph.facebook.com/v21.0/oauth/access_token?` +
         `grant_type=fb_exchange_token` +
         `&client_id=${appId}` +
         `&client_secret=${appSecret}` +
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 
     // 3. Pages des Users abrufen → Page Access Token (permanent)
     const pagesRes = await fetch(
-      `https://graph.facebook.com/v25.0/me/accounts?access_token=${longToken}`
+      `https://graph.facebook.com/v21.0/me/accounts?access_token=${longToken}`
     );
     const pagesData = await pagesRes.json();
     const pages = pagesData.data ?? [];
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
 
     // 4. Instagram Business Account ID
     const igRes = await fetch(
-      `https://graph.facebook.com/v25.0/${pageId}?fields=instagram_business_account&access_token=${pageToken}`
+      `https://graph.facebook.com/v21.0/${pageId}?fields=instagram_business_account&access_token=${pageToken}`
     );
     const igData = await igRes.json();
     const instagramId: string = igData.instagram_business_account?.id ?? "";

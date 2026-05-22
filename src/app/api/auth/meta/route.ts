@@ -17,7 +17,6 @@ export async function GET() {
       "instagram_content_publish",
       "pages_read_engagement",
       "pages_show_list",
-      "business_management",
     ].join(","),
     response_type: "code",
     state: "hersfelder_meta_connect",
