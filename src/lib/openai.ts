@@ -7,8 +7,11 @@ export function getOpenAIClient(apiKey?: string) {
 }
 
 const BRAND_DESCRIPTION = `Marke: Hersfelder Schützenbekleidung (schuetzen-ausstatter.de)
-Farben: Dunkelgrün #1a5c2a (Hauptfarbe), Weiß, Rot (Akzent), Holz/Naturelemente
-Kleidung: Dunkelgrüne Schützenröcke, Westen, Uniformen mit Hersfelder Wappen — getragen von echten Vereinsmenschen
+Brand-Slogan: "Uniform an - Stimmung hoch!" und "Deine Marke für Deinen Verein!"
+Farben: Jagdgrün (Hauptfarbe der Uniformen), Weiß (Hintergrund), Dunkelrot (Logo-Emblem)
+Kleidung: Dunkelgrüne Schützen-Jacken, Westen, elegante Uniformen — getragen von echten Vereinsmenschen
+Logo: Elegantes, botanisch-heraldisches Emblem in dunkelrot mit "Hersfelder" in elegantem Script darunter.
+WICHTIG: Niemals ein generisches deutsches Wappen, Reichsadler oder Löwen-Rampant einbauen — das ist NICHT das Hersfelder-Logo.
 Content-Strategie: KEIN Produktmarketing. Zeige echtes Vereinsleben — die Kleidung ist Teil der Szene, nicht das Thema.
 Themen: Zusammenhalt beim Schützenfest, gemeinsames Feiern, Generationen im Verein, Stolz auf Tradition, Lachen und Freude
 Stil: Authentisch wie Reportagefotografie — keine gestellten Werbeshootings
@@ -65,7 +68,7 @@ Design:
   GUTE Beispiele: "HEUT WIRD GEFEIERT", "WIR FEIERN ZUSAMMEN", "HERZLICH WILLKOMMEN", "SCHÜTZENFEST SAISON 2026"
   SCHLECHTE Beispiele: "IN EINHEIT STARK", "TRADITION VERBINDET UNS", "FÜR HEIMAT UND VEREIN"
 - Optional: ein kurzes Akzent-Wort in Rot (#c0392b), kleiner, darunter
-- Unten mittig: "HERSFELDER" in sehr kleinen Großbuchstaben, dezent
+- Unten mittig: der Text "HERSFELDER" in sehr kleinen Großbuchstaben, nur als dezente Wortmarke — KEIN Wappen, Adler oder Schildsymbol
 - Kein Foto, keine Menschen — reines festliches Grafik-Design
 Format: quadratisch.`;
   }
@@ -90,9 +93,10 @@ Text-Overlay (direkt im Bild, Teil des Designs):
 - Leicht dunkler Schatten oder halbtransparenter dunkler Streifen hinter dem Text für Lesbarkeit
 - Text unten oder mittig platziert, Gesichter der Menschen bleiben sichtbar
 - Wirkt wie ein "Scroll-Stopper": mutig, plakativ, sofort lesbar
+- Kein generisches Wappen, Adler oder Schild im Bild — nur echte Menschen und Uniformen
 
-Vorbild: Wie @schuetzenausstatter auf Instagram — z.B. "WO SCHÜTZEN FEIERN, BEBT DAS DORF." über einem Festfoto.
-Keine Waffen, keine politischen Symbole.`;
+Vorbild: Hersfelder (schuetzen-ausstatter.de) — "Uniform an - Stimmung hoch!" — Schützenfest-Stimmung, authentisch, warm.
+Keine Waffen, keine politischen Symbole, kein generisches deutsches Wappen.`;
   }
 
   if (style === "product") {
