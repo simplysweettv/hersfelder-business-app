@@ -38,10 +38,28 @@ export function ApprovalCard({ post }: { post: Post }) {
 
   function approve() {
     start(async () => {
-      const res = await fetch(`/api/posts/${post.id}/approve`, { method: "POST" });
-      if (!res.ok) { toast.error("Freigabe fehlgeschlagen"); return; }
-      toast.success("Post freigegeben ✓");
-      router.refresh();
+      try {
+        const res = await fetch(`/api/posts/${post.id}/approve`, { method: "POST" });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.ok === false) {
+          toast.error("Freigabe fehlgeschlagen", {
+            description: data.error ?? undefined,
+          });
+          return;
+        }
+        if (data.scheduled) {
+          toast.success("Freigegeben & eingeplant ✓", {
+            description: post.scheduled_at
+              ? `Wird am ${formatDateTime(post.scheduled_at)} automatisch gepostet.`
+              : undefined,
+          });
+        } else {
+          toast.success("Post freigegeben ✓");
+        }
+        router.refresh();
+      } catch {
+        toast.error("Freigabe fehlgeschlagen");
+      }
     });
   }
 

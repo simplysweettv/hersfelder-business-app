@@ -16,6 +16,12 @@ export type PublishPayload = {
   imageUrl: string;
   /** Bereits für DIESE Plattform aufgeteilte Caption (ohne Trenner). */
   caption: string;
+  /**
+   * Optionaler Veröffentlichungszeitpunkt (ISO 8601 mit Offset).
+   * Gesetzt → der Anbieter plant den Post selbst auf diese Zeit (z.B. Blotato
+   * `scheduledTime`). Leer → sofort posten.
+   */
+  scheduledTime?: string;
 };
 
 export type PublishOutcome =

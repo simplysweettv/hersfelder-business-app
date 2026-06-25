@@ -134,7 +134,9 @@ export function makeBlotatoPublisher(platform: Platform): Publisher {
         };
       }
 
-      const body = {
+      // scheduledTime MUSS auf Root-Ebene stehen (Geschwister von `post`),
+      // sonst ignoriert Blotato es und postet sofort.
+      const body: Record<string, unknown> = {
         post: {
           accountId,
           content: {
@@ -144,6 +146,7 @@ export function makeBlotatoPublisher(platform: Platform): Publisher {
           },
           target: buildTarget(platform, get),
         },
+        ...(payload.scheduledTime ? { scheduledTime: payload.scheduledTime } : {}),
       };
 
       try {
