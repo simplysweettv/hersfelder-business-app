@@ -39,7 +39,7 @@ const WEEKLY_TEMPLATE: Array<{
     themeCategory: "Tradition & Stolz auf den Verein",
     styleType: "hook",
     platforms: ["instagram", "facebook", "tiktok"],
-    imageSize: "1024x1024",
+    imageSize: "1024x1536",
   },
 ];
 
