@@ -30,7 +30,7 @@ const WEEKLY_TEMPLATE: Array<{
     hour: 17,
     themeCategory: "Feiern & Zusammensein beim Schützenfest",
     styleType: "photo",
-    platforms: ["instagram", "facebook", "tiktok", "linkedin"],
+    platforms: ["instagram", "facebook", "tiktok"],
     imageSize: "1024x1536",
   },
   {
@@ -38,7 +38,7 @@ const WEEKLY_TEMPLATE: Array<{
     hour: 12,
     themeCategory: "Tradition & Stolz auf den Verein",
     styleType: "hook",
-    platforms: ["instagram", "facebook", "tiktok", "linkedin"],
+    platforms: ["instagram", "facebook", "tiktok"],
     imageSize: "1024x1024",
   },
 ];
