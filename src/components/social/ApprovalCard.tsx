@@ -9,33 +9,10 @@ import { PlatformPills } from "./PlatformDots";
 import { Pencil, Check, Sparkles, ChevronDown, ChevronUp, RefreshCw, Save, X } from "lucide-react";
 import type { Post } from "@/types";
 import { formatDateTime } from "@/lib/date-utils";
+// Zentrale Caption-Logik — eine Quelle der Wahrheit (auch der Cron nutzt diese).
+import { splitCaption, buildCaption } from "@/lib/caption";
 
-const PLATFORM_SEPS = ["---INSTAGRAM---", "---FACEBOOK---", "---TIKTOK---", "---LINKEDIN---"] as const;
 type PlatformKey = "instagram" | "facebook" | "tiktok" | "linkedin";
-
-function splitCaption(caption: string): Partial<Record<PlatformKey, string>> {
-  const result: Partial<Record<PlatformKey, string>> = {};
-  const parts = caption.split(/(---(?:INSTAGRAM|FACEBOOK|TIKTOK|LINKEDIN)---)/);
-  let currentKey: PlatformKey | null = null;
-  for (const part of parts) {
-    const sep = PLATFORM_SEPS.find((s) => s === part.trim());
-    if (sep) {
-      currentKey = sep.replace(/---/g, "").toLowerCase() as PlatformKey;
-    } else if (currentKey && part.trim()) {
-      result[currentKey] = part.trim();
-    }
-  }
-  if (Object.keys(result).length === 0 && caption.trim()) {
-    result.instagram = caption.trim();
-  }
-  return result;
-}
-
-function buildCaption(captions: Partial<Record<PlatformKey, string>>): string {
-  return (Object.entries(captions) as [PlatformKey, string][])
-    .map(([k, v]) => `---${k.toUpperCase()}---\n${v}`)
-    .join("\n\n");
-}
 
 const PLATFORM_LABELS: Record<PlatformKey, string> = {
   instagram: "Instagram",

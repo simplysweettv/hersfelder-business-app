@@ -72,10 +72,10 @@ export async function GET(request: NextRequest) {
     // 5. Alles in Supabase settings speichern
     const supabase = createAdminClient();
     await Promise.all([
-      supabase.from("settings").upsert({ key: "meta_access_token", value: pageToken }),
-      supabase.from("settings").upsert({ key: "facebook_page_id", value: pageId }),
-      supabase.from("settings").upsert({ key: "instagram_account_id", value: instagramId }),
-      supabase.from("settings").upsert({ key: "facebook_page_name", value: page.name ?? "" }),
+      supabase.from("settings").upsert({ key: "meta_access_token", value: pageToken }, { onConflict: "key" }),
+      supabase.from("settings").upsert({ key: "facebook_page_id", value: pageId }, { onConflict: "key" }),
+      supabase.from("settings").upsert({ key: "instagram_account_id", value: instagramId }, { onConflict: "key" }),
+      supabase.from("settings").upsert({ key: "facebook_page_name", value: page.name ?? "" }, { onConflict: "key" }),
     ]);
 
     console.log(`[meta/callback] ✅ Verbunden: Page "${page.name}" (${pageId}), IG: ${instagramId}`);

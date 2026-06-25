@@ -1,16 +1,25 @@
 import { createClient } from "@/lib/supabase/server";
 import { currentWeekInfo } from "@/lib/date-utils";
 import { WeekPlanGrid } from "@/components/social/WeekPlanGrid";
+import { WeekNavigation } from "@/components/social/WeekNavigation";
 import { AIBanner } from "@/components/social/AIBanner";
 import { Card } from "@/components/ui/card";
 import type { Post } from "@/types";
 import { format, parseISO } from "date-fns";
+import { Suspense } from "react";
 
 export const dynamic = "force-dynamic";
 
-export default async function WochenplanPage() {
+export default async function WochenplanPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ offset?: string }>;
+}) {
+  const { offset: rawOffset } = await searchParams;
+  const offset = Number(rawOffset ?? "0") || 0;
+
   const supabase = await createClient();
-  const { days, week, year } = currentWeekInfo();
+  const { days, week, year } = currentWeekInfo(offset);
 
   const start = days[0].toISOString();
   const end = new Date(days[6].getTime() + 86_399_000).toISOString();
@@ -48,11 +57,16 @@ export default async function WochenplanPage() {
 
   return (
     <div className="flex-1 p-5 bg-background space-y-5">
-      <AIBanner
-        weekNumber={week}
-        pendingCount={pending}
-        totalForWeek={list.length}
-      />
+      <div className="flex items-center justify-between">
+        <AIBanner
+          weekNumber={week}
+          pendingCount={pending}
+          totalForWeek={list.length}
+        />
+        <Suspense fallback={null}>
+          <WeekNavigation week={week} year={year} />
+        </Suspense>
+      </div>
 
       <WeekPlanGrid days={days} postsByDay={postsByDay} />
 

@@ -53,6 +53,20 @@ export interface PublishLog {
   created_at: string;
 }
 
+export type PublicationStatus = "pending" | "success" | "failed";
+
+/** Per-Plattform-Veröffentlichungsstatus (Idempotenz + UI-Anzeige). */
+export interface PostPublication {
+  id: string;
+  post_id: string;
+  platform: Platform;
+  status: PublicationStatus;
+  external_id: string | null;
+  error: string | null;
+  published_at: string | null;
+  updated_at: string;
+}
+
 export type GeneratorInput = {
   theme: string;
   occasion?: string;

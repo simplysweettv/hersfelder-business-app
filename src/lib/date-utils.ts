@@ -1,5 +1,6 @@
 import {
   addDays,
+  addWeeks,
   format,
   getISOWeek,
   getISOWeekYear,
@@ -9,10 +10,11 @@ import {
 } from "date-fns";
 import { de } from "date-fns/locale";
 
-export function currentWeekInfo(now: Date = new Date()) {
-  const monday = startOfISOWeek(now);
-  const week = getISOWeek(now);
-  const year = getISOWeekYear(now);
+export function currentWeekInfo(offset = 0, now: Date = new Date()) {
+  const base = offset !== 0 ? addWeeks(now, offset) : now;
+  const monday = startOfISOWeek(base);
+  const week = getISOWeek(base);
+  const year = getISOWeekYear(base);
   const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
   return { monday, week, year, days };
 }

@@ -13,10 +13,10 @@ export async function GET() {
     redirect_uri: `${appUrl}/api/auth/meta/callback`,
     scope: [
       "pages_manage_posts",
-      "instagram_basic",
-      "instagram_content_publish",
       "pages_read_engagement",
       "pages_show_list",
+      "instagram_business_basic",
+      "instagram_content_publish",
     ].join(","),
     response_type: "code",
     state: "hersfelder_meta_connect",
