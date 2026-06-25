@@ -36,10 +36,10 @@ const TOP_ITEMS: NavItem[] = [
       { label: "Freigaben", href: "/social/freigaben", icon: CheckSquare },
       { label: "Generator", href: "/social/generator", icon: Sparkles },
       { label: "Kalender", href: "/social/kalender", icon: Calendar },
+      { label: "Analytics", href: "/social/analytics", icon: BarChart3 },
     ],
   },
   { label: "Shop Manager", href: "#", icon: ShoppingBag, disabled: true },
-  { label: "Analytics", href: "#", icon: BarChart3, disabled: true },
   { label: "Newsletter", href: "#", icon: Mail, disabled: true },
 ];
 
