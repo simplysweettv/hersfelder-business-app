@@ -134,8 +134,8 @@ export function GeneratorForm() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Generierung fehlgeschlagen");
       setPreview({ imageUrl: data.image_url, caption: data.caption });
-      toast.success("Zufalls-Post eingeplant ✓", {
-        description: "Er steht jetzt im Kalender und wird automatisch veröffentlicht.",
+      toast.success("Zufalls-Post erstellt ✓", {
+        description: "Er liegt in den Freigaben — prüfen und freigeben, dann wird er zum Termin gepostet.",
       });
       router.refresh();
     } catch (e) {
@@ -192,8 +192,9 @@ export function GeneratorForm() {
           <div className="space-y-0.5">
             <p className="font-medium">Zufalls-Post</p>
             <p className="text-sm text-muted-foreground">
-              Die KI wählt Thema, Stil und Botschaft selbst. Du gibst nur den
-              Zeitpunkt an — fertig eingeplant, ohne extra Freigabe.
+              Die KI wählt Thema, Stil und Botschaft selbst. Du gibst den
+              Zeitpunkt an — danach kannst du ihn in den Freigaben prüfen und
+              freigeben. Veröffentlicht wird er dann automatisch zum Termin.
             </p>
           </div>
         </div>
@@ -226,7 +227,7 @@ export function GeneratorForm() {
           style={{ background: "var(--brand-primary)", color: "white" }}
         >
           <Shuffle className={`w-4 h-4 mr-2 ${randomGenerating ? "animate-spin" : ""}`} />
-          {randomGenerating ? "KI denkt nach …" : "Zufalls-Post einplanen"}
+          {randomGenerating ? "KI denkt nach …" : "Zufalls-Post erstellen"}
         </Button>
       </div>
 

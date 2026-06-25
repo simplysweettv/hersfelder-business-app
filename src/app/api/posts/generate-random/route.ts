@@ -110,17 +110,16 @@ export async function POST(req: NextRequest) {
       imageUrl = image.url;
     }
 
-    // Mit Datum: direkt eingeplant (keine zweite Freigabe nötig).
-    // Ohne Datum: landet wie gehabt in den Freigaben.
-    const status = scheduledAt ? "scheduled" : "pending";
-
+    // Immer "pending": der Post landet zuerst in den Freigaben, damit Andreas
+    // ihn reviewen kann. Nach der Freigabe macht die approve-Route daraus
+    // "scheduled" (weil scheduled_at gesetzt ist) und der Cron postet zum Termin.
     const { data: post, error: insertErr } = await supabase
       .from("posts")
       .insert({
         title: `${brief.theme}: ${brief.product}`.slice(0, 200),
         image_url: imageUrl,
         caption,
-        status,
+        status: "pending",
         platforms,
         scheduled_at: scheduledAt,
         week_number: week,
@@ -143,7 +142,7 @@ export async function POST(req: NextRequest) {
       id: post.id,
       image_url: imageUrl,
       caption,
-      status,
+      status: "pending",
       scheduled_at: scheduledAt,
       brief: {
         theme: brief.theme,
