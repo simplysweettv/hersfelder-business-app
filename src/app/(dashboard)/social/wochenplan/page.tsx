@@ -34,8 +34,9 @@ export default async function WochenplanPage({
   const list = (posts ?? []) as Post[];
 
   const postsByDay: Record<string, Post[]> = {};
+  const unscheduled: Post[] = [];
   for (const p of list) {
-    if (!p.scheduled_at) continue;
+    if (!p.scheduled_at) { unscheduled.push(p); continue; }
     const iso = format(parseISO(p.scheduled_at), "yyyy-MM-dd");
     if (!postsByDay[iso]) postsByDay[iso] = [];
     postsByDay[iso].push(p);
@@ -69,6 +70,22 @@ export default async function WochenplanPage({
       </div>
 
       <WeekPlanGrid days={days} postsByDay={postsByDay} />
+
+      {unscheduled.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Ohne Termin ({unscheduled.length})
+          </p>
+          <div className="flex flex-col gap-2">
+            {unscheduled.map((p) => (
+              <div key={p.id} className="flex items-center gap-3 rounded-md border bg-card px-3 py-2 text-sm">
+                <span className="flex-1 truncate font-medium">{p.title}</span>
+                <span className="text-xs text-muted-foreground capitalize">{p.status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <MetricCard
