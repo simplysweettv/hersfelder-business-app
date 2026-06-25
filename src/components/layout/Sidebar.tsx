@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -10,7 +11,6 @@ import {
   BarChart3,
   Mail,
   Settings,
-  Crosshair,
   Calendar,
   CheckSquare,
   Sparkles,
@@ -57,18 +57,17 @@ export function Sidebar({
       className="w-[220px] shrink-0 flex flex-col text-white"
       style={{ background: "var(--brand-sidebar)" }}
     >
-      <div className="px-5 pt-6 pb-5 flex items-center gap-3 border-b border-white/10">
-        <div
-          className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-          style={{ background: "var(--brand-primary)" }}
-        >
-          <Crosshair className="w-5 h-5" />
-        </div>
-        <div className="leading-tight">
-          <div className="font-semibold text-sm">Hersfelder</div>
-          <div className="text-[11px] uppercase tracking-wider text-white/60">
-            Business Suite
-          </div>
+      <div className="px-5 pt-5 pb-4 border-b border-white/10">
+        <Image
+          src="/logo-hersfelder.png"
+          alt="Hersfelder"
+          width={140}
+          height={184}
+          className="h-11 w-auto"
+          style={{ filter: "brightness(0) invert(1)" }}
+        />
+        <div className="text-[10px] uppercase tracking-wider text-white/45 mt-1 pl-0.5">
+          Business Suite
         </div>
       </div>
 

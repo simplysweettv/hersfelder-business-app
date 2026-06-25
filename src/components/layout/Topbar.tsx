@@ -1,7 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Bell, ChevronRight, Crosshair } from "lucide-react";
+import { Bell, ChevronRight } from "lucide-react";
 
 const SECTION_LABEL: Record<string, string> = {
   dashboard: "Dashboard",
@@ -10,6 +11,7 @@ const SECTION_LABEL: Record<string, string> = {
   freigaben: "Freigaben",
   generator: "Generator",
   kalender: "Kalender",
+  analytics: "Analytics",
   einstellungen: "Einstellungen",
 };
 
@@ -22,12 +24,13 @@ export function Topbar({ hasNotifications = false }: { hasNotifications?: boolea
     <div className="h-12 bg-white border-b border-border flex items-center justify-between px-4 md:px-5 shrink-0">
       {/* Mobile: Logo + Seitenname */}
       <div className="flex items-center gap-2 md:hidden">
-        <div
-          className="w-7 h-7 rounded-full flex items-center justify-center text-white shrink-0"
-          style={{ background: "var(--brand-primary)" }}
-        >
-          <Crosshair className="w-3.5 h-3.5" />
-        </div>
+        <Image
+          src="/logo-hersfelder.png"
+          alt="Hersfelder"
+          width={56}
+          height={73}
+          className="h-7 w-auto"
+        />
         <span className="font-semibold text-sm">{currentLabel}</span>
       </div>
 
