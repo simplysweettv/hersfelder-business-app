@@ -71,23 +71,65 @@ async function resolveAccountId(
   return match?.id;
 }
 
+type BlotatoSubaccount = { id: string; accountId?: string; name?: string };
+
+// Subaccounts (= Facebook-Pages / LinkedIn-Company-Pages) pro Konto cachen.
+const subaccountCache = new Map<string, BlotatoSubaccount[]>();
+
+async function fetchSubaccounts(
+  accountId: string,
+  apiKey: string,
+): Promise<BlotatoSubaccount[]> {
+  const cacheKey = `${apiKey}:${accountId}`;
+  const cached = subaccountCache.get(cacheKey);
+  if (cached) return cached;
+  const res = await fetch(
+    `${BLOTATO_BASE}/users/me/accounts/${accountId}/subaccounts`,
+    { headers: { "blotato-api-key": apiKey } },
+  );
+  if (!res.ok) return [];
+  const json = (await res.json().catch(() => ({}))) as { items?: BlotatoSubaccount[] };
+  const items = json.items ?? [];
+  subaccountCache.set(cacheKey, items);
+  return items;
+}
+
+/**
+ * Page-ID für Facebook/LinkedIn ermitteln: erst expliziter Override, sonst
+ * automatisch über die Blotato-Subaccounts des verbundenen Kontos.
+ */
+async function resolvePageId(
+  platform: "facebook" | "linkedin",
+  accountId: string,
+  apiKey: string,
+  get: ConfigGetter,
+): Promise<string | undefined> {
+  const explicit =
+    platform === "facebook"
+      ? get("blotato_facebook_page_id", "BLOTATO_FACEBOOK_PAGE_ID") ??
+        get("facebook_page_id", "FACEBOOK_PAGE_ID")
+      : get("blotato_linkedin_page_id", "BLOTATO_LINKEDIN_PAGE_ID");
+  if (explicit) return explicit;
+
+  const subs = await fetchSubaccounts(accountId, apiKey);
+  return subs[0]?.id;
+}
+
 /** Plattform-spezifische Pflicht-/Optionsfelder für das target-Objekt. */
-function buildTarget(platform: Platform, get: ConfigGetter): Record<string, unknown> {
+function buildTarget(
+  platform: Platform,
+  get: ConfigGetter,
+  pageId?: string,
+): Record<string, unknown> {
   switch (platform) {
-    case "facebook": {
-      // pageId ist bei Facebook Pflicht — wir nutzen die bereits bekannte Page-ID.
-      const pageId =
-        get("blotato_facebook_page_id", "BLOTATO_FACEBOOK_PAGE_ID") ??
-        get("facebook_page_id", "FACEBOOK_PAGE_ID");
+    case "facebook":
+      // pageId ist bei Facebook Pflicht — wird in publish() aufgelöst.
       return { targetType: "facebook", ...(pageId ? { pageId } : {}) };
-    }
     case "instagram":
       return { targetType: "instagram" };
-    case "linkedin": {
+    case "linkedin":
       // pageId optional: gesetzt → Company Page, sonst persönliches Profil.
-      const pageId = get("blotato_linkedin_page_id", "BLOTATO_LINKEDIN_PAGE_ID");
       return { targetType: "linkedin", ...(pageId ? { pageId } : {}) };
-    }
     case "tiktok":
       // TikTok verlangt diese Felder zwingend. Bilder von gpt-image-1 →
       // isAiGenerated: true (TikTok-Pflicht zur KI-Kennzeichnung).
@@ -134,6 +176,24 @@ export function makeBlotatoPublisher(platform: Platform): Publisher {
         };
       }
 
+      // Facebook/LinkedIn brauchen eine pageId → automatisch über Subaccounts.
+      let pageId: string | undefined;
+      if (platform === "facebook" || platform === "linkedin") {
+        try {
+          pageId = await resolvePageId(platform, accountId, apiKey, get);
+        } catch (e) {
+          return { ok: false, error: `Blotato (Page-ID): ${errMsg(e)}` };
+        }
+        if (platform === "facebook" && !pageId) {
+          return {
+            ok: false,
+            error:
+              "Keine Facebook-Page in Blotato gefunden — bitte die Facebook-Seite in Blotato verbinden.",
+            reauth: true,
+          };
+        }
+      }
+
       // scheduledTime MUSS auf Root-Ebene stehen (Geschwister von `post`),
       // sonst ignoriert Blotato es und postet sofort.
       const body: Record<string, unknown> = {
@@ -144,7 +204,7 @@ export function makeBlotatoPublisher(platform: Platform): Publisher {
             mediaUrls: payload.imageUrl ? [payload.imageUrl] : [],
             platform: BLOTATO_PLATFORM[platform],
           },
-          target: buildTarget(platform, get),
+          target: buildTarget(platform, get, pageId),
         },
         ...(payload.scheduledTime ? { scheduledTime: payload.scheduledTime } : {}),
       };
