@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Select,
   SelectContent,
@@ -47,16 +47,58 @@ function isoMinDefault() {
   return now.toISOString().slice(0, 16);
 }
 
+function PlatformPicker({
+  platforms,
+  toggle,
+}: {
+  platforms: Platform[];
+  toggle: (p: Platform) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {(["instagram", "facebook", "tiktok", "linkedin"] as Platform[]).map((p) => {
+        const active = platforms.includes(p);
+        return (
+          <button
+            type="button"
+            key={p}
+            onClick={() => toggle(p)}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border transition-colors",
+              active
+                ? "bg-foreground text-background border-foreground"
+                : "bg-white text-foreground border-border hover:bg-muted",
+            )}
+          >
+            <span
+              className="w-2 h-2 rounded-full"
+              style={{ background: PLATFORM_COLOR[p] }}
+            />
+            {PLATFORM_LABEL[p]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function GeneratorForm() {
   const router = useRouter();
+
+  // Zufalls-Post
+  const [randomScheduledAt, setRandomScheduledAt] = useState("");
+  const [randomGenerating, setRandomGenerating] = useState(false);
+  const randomDateRef = useRef<HTMLInputElement>(null);
+
+  // Manuell
   const [theme, setTheme] = useState(THEMES[0]);
   const [product, setProduct] = useState("");
   const [message, setMessage] = useState("");
   const [season, setSeason] = useState(SEASONS[0]);
   const [scheduledAt, setScheduledAt] = useState("");
-  const [platforms, setPlatforms] = useState<Platform[]>(["instagram", "facebook"]);
   const [generating, setGenerating] = useState(false);
-  const [randomGenerating, setRandomGenerating] = useState(false);
+
+  const [platforms, setPlatforms] = useState<Platform[]>(["instagram", "facebook"]);
   const [preview, setPreview] = useState<{
     imageUrl: string | null;
     caption: string | null;
@@ -66,6 +108,41 @@ export function GeneratorForm() {
     setPlatforms((prev) =>
       prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p],
     );
+  }
+
+  async function generateRandom() {
+    if (!randomScheduledAt) {
+      toast.error("Bitte wähle erst Datum & Uhrzeit für den Post.");
+      randomDateRef.current?.focus();
+      randomDateRef.current?.showPicker?.();
+      return;
+    }
+    if (platforms.length === 0) {
+      toast.error("Bitte mindestens eine Plattform wählen.");
+      return;
+    }
+    setRandomGenerating(true);
+    try {
+      const res = await fetch("/api/posts/generate-random", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          platforms,
+          scheduledAt: localToIso(randomScheduledAt),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Generierung fehlgeschlagen");
+      setPreview({ imageUrl: data.image_url, caption: data.caption });
+      toast.success("Zufalls-Post eingeplant ✓", {
+        description: "Er steht jetzt im Kalender und wird automatisch veröffentlicht.",
+      });
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Unbekannter Fehler");
+    } finally {
+      setRandomGenerating(false);
+    }
   }
 
   async function generate() {
@@ -101,49 +178,66 @@ export function GeneratorForm() {
     }
   }
 
-  async function generateRandom() {
-    setRandomGenerating(true);
-    try {
-      const res = await fetch("/api/posts/generate-random", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ platforms }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Generierung fehlgeschlagen");
-      setPreview({ imageUrl: data.image_url, caption: data.caption });
-      toast.success("Zufalls-Post generiert", { description: "Du findest ihn in den Freigaben." });
-      router.refresh();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Unbekannter Fehler");
-    } finally {
-      setRandomGenerating(false);
-    }
-  }
-
+  const busy = generating || randomGenerating;
   const hasPreview = !!(preview.imageUrl || preview.caption);
 
   return (
     <div className="max-w-xl space-y-6">
-      {/* Zufalls-Post */}
-      <Button
-        onClick={generateRandom}
-        disabled={randomGenerating || generating}
-        variant="outline"
-        className="w-full h-12 text-base border-dashed gap-2"
-      >
-        <Shuffle className={`w-4 h-4 ${randomGenerating ? "animate-spin" : ""}`} />
-        {randomGenerating ? "KI denkt nach …" : "Zufalls-Post generieren"}
-      </Button>
+      {/* ── Zufalls-Post ─────────────────────────────── */}
+      <div className="rounded-xl border border-dashed border-border p-4 space-y-4">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+            <Shuffle className="w-5 h-5 text-muted-foreground" />
+          </div>
+          <div className="space-y-0.5">
+            <p className="font-medium">Zufalls-Post</p>
+            <p className="text-sm text-muted-foreground">
+              Die KI wählt Thema, Stil und Botschaft selbst. Du gibst nur den
+              Zeitpunkt an — fertig eingeplant, ohne extra Freigabe.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="random-date" className="flex items-center gap-1.5">
+            <CalendarClock className="w-3.5 h-3.5" />
+            Datum &amp; Uhrzeit
+          </Label>
+          <Input
+            id="random-date"
+            ref={randomDateRef}
+            type="datetime-local"
+            min={isoMinDefault()}
+            value={randomScheduledAt}
+            onChange={(e) => setRandomScheduledAt(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Plattformen</Label>
+          <PlatformPicker platforms={platforms} toggle={togglePlatform} />
+        </div>
+
+        <Button
+          onClick={generateRandom}
+          disabled={busy}
+          className="w-full"
+          size="lg"
+          style={{ background: "var(--brand-primary)", color: "white" }}
+        >
+          <Shuffle className={`w-4 h-4 mr-2 ${randomGenerating ? "animate-spin" : ""}`} />
+          {randomGenerating ? "KI denkt nach …" : "Zufalls-Post einplanen"}
+        </Button>
+      </div>
 
       {/* Divider */}
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
         <div className="flex-1 border-t border-border" />
-        oder manuell
+        oder manuell mit eigenem Briefing
         <div className="flex-1 border-t border-border" />
       </div>
 
-      {/* Manuelles Formular */}
+      {/* ── Manuelles Formular ───────────────────────── */}
       <div className="space-y-4">
         <div className="space-y-1.5">
           <Label>Thema / Anlass</Label>
@@ -213,35 +307,12 @@ export function GeneratorForm() {
 
         <div className="space-y-2">
           <Label>Plattformen</Label>
-          <div className="flex flex-wrap gap-2">
-            {(["instagram", "facebook", "tiktok", "linkedin"] as Platform[]).map((p) => {
-              const active = platforms.includes(p);
-              return (
-                <button
-                  type="button"
-                  key={p}
-                  onClick={() => togglePlatform(p)}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border transition-colors",
-                    active
-                      ? "bg-foreground text-background border-foreground"
-                      : "bg-white text-foreground border-border hover:bg-muted",
-                  )}
-                >
-                  <span
-                    className="w-2 h-2 rounded-full"
-                    style={{ background: PLATFORM_COLOR[p] }}
-                  />
-                  {PLATFORM_LABEL[p]}
-                </button>
-              );
-            })}
-          </div>
+          <PlatformPicker platforms={platforms} toggle={togglePlatform} />
         </div>
 
         <Button
           onClick={generate}
-          disabled={generating || randomGenerating}
+          disabled={busy}
           className="w-full"
           size="lg"
           style={{ background: "var(--brand-primary)", color: "white" }}

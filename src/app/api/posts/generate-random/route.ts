@@ -33,10 +33,14 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   let platforms: string[] = ["instagram", "facebook"];
+  let scheduledAt: string | null = null;
   try {
     const body = await req.json().catch(() => ({}));
     if (Array.isArray(body.platforms) && body.platforms.length > 0) {
       platforms = body.platforms;
+    }
+    if (typeof body.scheduledAt === "string" && body.scheduledAt.trim()) {
+      scheduledAt = body.scheduledAt;
     }
   } catch {
     // use defaults
@@ -55,9 +59,11 @@ export async function POST(req: NextRequest) {
     const themeCategory = THEME_CATEGORIES[Math.floor(Math.random() * THEME_CATEGORIES.length)];
     const styleType = STYLE_TYPES[Math.floor(Math.random() * STYLE_TYPES.length)];
 
-    const now = new Date();
-    const week = isoWeek(now);
-    const year = isoWeekYear(now);
+    // Woche/Jahr aus dem geplanten Datum berechnen (für Kalender + Wochenplan),
+    // sonst aus "jetzt".
+    const refDate = scheduledAt ? new Date(scheduledAt) : new Date();
+    const week = isoWeek(refDate);
+    const year = isoWeekYear(refDate);
 
     const brief = await generateBrief({
       apiKey,
@@ -104,15 +110,19 @@ export async function POST(req: NextRequest) {
       imageUrl = image.url;
     }
 
+    // Mit Datum: direkt eingeplant (keine zweite Freigabe nötig).
+    // Ohne Datum: landet wie gehabt in den Freigaben.
+    const status = scheduledAt ? "scheduled" : "pending";
+
     const { data: post, error: insertErr } = await supabase
       .from("posts")
       .insert({
         title: `${brief.theme}: ${brief.product}`.slice(0, 200),
         image_url: imageUrl,
         caption,
-        status: "pending",
+        status,
         platforms,
-        scheduled_at: null,
+        scheduled_at: scheduledAt,
         week_number: week,
         year,
       })
@@ -133,6 +143,8 @@ export async function POST(req: NextRequest) {
       id: post.id,
       image_url: imageUrl,
       caption,
+      status,
+      scheduled_at: scheduledAt,
       brief: {
         theme: brief.theme,
         product: brief.product,
