@@ -10,8 +10,16 @@ const BRAND_DESCRIPTION = `Marke: Hersfelder Schützenbekleidung (schuetzen-auss
 Brand-Slogan: "Uniform an - Stimmung hoch!" und "Deine Marke für Deinen Verein!"
 Farben: Jagdgrün (Hauptfarbe der Uniformen), Weiß (Hintergrund), Dunkelrot (Logo-Emblem)
 Kleidung: Dunkelgrüne Schützen-Jacken, Westen, elegante Uniformen — getragen von echten Vereinsmenschen
-Logo: Elegantes, botanisch-heraldisches Emblem in dunkelrot mit "Hersfelder" in elegantem Script darunter.
-WICHTIG: Niemals ein generisches deutsches Wappen, Reichsadler oder Löwen-Rampant einbauen — das ist NICHT das Hersfelder-Logo.
+
+Das ECHTE Hersfelder-Logo (nur verwenden, wenn explizit auf die Marke hingewiesen wird):
+- Form: Traditionelles Wappenschild (U-förmig, runder Boden) — kein modernes Badge-Design
+- Oben am Schild: Rotes heraldisches Schmuckelement (stilisierter Querbalken mit roten Blöcken links und rechts — wie ein historisches Schützenabzeichen)
+- Im Schild: Ein botanisch-heraldischer Setzling/Junger Baum mit symmetrisch angeordneten ovalen Blättern, wächst aus waagerechten grünen Wellenlinien (stilisiertes Wasser, stellt vermutlich die Fulda dar)
+- Unter dem Schild: "Hersfelder" in historischer Frakturschrift / Blackletter
+- Farben: Dunkelrot (oberes Schmuckelement), Dunkelgrün (Pflanze + Wasserlinien), Weiß (Schildfeld), Schwarz (Konturen)
+- KEIN Löwe, KEIN Adler, KEIN Reichsadler — das Motiv ist eine botanische Pflanze auf Wasserlinien
+
+In Social-Media-Fotos: Das Logo NICHT in die generierten Bilder einbauen — zeige stattdessen echte Menschen in dunkelgrünen Hersfelder Uniformen. Die Marke erkennst du an Uniformfarbe und Vereinsstimmung, nicht am Logo.
 Content-Strategie: KEIN Produktmarketing. Zeige echtes Vereinsleben — die Kleidung ist Teil der Szene, nicht das Thema.
 Themen: Zusammenhalt beim Schützenfest, gemeinsames Feiern, Generationen im Verein, Stolz auf Tradition, Lachen und Freude
 Stil: Authentisch wie Reportagefotografie — keine gestellten Werbeshootings
