@@ -13,6 +13,8 @@ import type { Platform } from "@/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
+// Cron immer frisch ausführen — nie statisch prerendern.
+export const dynamic = "force-dynamic";
 
 // imageSize: portrait for IG/TikTok-first posts, landscape for FB/LI-first, square for mixed
 const WEEKLY_TEMPLATE: Array<{
@@ -42,14 +44,13 @@ const WEEKLY_TEMPLATE: Array<{
 ];
 
 // Rotierender Stil — jede Woche wechselt der Samstags-Post
-const HOOK_ROTATION: Array<"typography" | "photo" | "hook"> = [
-  "hook", "typography", "hook", "photo", "hook", "typography", "hook", "photo",
-  "hook", "hook", "typography", "photo", "hook", "typography", "hook", "photo",
-  "hook", "hook", "typography", "photo", "hook", "typography", "hook", "photo",
-  "hook", "hook", "typography", "photo", "hook", "typography", "hook", "photo",
-  "hook", "hook", "typography", "photo", "hook", "typography", "hook", "photo",
-  "hook", "hook", "typography", "photo", "hook", "typography", "hook", "photo",
-  "hook", "hook", "typography", "photo",
+// Kein "typography" mehr: der Typ kann wie nationalistische Grafiken wirken.
+const HOOK_ROTATION: Array<"photo" | "hook"> = [
+  "hook", "hook", "photo", "hook", "hook", "photo", "hook", "hook", "photo", "hook", "hook", "photo",
+  "hook", "hook", "photo", "hook", "hook", "photo", "hook", "hook", "photo", "hook", "hook", "photo",
+  "hook", "hook", "photo", "hook", "hook", "photo", "hook", "hook", "photo", "hook", "hook", "photo",
+  "hook", "hook", "photo", "hook", "hook", "photo", "hook", "hook", "photo", "hook", "hook", "photo",
+  "hook", "hook", "photo", "hook",
 ];
 
 function authorized(req: NextRequest) {

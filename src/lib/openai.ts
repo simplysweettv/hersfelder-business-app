@@ -17,6 +17,7 @@ Zielgruppe: Schützenverein-Mitglieder in Deutschland, alle Altersgruppen`;
 const SAFETY_RULES = `ABSOLUT VERBOTEN — niemals zeigen:
 - Schusswaffen, Gewehre, Pistolen oder andere Waffen
 - Politische Symbole, Reichsadler oder rechtsextreme Symbole
+- Slogans die wie nationalistische oder rechtsextreme Parolen wirken — z.B. "In Einheit stark", "Für Heimat und Volk", militärische Kampfparolen
 - Diskriminierende Darstellungen jeglicher Art
 NUR ERLAUBT: Freude, Gemeinschaft, Feiern, Uniformen/Trachten, Sport, Vereinsleben, Natur`;
 
@@ -55,15 +56,17 @@ Kernbotschaft: "${input.message}"`;
   if (style === "typography") {
     return `${baseContext}
 
-Erstelle eine Instagram-Typografie-Grafik im Stil eines modernen Vereins-Posters.
-Design exakt nach diesen Vorgaben:
-- Hintergrund: Tiefes Dunkelgrün (#1a5c2a) — satt, kein Gradient, keine Textur
-- Haupttext: 3-5 Wörter, die die Kernbotschaft ausdrücken — WEISSE Großbuchstaben, extra-bold, serifenlos
-- Schriftgröße: sehr groß, nimmt ca. 60% der Bildfläche ein, zentriert
-- Optional: ein kurzes zweites Wort/Zeile in Rot (#c0392b), kleiner, darunter
-- Unten mittig: kleines weißes Wappen-Symbol oder "HERSFELDER" in sehr kleinen Großbuchstaben, dezent
-- Kein Foto, keine Menschen — reines kraftvolles Grafik-Design
-- Wirkt wie ein Plakat: minimalistisch, mutig, einprägsam — ähnlich wie @schuetzenausstatter auf Instagram
+Erstelle eine fröhliche, einladende Vereins-Grafik — wie eine Einladung zum Schützenfest, warmherzig und festlich.
+Design:
+- Hintergrund: Tiefes Dunkelgrün (#1a5c2a) — satt, kein Gradient
+- Haupttext: 3-5 Wörter aus der Kernbotschaft — WEISSE Großbuchstaben, extra-bold, serifenlos, zentriert
+- WICHTIG ZUM TEXTINHALT: Der Text muss klingen wie eine FEIER-EINLADUNG — warmherzig, fröhlich, einladend.
+  NICHT wie eine politische Parole oder ein nationalistischer Slogan.
+  GUTE Beispiele: "HEUT WIRD GEFEIERT", "WIR FEIERN ZUSAMMEN", "HERZLICH WILLKOMMEN", "SCHÜTZENFEST SAISON 2026"
+  SCHLECHTE Beispiele: "IN EINHEIT STARK", "TRADITION VERBINDET UNS", "FÜR HEIMAT UND VEREIN"
+- Optional: ein kurzes Akzent-Wort in Rot (#c0392b), kleiner, darunter
+- Unten mittig: "HERSFELDER" in sehr kleinen Großbuchstaben, dezent
+- Kein Foto, keine Menschen — reines festliches Grafik-Design
 Format: quadratisch.`;
   }
 
@@ -238,8 +241,11 @@ Mögliches Produkt: ${randomProduct}
 Regeln:
 - Kein Rassismus, keine Waffen, keine rechtsextremen Inhalte
 - Fokus auf: Freude, Gemeinschaft, Stolz auf den Verein, Tradition, Zusammenhalt
+- KRITISCH: Die "message" darf NIEMALS wie eine nationalistische oder rechtsextreme Parole klingen.
+  Verboten: "In Einheit stark", "Für Heimat und Volk", militärische Slogans, völkische Sprache.
+  Erlaubt: Feier-Einladungen, warmherzige Gemeinschaftsaussagen, Schützenfest-Begeisterung.
 - Sei kreativ und abwechslungsreich — nicht immer dasselbe
-- Deutsche Botschaften, kurz und kraftvoll
+- Deutsche Botschaften, kurz und festlich
 
 Antworte NUR als JSON-Objekt:
 {
