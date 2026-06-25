@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles } from "lucide-react";
+import { Sparkles, CalendarClock } from "lucide-react";
 import {
   PLATFORM_COLOR,
   PLATFORM_LABEL,
@@ -35,12 +35,25 @@ const THEMES = [
 ];
 const SEASONS = ["Frühling", "Sommer", "Herbst", "Winter", "Ganzjährig"];
 
+function localToIso(local: string) {
+  if (!local) return undefined;
+  return new Date(local).toISOString();
+}
+
+function isoMinDefault() {
+  const now = new Date();
+  now.setSeconds(0, 0);
+  now.setMinutes(now.getMinutes() + 5);
+  return now.toISOString().slice(0, 16);
+}
+
 export function GeneratorForm() {
   const router = useRouter();
   const [theme, setTheme] = useState(THEMES[0]);
   const [product, setProduct] = useState("");
   const [message, setMessage] = useState("");
   const [season, setSeason] = useState(SEASONS[0]);
+  const [scheduledAt, setScheduledAt] = useState("");
   const [platforms, setPlatforms] = useState<Platform[]>([
     "instagram",
     "facebook",
@@ -63,13 +76,14 @@ export function GeneratorForm() {
       return;
     }
     setGenerating(true);
-    const body: GeneratorInput & { occasion?: string } = {
+    const body: GeneratorInput & { occasion?: string; scheduledAt?: string } = {
       theme,
       occasion: theme,
       product,
       message,
       season,
       platforms,
+      ...(scheduledAt ? { scheduledAt: localToIso(scheduledAt) } : {}),
     };
     try {
       const res = await fetch("/api/posts/generate", {
@@ -143,6 +157,23 @@ export function GeneratorForm() {
             </SelectContent>
           </Select>
         </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="scheduled-at" className="flex items-center gap-1.5">
+            <CalendarClock className="w-3.5 h-3.5" />
+            Datum &amp; Uhrzeit
+          </Label>
+          <Input
+            id="scheduled-at"
+            type="datetime-local"
+            min={isoMinDefault()}
+            value={scheduledAt}
+            onChange={(e) => setScheduledAt(e.target.value)}
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Leer lassen = kein fester Termin (landet in Freigaben)
+          </p>
+        </div>
+
         <div className="space-y-2">
           <Label>Plattformen</Label>
           <div className="flex flex-wrap gap-2">
