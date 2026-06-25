@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { PlatformPills } from "./PlatformDots";
-import { Pencil, Check, Sparkles, ChevronDown, ChevronUp, RefreshCw, Save, X } from "lucide-react";
+import { Pencil, Check, Sparkles, ChevronDown, ChevronUp, RefreshCw, Save, X, Trash2 } from "lucide-react";
 import type { Post } from "@/types";
 import { formatDateTime } from "@/lib/date-utils";
 // Zentrale Caption-Logik — eine Quelle der Wahrheit (auch der Cron nutzt diese).
@@ -27,6 +27,8 @@ export function ApprovalCard({ post }: { post: Post }) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const [captions, setCaptions] = useState<Partial<Record<PlatformKey, string>>>(
     () => splitCaption(post.caption ?? "")
@@ -53,6 +55,21 @@ export function ApprovalCard({ post }: { post: Post }) {
     if (!res.ok) { toast.error("Speichern fehlgeschlagen"); return; }
     toast.success("Text gespeichert ✓");
     setEditing(false);
+  }
+
+  async function deletePost() {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/posts/${post.id}`, { method: "DELETE" });
+      if (!res.ok) { toast.error("Löschen fehlgeschlagen"); return; }
+      toast.success("Post gelöscht");
+      router.refresh();
+    } catch {
+      toast.error("Fehler beim Löschen");
+    } finally {
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
   }
 
   async function regenerate() {
@@ -103,18 +120,38 @@ export function ApprovalCard({ post }: { post: Post }) {
               {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               {expanded ? "Einklappen" : "Vorschau"}
             </Button>
-            <Button variant="outline" size="sm" disabled={pending || regenerating}
+            <Button variant="outline" size="sm" disabled={pending || regenerating || deleting}
               onClick={() => { setExpanded(true); setEditing((v) => !v); }}
               className="h-7 px-2 text-xs gap-1">
               <Pencil className="w-3 h-3" />
               {editing ? "Abbrechen" : "Bearbeiten"}
             </Button>
-            <Button variant="outline" size="sm" disabled={pending || regenerating}
+            <Button variant="outline" size="sm" disabled={pending || regenerating || deleting}
               onClick={regenerate} className="h-7 px-2 text-xs gap-1">
               <RefreshCw className={`w-3 h-3 ${regenerating ? "animate-spin" : ""}`} />
               {regenerating ? "…" : "Neu"}
             </Button>
-            <Button size="sm" disabled={pending || regenerating} onClick={approve}
+            {confirmDelete ? (
+              <>
+                <Button size="sm" disabled={deleting} onClick={deletePost}
+                  className="h-7 px-2 text-xs gap-1 bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  <Trash2 className="w-3 h-3" />
+                  {deleting ? "…" : "Ja, löschen"}
+                </Button>
+                <Button variant="outline" size="sm" disabled={deleting}
+                  onClick={() => setConfirmDelete(false)} className="h-7 px-2 text-xs">
+                  Nein
+                </Button>
+              </>
+            ) : (
+              <Button variant="outline" size="sm" disabled={pending || regenerating || deleting}
+                onClick={() => setConfirmDelete(true)}
+                className="h-7 px-2 text-xs gap-1 text-destructive hover:text-destructive hover:border-destructive">
+                <Trash2 className="w-3 h-3" />
+                Löschen
+              </Button>
+            )}
+            <Button size="sm" disabled={pending || regenerating || deleting} onClick={approve}
               className="h-7 px-2 text-xs gap-1"
               style={{ background: "var(--brand-primary)", color: "white" }}>
               <Check className="w-3 h-3" />
@@ -129,17 +166,37 @@ export function ApprovalCard({ post }: { post: Post }) {
             {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             {expanded ? "Einklappen" : "Vorschau"}
           </Button>
-          <Button variant="outline" size="sm" disabled={pending || regenerating}
+          <Button variant="outline" size="sm" disabled={pending || regenerating || deleting}
             onClick={() => { setExpanded(true); setEditing((v) => !v); }}>
             <Pencil className="w-3.5 h-3.5" />
             {editing ? "Abbrechen" : "Bearbeiten"}
           </Button>
-          <Button variant="outline" size="sm" disabled={pending || regenerating}
+          <Button variant="outline" size="sm" disabled={pending || regenerating || deleting}
             onClick={regenerate} title="Neuen Post generieren">
             <RefreshCw className={`w-3.5 h-3.5 ${regenerating ? "animate-spin" : ""}`} />
             {regenerating ? "Lädt…" : "Neu"}
           </Button>
-          <Button size="sm" disabled={pending || regenerating} onClick={approve}
+          {confirmDelete ? (
+            <>
+              <Button size="sm" disabled={deleting} onClick={deletePost}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                <Trash2 className="w-3.5 h-3.5" />
+                {deleting ? "Lädt…" : "Ja, löschen"}
+              </Button>
+              <Button variant="outline" size="sm" disabled={deleting}
+                onClick={() => setConfirmDelete(false)}>
+                Nein
+              </Button>
+            </>
+          ) : (
+            <Button variant="outline" size="sm" disabled={pending || regenerating || deleting}
+              onClick={() => setConfirmDelete(true)}
+              className="text-destructive hover:text-destructive hover:border-destructive">
+              <Trash2 className="w-3.5 h-3.5" />
+              Löschen
+            </Button>
+          )}
+          <Button size="sm" disabled={pending || regenerating || deleting} onClick={approve}
             style={{ background: "var(--brand-primary)", color: "white" }}>
             <Check className="w-3.5 h-3.5" />
             Freigeben
