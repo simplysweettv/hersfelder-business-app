@@ -9,6 +9,7 @@ import {
   generateImage,
   pickPillar,
   pillarPick,
+  reviewPost,
 } from "@/lib/openai";
 import { CONTENT_PILLARS, type PillarKey } from "@/types";
 
@@ -89,10 +90,11 @@ export async function POST(req: NextRequest) {
     });
 
     const imageSize = styleType === "hook" ? "1024x1536" : "1024x1024";
-    const [image, caption] = await Promise.all([
+    const [image, captionInitial] = await Promise.all([
       generateImage({ apiKey, prompt: imagePrompt, size: imageSize }),
       generateCaption({ apiKey, prompt: captionPrompt }),
     ]);
+    let caption = captionInitial;
 
     let imageUrl: string | null = null;
     if (image.b64) {
@@ -110,6 +112,19 @@ export async function POST(req: NextRequest) {
       imageUrl = image.url;
     }
 
+    // Qualitäts-TÜV: zweite KI prüft Bild + Text.
+    const pillarLabel = CONTENT_PILLARS.find((p) => p.key === pillar)?.label;
+    let review = await reviewPost({ apiKey, caption, imageUrl, styleType, pillarLabel });
+
+    // Caption durchgefallen → einmal neu texten (günstig, kein Bild-Neugen).
+    if (!review.captionOk) {
+      const retry = await generateCaption({ apiKey, prompt: captionPrompt });
+      if (retry) {
+        caption = retry;
+        review = await reviewPost({ apiKey, caption, imageUrl, styleType, pillarLabel });
+      }
+    }
+
     // Immer "pending": der Post landet zuerst in den Freigaben, damit Andreas
     // ihn reviewen kann. Nach der Freigabe macht die approve-Route daraus
     // "scheduled" (weil scheduled_at gesetzt ist) und der Cron postet zum Termin.
@@ -124,6 +139,8 @@ export async function POST(req: NextRequest) {
         scheduled_at: scheduledAt,
         week_number: week,
         year,
+        quality_score: review.score,
+        quality_notes: review.issues,
       })
       .select("*")
       .single();
@@ -146,6 +163,12 @@ export async function POST(req: NextRequest) {
       status: "pending",
       scheduled_at: scheduledAt,
       pillar,
+      review: {
+        score: review.score,
+        issues: review.issues,
+        imageOk: review.imageOk,
+        captionOk: review.captionOk,
+      },
       brief: {
         theme: brief.theme,
         product: brief.product,

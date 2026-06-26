@@ -19,6 +19,8 @@ export interface Post {
   platforms: Platform[];
   week_number: number | null;
   year: number | null;
+  quality_score: number | null;
+  quality_notes: string[] | null;
   created_at: string;
   updated_at: string;
 }

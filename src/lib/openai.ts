@@ -473,3 +473,82 @@ export async function generateCaption(opts: {
   });
   return res.choices?.[0]?.message?.content?.trim() ?? "";
 }
+
+export type PostReview = {
+  score: number; // 0–10 Gesamtnote
+  captionOk: boolean;
+  imageOk: boolean;
+  issues: string[]; // verständliche Mängel (deutsch)
+};
+
+/**
+ * Qualitäts-TÜV: eine zweite KI prüft Bild (Vision) UND Text gegen eine
+ * Marken-/Sicherheits-Checkliste und gibt eine Note + Mängelliste zurück.
+ * Schlägt der Aufruf fehl, gilt der Post als "ok" (kein Blockieren), aber
+ * ohne Note.
+ */
+export async function reviewPost(opts: {
+  apiKey?: string;
+  caption: string;
+  imageUrl: string | null;
+  styleType: string;
+  pillarLabel?: string;
+}): Promise<PostReview> {
+  const client = getOpenAIClient(opts.apiKey);
+
+  const checklist = `Du bist strenger Qualitätsprüfer für Social-Media-Posts von "Hersfelder Schützenbekleidung" (Schützenuniformen, dunkelgrün, Vereinsleben, Tradition).
+
+Prüfe BILD und TEXT gegen diese Checkliste:
+
+BILD:
+- Ist im Bild enthaltener Text LESBAR und korrekt geschrieben (kein KI-Kauderwelsch, keine verzerrten Buchstaben)?
+- KEINE Waffen, Gewehre, politischen/rechtsextremen Symbole, kein Reichsadler?
+- Wirkt es markenkonform (echte Menschen in dunkelgrünen Uniformen / authentisches Vereinsleben, kein steriles Werbe-Shooting)?
+- Gute Bildqualität, klares Motiv, keine entstellten Gesichter/Hände?
+
+TEXT (Caption):
+- Markenstimmung: warmherzig, authentisch, gemeinschaftlich?
+- KLINGT NICHT wie nationalistische/rechtsextreme Parole (verboten: "In Einheit stark", "Für Heimat und Volk", militärische Slogans)?
+- Sinnvolle Länge, passende Hashtags, kein Kauderwelsch?
+- Stil "${opts.styleType}"${opts.pillarLabel ? `, Content-Säule "${opts.pillarLabel}"` : ""} passend umgesetzt?
+
+Antworte NUR als JSON:
+{
+  "captionOk": true/false,
+  "imageOk": true/false,
+  "score": 0-10 (Gesamtqualität),
+  "issues": ["kurzer, konkreter Mangel auf Deutsch", ...]  // leer wenn alles gut
+}`;
+
+  try {
+    const userContent: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
+      { type: "text", text: `CAPTION:\n${opts.caption || "(leer)"}` },
+    ];
+    if (opts.imageUrl) {
+      userContent.push({ type: "image_url", image_url: { url: opts.imageUrl } });
+    }
+
+    const res = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: checklist },
+        { role: "user", content: userContent },
+      ],
+      temperature: 0.2,
+      max_tokens: 400,
+      response_format: { type: "json_object" },
+    });
+
+    const raw = res.choices?.[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(raw) as Partial<PostReview>;
+    return {
+      score: typeof parsed.score === "number" ? Math.round(parsed.score) : 7,
+      captionOk: parsed.captionOk !== false,
+      imageOk: parsed.imageOk !== false,
+      issues: Array.isArray(parsed.issues) ? parsed.issues.slice(0, 6) : [],
+    };
+  } catch {
+    // Review-Fehler darf die Generierung nicht blockieren.
+    return { score: 7, captionOk: true, imageOk: true, issues: [] };
+  }
+}

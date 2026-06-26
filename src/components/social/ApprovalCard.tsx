@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { PlatformPills } from "./PlatformDots";
-import { Pencil, Check, Sparkles, ChevronDown, ChevronUp, RefreshCw, Save, X, Trash2 } from "lucide-react";
+import { Pencil, Check, Sparkles, ChevronDown, ChevronUp, RefreshCw, Save, X, Trash2, ShieldCheck, ShieldAlert } from "lucide-react";
 import type { Post } from "@/types";
 import { formatDateTime } from "@/lib/date-utils";
 // Zentrale Caption-Logik — eine Quelle der Wahrheit (auch der Cron nutzt diese).
@@ -128,8 +128,9 @@ export function ApprovalCard({ post }: { post: Post }) {
               ? `geplant für ${formatDateTime(post.scheduled_at)}`
               : "noch nicht eingeplant"}
           </div>
-          <div className="mt-1.5">
+          <div className="mt-1.5 flex items-center gap-2 flex-wrap">
             <PlatformPills platforms={post.platforms} />
+            <QualityBadge score={post.quality_score} notes={post.quality_notes} />
           </div>
           {/* Buttons auf Mobile: kompakt unter dem Titel */}
           <div className="mt-2 flex items-center gap-1.5 flex-wrap md:hidden">
@@ -278,5 +279,38 @@ export function ApprovalCard({ post }: { post: Post }) {
         </div>
       )}
     </Card>
+  );
+}
+
+/** Qualitäts-TÜV-Badge: zeigt die KI-Prüfnote + Mängel (als Tooltip). */
+function QualityBadge({
+  score,
+  notes,
+}: {
+  score: number | null;
+  notes: string[] | null;
+}) {
+  if (score == null) return null;
+  const issues = notes ?? [];
+  const ok = score >= 8 && issues.length === 0;
+  const warn = score >= 5 && !ok;
+  const cls = ok
+    ? "bg-emerald-100 text-emerald-800"
+    : warn
+      ? "bg-amber-100 text-amber-800"
+      : "bg-red-100 text-red-800";
+  const Icon = ok ? ShieldCheck : ShieldAlert;
+  const tooltip = issues.length
+    ? `KI-Prüfung ${score}/10 — Hinweise:\n• ${issues.join("\n• ")}`
+    : `KI-Prüfung ${score}/10 — keine Mängel`;
+  return (
+    <span
+      title={tooltip}
+      className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full cursor-help ${cls}`}
+    >
+      <Icon className="w-3 h-3" />
+      TÜV {score}/10
+      {issues.length > 0 && <span className="opacity-70">· {issues.length} Hinweis{issues.length > 1 ? "e" : ""}</span>}
+    </span>
   );
 }

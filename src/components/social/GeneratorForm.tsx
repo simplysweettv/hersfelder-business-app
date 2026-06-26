@@ -137,8 +137,11 @@ export function GeneratorForm() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Generierung fehlgeschlagen");
       setPreview({ imageUrl: data.image_url, caption: data.caption });
+      const score = data?.review?.score;
       toast.success("Zufalls-Post erstellt ✓", {
-        description: "Er liegt in den Freigaben — prüfen und freigeben, dann wird er zum Termin gepostet.",
+        description:
+          (typeof score === "number" ? `Qualitäts-TÜV: ${score}/10. ` : "") +
+          "Liegt in den Freigaben — prüfen & freigeben.",
       });
       router.refresh();
     } catch (e) {
