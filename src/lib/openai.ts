@@ -76,6 +76,21 @@ export function pickPillar(): PillarKey {
   return "community";
 }
 
+/** Wie pickPillar, aber mit (gelernten) Gewichten. Fehlende/0-Gewichte → Basis. */
+export function pickPillarWeighted(weights: Partial<Record<PillarKey, number>>): PillarKey {
+  const entries = CONTENT_PILLARS.map((p) => ({
+    key: p.key,
+    w: Math.max(1, weights[p.key] ?? p.weight),
+  }));
+  const total = entries.reduce((s, e) => s + e.w, 0);
+  let r = Math.random() * total;
+  for (const e of entries) {
+    r -= e.w;
+    if (r <= 0) return e.key;
+  }
+  return "community";
+}
+
 /** Passenden Post-Stil und Themen-Vorschlag für eine Säule ziehen. */
 export function pillarPick(pillar: PillarKey) {
   const g = PILLAR_GUIDANCE[pillar];

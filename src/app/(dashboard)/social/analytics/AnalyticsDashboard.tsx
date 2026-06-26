@@ -15,8 +15,11 @@ import {
   Eye,
   Users,
   Share2,
+  Brain,
+  Trophy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { Insights } from "@/lib/learning";
 
 export type AnalyticsPost = {
   id: string;
@@ -45,6 +48,7 @@ export type ScheduledPost = {
 type Props = {
   posts: AnalyticsPost[];
   scheduledPosts: ScheduledPost[];
+  insights: Insights;
 };
 
 const PLATFORMS = [
@@ -201,7 +205,111 @@ function PostCard({ post }: { post: AnalyticsPost }) {
   );
 }
 
-export default function AnalyticsDashboard({ posts, scheduledPosts }: Props) {
+const PLATFORM_NAME: Record<string, string> = {
+  instagram: "Instagram",
+  facebook: "Facebook",
+  tiktok: "TikTok",
+  linkedin: "LinkedIn",
+};
+
+function InsightsCard({ insights }: { insights: Insights }) {
+  const topPillar = insights.pillars.find((p) => p.posts > 0);
+  const learning = insights.learnedWeights != null;
+  return (
+    <Card className="p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Brain className="w-4 h-4" style={{ color: "var(--brand-primary)" }} />
+        <h2 className="font-semibold text-sm">Lern-Schleife</h2>
+        <span
+          className={cn(
+            "ml-auto text-[10px] font-medium px-2 py-0.5 rounded-full",
+            learning ? "bg-emerald-100 text-emerald-800" : "bg-zinc-100 text-zinc-600",
+          )}
+        >
+          {learning ? "Auto-Optimierung aktiv" : "lernt noch"}
+        </span>
+      </div>
+
+      {insights.sampleSize === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Sobald deine Posts Likes &amp; Kommentare sammeln, lernt die Maschine hier,
+          welche Säule und Uhrzeit am besten ziehen — und generiert automatisch mehr
+          davon.
+        </p>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-2">
+            <MiniStat
+              label="Beste Säule"
+              value={topPillar ? topPillar.label.split(" ")[0] : "—"}
+              icon={Trophy}
+            />
+            <MiniStat
+              label="Beste Zeit"
+              value={insights.bestHour ? `${insights.bestHour.hour}:00` : "—"}
+              icon={Clock}
+            />
+            <MiniStat
+              label="Beste Plattform"
+              value={
+                insights.bestPlatform
+                  ? PLATFORM_NAME[insights.bestPlatform.platform] ?? insights.bestPlatform.platform
+                  : "—"
+              }
+              icon={TrendingUp}
+            />
+          </div>
+
+          {/* Engagement pro Säule */}
+          <div className="space-y-1.5 pt-1">
+            {insights.pillars.map((p) => {
+              const max = Math.max(1, ...insights.pillars.map((x) => x.avgEngagement));
+              const pct = Math.round((p.avgEngagement / max) * 100);
+              return (
+                <div key={p.key} className="flex items-center gap-2">
+                  <div className="w-32 text-xs text-muted-foreground truncate">{p.label}</div>
+                  <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${pct}%`, background: "var(--brand-primary)" }}
+                    />
+                  </div>
+                  <div className="w-16 text-right text-xs tabular-nums">
+                    {p.avgEngagement} <span className="text-muted-foreground">Ø</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Ø = durchschnittliches Engagement (Likes + 2×Kommentare + 2×Shares) je Post ·
+            Basis: {insights.sampleSize} veröffentlichte Plattform-Posts
+          </p>
+        </>
+      )}
+    </Card>
+  );
+}
+
+function MiniStat({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  icon: typeof Heart;
+}) {
+  return (
+    <div className="rounded-lg border bg-muted/30 p-2.5 text-center">
+      <Icon className="w-4 h-4 mx-auto mb-1 text-muted-foreground" />
+      <div className="text-sm font-semibold truncate">{value}</div>
+      <div className="text-[10px] text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+
+export default function AnalyticsDashboard({ posts, scheduledPosts, insights }: Props) {
   const [activeTab, setActiveTab] = useState<string>("all");
 
   const filteredPosts = useMemo(
@@ -260,6 +368,9 @@ export default function AnalyticsDashboard({ posts, scheduledPosts }: Props) {
         <KpiCard icon={MessageCircle} value={totals.comments} label="Kommentare" color="#1877F2" />
         <KpiCard icon={Users} value={totals.reach} label="Reichweite" color="#9333ea" />
       </div>
+
+      {/* Lern-Schleife */}
+      <InsightsCard insights={insights} />
 
       {/* Plattform-Filter */}
       <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none">

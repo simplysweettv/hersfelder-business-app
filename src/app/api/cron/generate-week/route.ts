@@ -7,10 +7,11 @@ import {
   generateBrief,
   generateCaption,
   generateImage,
-  pickPillar,
+  pickPillarWeighted,
   pillarPick,
   reviewPost,
 } from "@/lib/openai";
+import { computeInsights } from "@/lib/learning";
 import { CONTENT_PILLARS } from "@/types";
 import type { Platform } from "@/types";
 
@@ -155,6 +156,10 @@ export async function GET(req: NextRequest) {
     .flatMap((b) => [b.theme, b.message])
     .filter((x): x is string => Boolean(x));
 
+  // Lern-Schleife: gelernte Säulen-Gewichte (oder Basis, wenn zu wenig Daten).
+  const insights = await computeInsights(supabase);
+  const weights = insights.learnedWeights ?? {};
+
   const created: string[] = [];
   const errors: string[] = [];
 
@@ -162,7 +167,7 @@ export async function GET(req: NextRequest) {
     try {
       const week = isoWeek(slot.when);
       const year = isoWeekYear(slot.when);
-      const pillar = pickPillar();
+      const pillar = pickPillarWeighted(weights);
       const { styleType, themeCategory } = pillarPick(pillar);
       const pillarLabel = CONTENT_PILLARS.find((p) => p.key === pillar)?.label;
 

@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { computeInsights } from "@/lib/learning";
 import AnalyticsDashboard, { type AnalyticsPost } from "./AnalyticsDashboard";
 
 export const dynamic = "force-dynamic";
@@ -46,9 +47,6 @@ async function fetchAnalytics(): Promise<AnalyticsPost[]> {
     if (res.ok) {
       const json = (await res.json()) as { items?: Record<string, unknown>[] };
       const items = json.items ?? [];
-      if (items[0]) {
-        console.log("[analytics] sample item=", JSON.stringify(items[0]).slice(0, 1200));
-      }
       if (items.length) {
         return items
           .map(normalize)
@@ -84,16 +82,21 @@ async function fetchAnalytics(): Promise<AnalyticsPost[]> {
 export default async function AnalyticsPage() {
   const supabase = createAdminClient();
 
-  const [posts, { data: scheduledPosts }] = await Promise.all([
+  const [posts, { data: scheduledPosts }, insights] = await Promise.all([
     fetchAnalytics(),
     supabase
       .from("posts")
       .select("id, title, image_url, scheduled_at, platforms")
       .in("status", ["scheduled", "approved"])
       .order("scheduled_at", { ascending: true }),
+    computeInsights(supabase),
   ]);
 
   return (
-    <AnalyticsDashboard posts={posts} scheduledPosts={scheduledPosts ?? []} />
+    <AnalyticsDashboard
+      posts={posts}
+      scheduledPosts={scheduledPosts ?? []}
+      insights={insights}
+    />
   );
 }
