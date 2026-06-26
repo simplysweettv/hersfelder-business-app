@@ -38,21 +38,19 @@ type BlotatoAccount = {
   username?: string;
 };
 
-// Konten ändern sich selten → pro Prozess-Lauf einmal abrufen und cachen.
-let accountCache: { key: string; items: BlotatoAccount[] } | null = null;
-
+// Kein Cache: Konten/Pages können sich ändern (neu verbinden). Auf einer warmen
+// Serverless-Instanz würde ein Modul-Cache sonst veraltete Daten liefern und
+// frisch verbundene Seiten "verstecken". Lieber jedes Mal frisch abfragen.
 async function fetchAccounts(apiKey: string): Promise<BlotatoAccount[]> {
-  if (accountCache && accountCache.key === apiKey) return accountCache.items;
   const res = await fetch(`${BLOTATO_BASE}/users/me/accounts`, {
     headers: { "blotato-api-key": apiKey },
+    cache: "no-store",
   });
   if (!res.ok) {
     throw new Error(`Konten-Abruf fehlgeschlagen (HTTP ${res.status})`);
   }
   const json = (await res.json().catch(() => ({}))) as { items?: BlotatoAccount[] };
-  const items = json.items ?? [];
-  accountCache = { key: apiKey, items };
-  return items;
+  return json.items ?? [];
 }
 
 async function resolveAccountId(
@@ -74,25 +72,22 @@ async function resolveAccountId(
 
 type BlotatoSubaccount = { id: string; accountId?: string; name?: string };
 
-// Subaccounts (= Facebook-Pages / LinkedIn-Company-Pages) pro Konto cachen.
-const subaccountCache = new Map<string, BlotatoSubaccount[]>();
-
+// Kein Cache (siehe fetchAccounts): frisch verbundene Pages müssen sofort
+// gefunden werden.
 async function fetchSubaccounts(
   accountId: string,
   apiKey: string,
 ): Promise<BlotatoSubaccount[]> {
-  const cacheKey = `${apiKey}:${accountId}`;
-  const cached = subaccountCache.get(cacheKey);
-  if (cached) return cached;
   const res = await fetch(
     `${BLOTATO_BASE}/users/me/accounts/${accountId}/subaccounts`,
-    { headers: { "blotato-api-key": apiKey } },
+    { headers: { "blotato-api-key": apiKey }, cache: "no-store" },
   );
-  if (!res.ok) return [];
+  if (!res.ok) {
+    console.log(`[blotato] subaccounts HTTP ${res.status} für account ${accountId}`);
+    return [];
+  }
   const json = (await res.json().catch(() => ({}))) as { items?: BlotatoSubaccount[] };
-  const items = json.items ?? [];
-  subaccountCache.set(cacheKey, items);
-  return items;
+  return json.items ?? [];
 }
 
 /**
@@ -113,6 +108,12 @@ async function resolvePageId(
   if (explicit) return explicit;
 
   const subs = await fetchSubaccounts(accountId, apiKey);
+  // Diagnose: was liefert Blotato für dieses Konto?
+  console.log(
+    `[blotato] ${platform} account=${accountId} subaccounts=${JSON.stringify(
+      subs.map((s) => ({ id: s.id, name: s.name })),
+    )}`,
+  );
   return subs[0]?.id;
 }
 
