@@ -1,4 +1,91 @@
 import OpenAI from "openai";
+import { CONTENT_PILLARS, type PillarKey } from "@/types";
+
+/**
+ * Server-seitige Säulen-Steuerung: pro Säule passende Post-Stile, Themen,
+ * inhaltliche Leitplanke (briefHint) und CTA-Stärke. Die Labels/Gewichte
+ * liegen in @/types (auch vom Client genutzt).
+ */
+const PILLAR_GUIDANCE: Record<
+  PillarKey,
+  {
+    styles: ("photo" | "hook" | "typography")[];
+    themes: string[];
+    cta: "soft" | "hard";
+    briefHint: string;
+  }
+> = {
+  community: {
+    styles: ["photo", "photo", "hook"],
+    themes: [
+      "Schützenfest",
+      "Vereinsleben",
+      "Generationen im Verein",
+      "Festzelt-Stimmung",
+      "Zusammenhalt",
+    ],
+    cta: "soft",
+    briefHint:
+      "Emotionaler, echter Moment aus dem Vereinsleben — Zusammenhalt, Feiern, Stolz. KEIN Verkauf, reine Stimmung.",
+  },
+  craft: {
+    styles: ["photo", "hook"],
+    themes: [
+      "Qualität & Handwerk",
+      "Detail der Uniform",
+      "Langlebigkeit",
+      "Stoff & Verarbeitung",
+    ],
+    cta: "soft",
+    briefHint:
+      "Mach Qualität & Handwerk der Hersfelder Kleidung sichtbar — Detail, saubere Verarbeitung, Langlebigkeit. Vertrauen aufbauen, nicht marktschreierisch.",
+  },
+  proof: {
+    styles: ["photo", "hook"],
+    themes: [
+      "Verein neu eingekleidet",
+      "Erfolgsgeschichte aus dem Verein",
+      "Stolz nach der Ausstattung",
+    ],
+    cta: "soft",
+    briefHint:
+      "Erzähle eine glaubwürdige Verein-Story: ein Schützenverein wurde von Hersfelder komplett ausgestattet und ist stolz/zufrieden. Social Proof — echt und bodenständig, keine erfundenen Namen großspurig behaupten.",
+  },
+  service: {
+    styles: ["typography", "hook", "photo"],
+    themes: [
+      "Vereins-Ausstattung anfragen",
+      "Persönliche Beratung",
+      "Saison-Aktion",
+      "Muster kostenlos bestellen",
+    ],
+    cta: "hard",
+    briefHint:
+      "Lade Vereine herzlich ein, sich für eine Ausstattung zu melden — warm und konkret (z.B. kostenloser Vereins-Check, persönliche Beratung, Muster anfordern). Einladend, nicht aufdringlich.",
+  },
+};
+
+/** Gewichtete Zufallsauswahl einer Säule (community häufiger als der Rest). */
+export function pickPillar(): PillarKey {
+  const total = CONTENT_PILLARS.reduce((s, p) => s + p.weight, 0);
+  let r = Math.random() * total;
+  for (const p of CONTENT_PILLARS) {
+    r -= p.weight;
+    if (r <= 0) return p.key;
+  }
+  return "community";
+}
+
+/** Passenden Post-Stil und Themen-Vorschlag für eine Säule ziehen. */
+export function pillarPick(pillar: PillarKey) {
+  const g = PILLAR_GUIDANCE[pillar];
+  return {
+    styleType: g.styles[Math.floor(Math.random() * g.styles.length)],
+    themeCategory: g.themes[Math.floor(Math.random() * g.themes.length)],
+    cta: g.cta,
+    briefHint: g.briefHint,
+  };
+}
 
 export function getOpenAIClient(apiKey?: string) {
   const key = apiKey || process.env.OPENAI_API_KEY;
@@ -155,22 +242,43 @@ export function buildCaptionPrompt(input: {
   product: string;
   message: string;
   platforms?: string[];
+  pillar?: PillarKey;
 }): string {
   const platforms = input.platforms ?? ["instagram"];
+
+  // CTA-Stärke je nach Säule: weich (Engagement) vs. klar (Lead).
+  const cta = input.pillar ? PILLAR_GUIDANCE[input.pillar].cta : "soft";
+  const ctaInstruction =
+    cta === "hard"
+      ? `CALL-TO-ACTION (wichtig für diese Säule):
+- Baue am Ende eine klare, warmherzige Handlungsaufforderung ein, die Vereine zur Kontaktaufnahme einlädt.
+- Beispiele (variieren, nicht wörtlich kopieren): "Plant ihr eine Neuausstattung? Schreibt uns eine Nachricht 💚", "Kostenlose Beratung für euren Verein — meldet euch gern", "Muster gratis anfordern – Link in Bio".
+- Ton: einladend und partnerschaftlich, NICHT marktschreierisch oder aufdringlich.`
+      : `CALL-TO-ACTION (dezent):
+- Schließe mit einer leichten Einladung zur Interaktion (offene Frage an die Community), KEIN Verkauf.
+- Beispiele: "Wie feiert ihr in eurem Verein?", "Welcher Verein seid ihr? 👇".`;
 
   const hasInstagram = platforms.includes("instagram");
   const hasFacebook = platforms.includes("facebook");
   const hasTikTok = platforms.includes("tiktok");
   const hasLinkedIn = platforms.includes("linkedin");
 
+  // Service-Säule darf zur Ausstattung einladen; alle anderen bleiben werbefrei.
+  const strategyRules =
+    cta === "hard"
+      ? `- Du DARFST hier dezent zur Vereins-Ausstattung/Beratung einladen — als hilfsbereiter Partner, nicht als Verkäufer
+- Kein aggressives Produktmarketing, keine Preis-/Rabatt-Schreierei
+- Schreibe warmherzig und partnerschaftlich, auf Augenhöhe mit dem Vereinsvorstand`
+      : `- KEIN Produktmarketing oder Werbung für Kleidung
+- Zeige echtes Vereinsleben: Zusammenhalt, Freude, Tradition, Gemeinschaft beim Schützenfest
+- Die Hersfelder Kleidung ist im Hintergrund sichtbar — sie gehört dazu, wird aber nicht beworben`;
+
   const systemContext = `Thema: ${input.theme}
 Kontext: ${input.product}
 Kernbotschaft: "${input.message}"
 
 WICHTIG — Content-Strategie:
-- KEIN Produktmarketing oder Werbung für Kleidung
-- Zeige echtes Vereinsleben: Zusammenhalt, Freude, Tradition, Gemeinschaft beim Schützenfest
-- Die Hersfelder Kleidung ist im Hintergrund sichtbar — sie gehört dazu, wird aber nicht beworben
+${strategyRules}
 - Schreibe wie ein echter Vereinsmensch: warmherzig, authentisch, stolz auf die Gemeinschaft
 - Sprache: Deutsch. Kein Rassismus, keine Waffen, keine politischen Aussagen.`;
 
@@ -222,6 +330,8 @@ Erstelle für jede der folgenden Plattformen eine maßgeschneiderte Version:
 
 ${blocks.join("\n\n")}
 
+${ctaInstruction}
+
 Antworte NUR mit den Texten in der angegebenen Reihenfolge mit den Trennern (---INSTAGRAM---, ---FACEBOOK--- etc.). Keine Anführungszeichen, keine Erklärungen.`;
 }
 
@@ -231,6 +341,7 @@ export async function generateBrief(opts: {
   styleType: "photo" | "typography" | "product" | "hook";
   weekNumber: number;
   year: number;
+  pillar?: PillarKey;
 }): Promise<{
   theme: string;
   product: string;
@@ -260,12 +371,16 @@ export async function generateBrief(opts: {
           ? "Produktfoto-Post (Uniform/Kleidung sichtbar, aber Menschen und Moment im Fokus)"
           : "Lifestyle-Foto-Post (echte Menschen beim Feiern, Marschieren, Lachen im Verein)";
 
+  const pillarLine = opts.pillar
+    ? `\nContent-Säule: ${CONTENT_PILLARS.find((p) => p.key === opts.pillar)?.label}\nLeitlinie dieser Säule: ${PILLAR_GUIDANCE[opts.pillar].briefHint}`
+    : "";
+
   const prompt = `Du bist kreativer Social-Media-Stratege für Hersfelder Schützenbekleidung (schuetzen-ausstatter.de).
 Erstelle ein originelles, abwechslungsreiches Briefing für KW ${opts.weekNumber}/${opts.year}.
 
 Post-Typ: ${styleDescription}
 Themen-Kategorie: ${opts.themeCategory}
-Mögliches Produkt: ${randomProduct}
+Mögliches Produkt: ${randomProduct}${pillarLine}
 
 Regeln:
 - Kein Rassismus, keine Waffen, keine rechtsextremen Inhalte

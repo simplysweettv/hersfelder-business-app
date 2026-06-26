@@ -7,23 +7,13 @@ import {
   generateBrief,
   generateCaption,
   generateImage,
+  pickPillar,
+  pillarPick,
 } from "@/lib/openai";
+import { CONTENT_PILLARS, type PillarKey } from "@/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
-
-const THEME_CATEGORIES = [
-  "Schützenfest",
-  "Vereinsleben",
-  "Tradition & Gemeinschaft",
-  "Jungschützen",
-  "Generationen im Verein",
-  "Saisonstart",
-  "Zusammenhalt",
-  "Festzelt-Stimmung",
-];
-
-const STYLE_TYPES = ["photo", "photo", "hook", "typography"] as const;
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -34,6 +24,7 @@ export async function POST(req: NextRequest) {
 
   let platforms: string[] = ["instagram", "facebook"];
   let scheduledAt: string | null = null;
+  let pillarParam: PillarKey | null = null;
   try {
     const body = await req.json().catch(() => ({}));
     if (Array.isArray(body.platforms) && body.platforms.length > 0) {
@@ -41,6 +32,12 @@ export async function POST(req: NextRequest) {
     }
     if (typeof body.scheduledAt === "string" && body.scheduledAt.trim()) {
       scheduledAt = body.scheduledAt;
+    }
+    if (
+      typeof body.pillar === "string" &&
+      CONTENT_PILLARS.some((p) => p.key === body.pillar)
+    ) {
+      pillarParam = body.pillar as PillarKey;
     }
   } catch {
     // use defaults
@@ -56,8 +53,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const themeCategory = THEME_CATEGORIES[Math.floor(Math.random() * THEME_CATEGORIES.length)];
-    const styleType = STYLE_TYPES[Math.floor(Math.random() * STYLE_TYPES.length)];
+    // Content-Säule: explizit gewählt oder gewichtet automatisch.
+    const pillar = pillarParam ?? pickPillar();
+    const { styleType, themeCategory } = pillarPick(pillar);
 
     // Woche/Jahr aus dem geplanten Datum berechnen (für Kalender + Wochenplan),
     // sonst aus "jetzt".
@@ -71,6 +69,7 @@ export async function POST(req: NextRequest) {
       styleType,
       weekNumber: week,
       year,
+      pillar,
     });
 
     const imagePrompt = buildImagePrompt({
@@ -86,6 +85,7 @@ export async function POST(req: NextRequest) {
       product: brief.product,
       message: brief.message,
       platforms,
+      pillar,
     });
 
     const imageSize = styleType === "hook" ? "1024x1536" : "1024x1024";
@@ -136,6 +136,7 @@ export async function POST(req: NextRequest) {
       product: brief.product,
       message: brief.message,
       prompt_used: imagePrompt,
+      pillar,
     });
 
     return NextResponse.json({
@@ -144,6 +145,7 @@ export async function POST(req: NextRequest) {
       caption,
       status: "pending",
       scheduled_at: scheduledAt,
+      pillar,
       brief: {
         theme: brief.theme,
         product: brief.product,

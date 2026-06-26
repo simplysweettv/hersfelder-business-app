@@ -105,3 +105,45 @@ export const STATUS_LABEL: Record<PostStatus, string> = {
   published: "veröffentlicht",
   failed: "fehlgeschlagen",
 };
+
+// ── Content-Säulen (Strategie) ───────────────────────────────
+// Jede Säule hat einen Job im Funnel. Die Gewichte steuern die
+// automatische (gewichtete) Auswahl im Zufalls-Generator.
+export type PillarKey = "community" | "craft" | "proof" | "service";
+
+export const CONTENT_PILLARS: {
+  key: PillarKey;
+  label: string;
+  emoji: string;
+  weight: number;
+  hint: string;
+}[] = [
+  {
+    key: "community",
+    label: "Gemeinschaft & Emotion",
+    emoji: "🎉",
+    weight: 40,
+    hint: "Reichweite — echtes Vereinsleben, Feiern, Zusammenhalt",
+  },
+  {
+    key: "craft",
+    label: "Handwerk & Qualität",
+    emoji: "🧵",
+    weight: 20,
+    hint: "Vertrauen — Detail, Verarbeitung, Langlebigkeit",
+  },
+  {
+    key: "proof",
+    label: "Verein-Stories",
+    emoji: "⭐",
+    weight: 20,
+    hint: "Überzeugung — Vereine, die Hersfelder ausgestattet hat",
+  },
+  {
+    key: "service",
+    label: "Service & Angebot",
+    emoji: "📣",
+    weight: 20,
+    hint: "Leads — Einladung zur Ausstattung, Beratung, Aktion",
+  },
+];

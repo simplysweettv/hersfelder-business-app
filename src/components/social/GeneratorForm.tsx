@@ -16,6 +16,7 @@ import { Sparkles, CalendarClock, Shuffle } from "lucide-react";
 import {
   PLATFORM_COLOR,
   PLATFORM_LABEL,
+  CONTENT_PILLARS,
   type GeneratorInput,
   type Platform,
 } from "@/types";
@@ -87,6 +88,7 @@ export function GeneratorForm() {
 
   // Zufalls-Post
   const [randomScheduledAt, setRandomScheduledAt] = useState("");
+  const [pillar, setPillar] = useState<string>("auto");
   const [randomGenerating, setRandomGenerating] = useState(false);
   const randomDateRef = useRef<HTMLInputElement>(null);
 
@@ -129,6 +131,7 @@ export function GeneratorForm() {
         body: JSON.stringify({
           platforms,
           scheduledAt: localToIso(randomScheduledAt),
+          ...(pillar !== "auto" ? { pillar } : {}),
         }),
       });
       const data = await res.json();
@@ -197,6 +200,28 @@ export function GeneratorForm() {
               freigeben. Veröffentlicht wird er dann automatisch zum Termin.
             </p>
           </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Content-Säule</Label>
+          <Select value={pillar} onValueChange={(v) => v && setPillar(v)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="auto">🎲 Automatisch (gewichtet)</SelectItem>
+              {CONTENT_PILLARS.map((p) => (
+                <SelectItem key={p.key} value={p.key}>
+                  {p.emoji} {p.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-[11px] text-muted-foreground">
+            {pillar === "auto"
+              ? "Die KI mischt strategisch — meist Gemeinschaft, ab und zu Qualität, Stories & Angebote."
+              : CONTENT_PILLARS.find((p) => p.key === pillar)?.hint}
+          </p>
         </div>
 
         <div className="space-y-1.5">
