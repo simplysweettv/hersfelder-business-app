@@ -10,15 +10,16 @@ function num(v: unknown): number {
 
 // Blotato-Items (published-posts) in unser schlankes Format überführen.
 // Defensiv: Feldnamen variieren je nach API-Version (camelCase/snake_case).
-function normalize(item: Record<string, any>): AnalyticsPost {
-  const m: Record<string, any> =
-    item.latestMetrics?.metrics ?? item.metrics ?? {};
-  const state = item.state ?? {};
+function normalize(item: Record<string, unknown>): AnalyticsPost {
+  const raw = item.latestMetrics as Record<string, unknown> | undefined;
+  const rawMetrics = item.metrics as Record<string, unknown> | undefined;
+  const m: Record<string, unknown> = (raw?.metrics as Record<string, unknown>) ?? rawMetrics ?? {};
+  const state = (item.state ?? {}) as Record<string, unknown>;
   return {
     id: String(item.id ?? item.postSubmissionId ?? Math.random()),
     platform: String(item.platform ?? ""),
     text: String(item.content ?? item.text ?? ""),
-    postUrl: item.postUrl ?? state.postUrl ?? null,
+    postUrl: (item.postUrl ?? state.postUrl ?? null) as string | null,
     postTime: String(item.createdAt ?? item.postTime ?? ""),
     imageUrl: Array.isArray(item.mediaUrls) ? item.mediaUrls[0] ?? null : null,
     metrics: {
@@ -43,7 +44,7 @@ async function fetchAnalytics(): Promise<AnalyticsPost[]> {
       { headers, next: { revalidate: 60 } },
     );
     if (res.ok) {
-      const json = (await res.json()) as { items?: Record<string, any>[] };
+      const json = (await res.json()) as { items?: Record<string, unknown>[] };
       const items = json.items ?? [];
       if (items[0]) {
         console.log("[analytics] sample item=", JSON.stringify(items[0]).slice(0, 1200));
@@ -68,7 +69,7 @@ async function fetchAnalytics(): Promise<AnalyticsPost[]> {
       next: { revalidate: 60 },
     });
     if (!res.ok) return [];
-    const json = (await res.json()) as { items?: Record<string, any>[] };
+    const json = (await res.json()) as { items?: Record<string, unknown>[] };
     return (json.items ?? [])
       .map(normalize)
       .sort(
