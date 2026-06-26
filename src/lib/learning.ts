@@ -52,11 +52,15 @@ async function fetchMetricsByUrl(): Promise<
       cache: "no-store",
     });
     if (!res.ok) return out;
-    const json = (await res.json()) as { items?: Record<string, any>[] };
+    const json = (await res.json()) as { items?: Record<string, unknown>[] };
     for (const item of json.items ?? []) {
-      const url: string | undefined = item.postUrl ?? item.state?.postUrl;
+      const state = item.state as Record<string, unknown> | undefined;
+      const url = (item.postUrl ?? state?.postUrl) as string | undefined;
       if (!url) continue;
-      const m: Record<string, any> = item.latestMetrics?.metrics ?? item.metrics ?? {};
+      const latest = item.latestMetrics as Record<string, unknown> | undefined;
+      const m = ((latest?.metrics as Record<string, unknown>) ??
+        (item.metrics as Record<string, unknown>) ??
+        {}) as Record<string, unknown>;
       out.set(url, {
         likes: num(m.likesCount ?? m.likes_count),
         comments: num(m.commentsCount ?? m.comments_count ?? m.repliesCount),

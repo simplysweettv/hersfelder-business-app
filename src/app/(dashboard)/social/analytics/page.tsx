@@ -82,21 +82,10 @@ async function fetchAnalytics(): Promise<AnalyticsPost[]> {
 export default async function AnalyticsPage() {
   const supabase = createAdminClient();
 
-  const [posts, { data: scheduledPosts }, insights] = await Promise.all([
+  const [posts, insights] = await Promise.all([
     fetchAnalytics(),
-    supabase
-      .from("posts")
-      .select("id, title, image_url, scheduled_at, platforms")
-      .in("status", ["scheduled", "approved"])
-      .order("scheduled_at", { ascending: true }),
     computeInsights(supabase),
   ]);
 
-  return (
-    <AnalyticsDashboard
-      posts={posts}
-      scheduledPosts={scheduledPosts ?? []}
-      insights={insights}
-    />
-  );
+  return <AnalyticsDashboard posts={posts} insights={insights} />;
 }

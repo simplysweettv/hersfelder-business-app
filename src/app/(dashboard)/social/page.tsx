@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function SocialIndex() {
-  redirect("/social/wochenplan");
+  redirect("/social/freigaben");
 }

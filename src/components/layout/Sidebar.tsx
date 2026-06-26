@@ -14,7 +14,6 @@ import {
   Calendar,
   CheckSquare,
   Sparkles,
-  ListChecks,
 } from "lucide-react";
 
 type NavItem = {
@@ -26,17 +25,16 @@ type NavItem = {
 };
 
 const TOP_ITEMS: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Leitstand", href: "/dashboard", icon: LayoutDashboard },
   {
     label: "Social Media",
     href: "/social",
     icon: Megaphone,
     children: [
-      { label: "Wochenplan", href: "/social/wochenplan", icon: ListChecks },
       { label: "Freigaben", href: "/social/freigaben", icon: CheckSquare },
-      { label: "Generator", href: "/social/generator", icon: Sparkles },
       { label: "Kalender", href: "/social/kalender", icon: Calendar },
       { label: "Analytics", href: "/social/analytics", icon: BarChart3 },
+      { label: "Generator", href: "/social/generator", icon: Sparkles },
     ],
   },
   { label: "Shop Manager", href: "#", icon: ShoppingBag, disabled: true },
@@ -57,17 +55,19 @@ export function Sidebar({
       className="w-[220px] shrink-0 flex flex-col text-white"
       style={{ background: "var(--brand-sidebar)" }}
     >
-      <div className="px-5 pt-5 pb-4 border-b border-white/10">
-        <Image
-          src="/logo-hersfelder.png"
-          alt="Hersfelder"
-          width={140}
-          height={184}
-          className="h-11 w-auto"
-          style={{ filter: "brightness(0) invert(1)" }}
-        />
-        <div className="text-[10px] uppercase tracking-wider text-white/45 mt-1 pl-0.5">
-          Business Suite
+      <div className="px-4 pt-4 pb-4 border-b border-white/10">
+        <div className="bg-white rounded-xl px-3 py-2.5 inline-flex items-center gap-2.5">
+          <Image
+            src="/logo-hersfelder.png"
+            alt="Hersfelder"
+            width={140}
+            height={184}
+            className="h-9 w-auto"
+          />
+          <div className="leading-tight">
+            <div className="text-[11px] font-bold text-[#0f3d1a] tracking-wide">Business</div>
+            <div className="text-[11px] font-bold text-[#0f3d1a] tracking-wide">Suite</div>
+          </div>
         </div>
       </div>
 

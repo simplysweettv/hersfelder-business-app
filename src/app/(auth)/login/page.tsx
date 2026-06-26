@@ -5,5 +5,5 @@ export default function LoginPage({
 }: {
   searchParams: { next?: string };
 }) {
-  return <LoginForm nextPath={searchParams.next ?? "/social/wochenplan"} />;
+  return <LoginForm nextPath={searchParams.next ?? "/dashboard"} />;
 }

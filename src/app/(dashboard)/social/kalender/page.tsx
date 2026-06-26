@@ -22,7 +22,7 @@ export default async function KalenderPage() {
 
   const posts = (data ?? []) as Post[];
 
-  // Publications für alle gezeigten Posts in einem Rutsch laden.
+  // Publications laden (für echten Live-Status pro Plattform).
   const ids = posts.map((p) => p.id);
   const pubsByPost = new Map<string, PublicationRow[]>();
   if (ids.length) {
@@ -37,14 +37,21 @@ export default async function KalenderPage() {
     }
   }
 
+  const now = Date.now();
+  const upcoming = posts.filter(
+    (p) => p.scheduled_at && new Date(p.scheduled_at).getTime() >= now && p.status !== "published",
+  );
+  const past = posts
+    .filter(
+      (p) => !(p.scheduled_at && new Date(p.scheduled_at).getTime() >= now) || p.status === "published",
+    )
+    .reverse(); // neueste zuerst
+
   return (
-    <div className="flex-1 p-5 bg-background space-y-4">
+    <div className="flex-1 p-3 md:p-5 bg-background space-y-5 pb-24 md:pb-6">
       <div className="flex items-center gap-3">
         <CalendarIcon className="w-5 h-5" style={{ color: "var(--brand-primary)" }} />
         <h1 className="text-xl font-semibold">Kalender</h1>
-        <span className="text-sm text-muted-foreground hidden sm:inline">
-          Alle eingeplanten Posts
-        </span>
         <div className="ml-auto">
           <SyncStatusButton />
         </div>
@@ -52,37 +59,80 @@ export default async function KalenderPage() {
 
       {posts.length === 0 ? (
         <Card className="p-10 text-center text-sm text-muted-foreground">
-          Noch keine Posts eingeplant.
+          Noch keine Posts eingeplant — die Maschine füllt morgen früh nach.
         </Card>
       ) : (
-        <div className="space-y-2">
-          {posts.map((p) => (
-            <Card key={p.id} className="p-3 flex items-start gap-4">
-              <div
-                className="w-12 h-12 rounded-md shrink-0"
-                style={{
-                  background: p.image_url
-                    ? `center / cover no-repeat url(${p.image_url})`
-                    : "linear-gradient(135deg, var(--brand-primary), var(--brand-sidebar))",
-                }}
-              />
-              <div className="flex-1 min-w-0 space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <div className="font-medium text-sm truncate flex-1">{p.title}</div>
-                  <StatusBadge status={p.status} />
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {p.scheduled_at ? formatDateTime(p.scheduled_at) : ""}
-                </div>
-                <PublicationStatus
-                  platforms={p.platforms}
-                  publications={pubsByPost.get(p.id) ?? []}
-                />
-              </div>
-            </Card>
-          ))}
-        </div>
+        <>
+          <Section title="Anstehend" count={upcoming.length}>
+            {upcoming.map((p) => (
+              <PostRow key={p.id} post={p} pubs={pubsByPost.get(p.id) ?? []} />
+            ))}
+            {upcoming.length === 0 && (
+              <p className="text-sm text-muted-foreground px-1">Nichts geplant.</p>
+            )}
+          </Section>
+
+          {past.length > 0 && (
+            <Section title="Veröffentlicht & vergangen" count={past.length}>
+              {past.map((p) => (
+                <PostRow key={p.id} post={p} pubs={pubsByPost.get(p.id) ?? []} />
+              ))}
+            </Section>
+          )}
+        </>
       )}
     </div>
+  );
+}
+
+function Section({
+  title,
+  count,
+  children,
+}: {
+  title: string;
+  count: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {title}
+        </h2>
+        <span className="text-xs text-muted-foreground">({count})</span>
+      </div>
+      <div className="space-y-2">{children}</div>
+    </div>
+  );
+}
+
+function PostRow({ post, pubs }: { post: Post; pubs: PublicationRow[] }) {
+  return (
+    <Card className="p-3 flex items-start gap-4">
+      <div
+        className="w-12 h-12 rounded-md shrink-0"
+        style={{
+          background: post.image_url
+            ? `center / cover no-repeat url(${post.image_url})`
+            : "linear-gradient(135deg, var(--brand-primary), var(--brand-sidebar))",
+        }}
+      />
+      <div className="flex-1 min-w-0 space-y-1.5">
+        <div className="flex items-center gap-2">
+          <div className="font-medium text-sm truncate flex-1">{post.title}</div>
+          {post.quality_score != null && (
+            <span className="text-[10px] text-muted-foreground shrink-0">
+              TÜV {post.quality_score}
+            </span>
+          )}
+          <StatusBadge status={post.status} />
+        </div>
+        <div className="text-xs text-muted-foreground">
+          {post.scheduled_at ? formatDateTime(post.scheduled_at) : ""}
+        </div>
+        <PublicationStatus platforms={post.platforms} publications={pubs} />
+      </div>
+    </Card>
   );
 }

@@ -5,9 +5,8 @@ import { usePathname } from "next/navigation";
 import { Bell, ChevronRight } from "lucide-react";
 
 const SECTION_LABEL: Record<string, string> = {
-  dashboard: "Dashboard",
+  dashboard: "Leitstand",
   social: "Social Media",
-  wochenplan: "Wochenplan",
   freigaben: "Freigaben",
   generator: "Generator",
   kalender: "Kalender",

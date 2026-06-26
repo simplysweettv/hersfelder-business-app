@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Crosshair } from "lucide-react";
+import Image from "next/image";
 
 export function LoginForm({ nextPath }: { nextPath: string }) {
   const router = useRouter();
@@ -37,14 +37,14 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
     <Card className="w-full max-w-sm border-border/60 shadow-lg">
       <CardContent className="p-8">
         <div className="flex flex-col items-center text-center mb-7">
-          <div
-            className="w-14 h-14 rounded-full flex items-center justify-center mb-3"
-            style={{ background: "var(--brand-primary)" }}
-          >
-            <Crosshair className="w-7 h-7 text-white" />
-          </div>
-          <div className="font-semibold text-lg leading-tight">Hersfelder</div>
-          <div className="text-xs text-muted-foreground tracking-wide">
+          <Image
+            src="/logo-hersfelder.png"
+            alt="Hersfelder"
+            width={140}
+            height={184}
+            className="h-20 w-auto mb-2"
+          />
+          <div className="text-xs text-muted-foreground tracking-wide uppercase">
             Business Suite
           </div>
         </div>

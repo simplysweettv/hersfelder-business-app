@@ -37,17 +37,8 @@ export type AnalyticsPost = {
   };
 };
 
-export type ScheduledPost = {
-  id: string;
-  title: string;
-  image_url: string | null;
-  scheduled_at: string;
-  platforms: string[];
-};
-
 type Props = {
   posts: AnalyticsPost[];
-  scheduledPosts: ScheduledPost[];
   insights: Insights;
 };
 
@@ -309,7 +300,7 @@ function MiniStat({
   );
 }
 
-export default function AnalyticsDashboard({ posts, scheduledPosts, insights }: Props) {
+export default function AnalyticsDashboard({ posts, insights }: Props) {
   const [activeTab, setActiveTab] = useState<string>("all");
 
   const filteredPosts = useMemo(
@@ -422,57 +413,6 @@ export default function AnalyticsDashboard({ posts, scheduledPosts, insights }: 
           filteredPosts.map((post) => <PostCard key={post.id} post={post} />)
         )}
       </div>
-
-      {/* Geplante Posts */}
-      {scheduledPosts.length > 0 && (
-        <Card className="p-4">
-          <h2 className="font-semibold text-sm mb-3 flex items-center gap-2">
-            <Clock className="w-4 h-4 text-muted-foreground" />
-            Geplante Posts ({scheduledPosts.length})
-          </h2>
-          <div className="space-y-2">
-            {scheduledPosts.map((post) => {
-              const date = (() => {
-                try {
-                  return format(new Date(post.scheduled_at), "dd. MMM yyyy · HH:mm", {
-                    locale: de,
-                  });
-                } catch {
-                  return "—";
-                }
-              })();
-              return (
-                <div
-                  key={post.id}
-                  className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/40"
-                >
-                  {post.image_url && (
-                    <div className="relative w-10 h-10 shrink-0 rounded-md overflow-hidden">
-                      <Image src={post.image_url} alt="" fill className="object-cover" />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{post.title}</div>
-                    <div className="text-[11px] text-muted-foreground">{date}</div>
-                  </div>
-                  <div className="flex gap-1 shrink-0">
-                    {post.platforms.map((p) => (
-                      <span
-                        key={p}
-                        className="w-5 h-5 rounded-full text-white text-[9px] font-bold flex items-center justify-center"
-                        style={{ background: PLATFORM_COLOR[p] ?? "#999" }}
-                        title={p}
-                      >
-                        {PLATFORM_SHORT[p] ?? p[0].toUpperCase()}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-      )}
 
       <p className="text-[11px] text-center text-muted-foreground pb-2 px-4">
         Engagement-Daten kommen von Blotato und werden nach der Veröffentlichung in

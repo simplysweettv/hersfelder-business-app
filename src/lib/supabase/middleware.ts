@@ -46,7 +46,7 @@ export async function updateSession(request: NextRequest) {
 
   if (user && isAuthRoute) {
     const redirect = url.clone();
-    redirect.pathname = "/social/wochenplan";
+    redirect.pathname = "/dashboard";
     redirect.search = "";
     return NextResponse.redirect(redirect);
   }

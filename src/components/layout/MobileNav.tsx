@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, CheckSquare, Sparkles, Calendar, ListChecks } from "lucide-react";
+import { LayoutDashboard, CheckSquare, Sparkles, Calendar, BarChart3 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Wochenplan", href: "/social/wochenplan", icon: ListChecks },
+  { label: "Leitstand", href: "/dashboard", icon: LayoutDashboard },
   { label: "Freigaben", href: "/social/freigaben", icon: CheckSquare },
-  { label: "Generator", href: "/social/generator", icon: Sparkles },
   { label: "Kalender", href: "/social/kalender", icon: Calendar },
+  { label: "Analytics", href: "/social/analytics", icon: BarChart3 },
+  { label: "Generator", href: "/social/generator", icon: Sparkles },
 ];
 
 export function MobileNav({ pendingApprovals = 0 }: { pendingApprovals?: number }) {
