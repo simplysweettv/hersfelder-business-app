@@ -66,13 +66,6 @@ async function resolveAccountId(
   if (explicit) return explicit;
 
   const items = await fetchAccounts(apiKey);
-  if (platform === "facebook") {
-    console.log(
-      `[blotato] alle Konten=${JSON.stringify(
-        items.map((a) => ({ id: a.id, platform: a.platform, name: a.fullname ?? a.username })),
-      )}`,
-    );
-  }
   const match = items.find((a) => a.platform === BLOTATO_PLATFORM[platform]);
   return match?.id;
 }
@@ -89,10 +82,7 @@ async function fetchSubaccounts(
     `${BLOTATO_BASE}/users/me/accounts/${accountId}/subaccounts`,
     { headers: { "blotato-api-key": apiKey }, cache: "no-store" },
   );
-  if (!res.ok) {
-    console.log(`[blotato] subaccounts HTTP ${res.status} für account ${accountId}`);
-    return [];
-  }
+  if (!res.ok) return [];
   const json = (await res.json().catch(() => ({}))) as { items?: BlotatoSubaccount[] };
   return json.items ?? [];
 }
@@ -115,12 +105,6 @@ async function resolvePageId(
   if (explicit) return explicit;
 
   const subs = await fetchSubaccounts(accountId, apiKey);
-  // Diagnose: was liefert Blotato für dieses Konto?
-  console.log(
-    `[blotato] ${platform} account=${accountId} subaccounts=${JSON.stringify(
-      subs.map((s) => ({ id: s.id, name: s.name })),
-    )}`,
-  );
   return subs[0]?.id;
 }
 
