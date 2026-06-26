@@ -342,6 +342,7 @@ export async function generateBrief(opts: {
   weekNumber: number;
   year: number;
   pillar?: PillarKey;
+  avoid?: string[]; // kürzlich genutzte Themen/Botschaften — nicht wiederholen
 }): Promise<{
   theme: string;
   product: string;
@@ -375,12 +376,17 @@ export async function generateBrief(opts: {
     ? `\nContent-Säule: ${CONTENT_PILLARS.find((p) => p.key === opts.pillar)?.label}\nLeitlinie dieser Säule: ${PILLAR_GUIDANCE[opts.pillar].briefHint}`
     : "";
 
+  const avoidLine =
+    opts.avoid && opts.avoid.length
+      ? `\nWICHTIG — VERMEIDE Wiederholung. Diese Themen/Botschaften wurden kürzlich genutzt, mach etwas DEUTLICH anderes:\n- ${opts.avoid.slice(0, 8).join("\n- ")}`
+      : "";
+
   const prompt = `Du bist kreativer Social-Media-Stratege für Hersfelder Schützenbekleidung (schuetzen-ausstatter.de).
 Erstelle ein originelles, abwechslungsreiches Briefing für KW ${opts.weekNumber}/${opts.year}.
 
 Post-Typ: ${styleDescription}
 Themen-Kategorie: ${opts.themeCategory}
-Mögliches Produkt: ${randomProduct}${pillarLine}
+Mögliches Produkt: ${randomProduct}${pillarLine}${avoidLine}
 
 Regeln:
 - Kein Rassismus, keine Waffen, keine rechtsextremen Inhalte
