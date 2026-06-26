@@ -66,6 +66,13 @@ async function resolveAccountId(
   if (explicit) return explicit;
 
   const items = await fetchAccounts(apiKey);
+  if (platform === "facebook") {
+    console.log(
+      `[blotato] alle Konten=${JSON.stringify(
+        items.map((a) => ({ id: a.id, platform: a.platform, name: a.fullname ?? a.username })),
+      )}`,
+    );
+  }
   const match = items.find((a) => a.platform === BLOTATO_PLATFORM[platform]);
   return match?.id;
 }
