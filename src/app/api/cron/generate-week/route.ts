@@ -148,10 +148,10 @@ export async function GET(req: NextRequest) {
       let imageUrl: string | null = null;
       if (image.b64) {
         const buffer = Buffer.from(image.b64, "base64");
-        const filename = `${crypto.randomUUID()}.png`;
+        const filename = `${crypto.randomUUID()}.jpg`;
         const { error: upErr } = await supabase.storage
           .from("post-images")
-          .upload(filename, buffer, { contentType: "image/png" });
+          .upload(filename, buffer, { contentType: "image/jpeg" });
         if (!upErr) {
           const { data: pub } = supabase.storage
             .from("post-images")
@@ -163,10 +163,11 @@ export async function GET(req: NextRequest) {
       }
 
       // Step 5: Save post to database
+      const dayLabel = slot.dayOffset === 2 ? "Mi" : slot.dayOffset === 5 ? "Sa" : `Tag+${slot.dayOffset}`;
       const { data: post } = await supabase
         .from("posts")
         .insert({
-          title: `KW${week} ${brief.theme}`,
+          title: `${brief.theme} · ${dayLabel} KW${week}`,
           image_url: imageUrl,
           caption,
           status: "pending",

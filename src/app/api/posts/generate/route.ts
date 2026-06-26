@@ -67,10 +67,10 @@ export async function POST(req: NextRequest) {
     let imageUrl: string | null = null;
     if (image.b64) {
       const buffer = Buffer.from(image.b64, "base64");
-      const filename = `${crypto.randomUUID()}.png`;
+      const filename = `${crypto.randomUUID()}.jpg`;
       const { error: upErr } = await supabase.storage
         .from("post-images")
-        .upload(filename, buffer, { contentType: "image/png", upsert: false });
+        .upload(filename, buffer, { contentType: "image/jpeg", upsert: false });
       if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
       const { data: pub } = supabase.storage
         .from("post-images")

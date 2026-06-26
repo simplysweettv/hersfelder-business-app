@@ -83,10 +83,10 @@ export async function POST(
   let imageUrl: string | null = post.image_url;
   if (image.b64) {
     const buffer = Buffer.from(image.b64, "base64");
-    const filename = `${crypto.randomUUID()}.png`;
+    const filename = `${crypto.randomUUID()}.jpg`;
     const { error: upErr } = await admin.storage
       .from("post-images")
-      .upload(filename, buffer, { contentType: "image/png" });
+      .upload(filename, buffer, { contentType: "image/jpeg" });
     if (!upErr) {
       const { data: pub } = admin.storage.from("post-images").getPublicUrl(filename);
       imageUrl = pub.publicUrl;

@@ -34,16 +34,20 @@ NUR ERLAUBT: Freude, Gemeinschaft, Feiern, Uniformen/Trachten, Sport, Vereinsleb
 
 // Scene pool for variety — picked randomly per call
 const PHOTO_SCENES = [
-  "Menschen stoßen mit Gläsern an, lachen laut, Festatmosphäre mit Lichterketten im Hintergrund, goldenes Abendlicht",
-  "Marschkapelle zieht durch die Straße — Uniformierte marschieren, Zuschauer jubeln, buntes Treiben",
-  "Junge und ältere Vereinsmitglieder sitzen gemeinsam an einem Holztisch im Festzelt, erzählen, lachen",
-  "Gruppe tanzt oder klatscht zu Musik auf dem Festplatz — echte Freude, natürliche Bewegung",
-  "Zwei Generationen: Großvater und Enkel in Uniform, stehen nebeneinander, stolzes Lächeln",
-  "Siegerehrung oder Ehrung — jemand bekommt eine Medaille, alle applaudieren, Stolz im Blick",
-  "Aufbau des Festzelts: Männer und Frauen arbeiten zusammen, Witz und Gemeinschaft sichtbar",
-  "Nach dem Umzug — kleine Gruppe steht erschöpft und glücklich zusammen, Uniformjacken offen",
-  "Abendstimmung: Vereinsmitglieder sitzen draußen, Kerzen auf dem Tisch, warmes Licht, entspannte Unterhaltung",
-  "Freundinnen in Uniform machen ein Selfie und lachen herzlich — modern und authentisch zugleich",
+  "Menschen stoßen ausgelassen mit Bierkrügen an, Lachen und Jubeln, goldenes Abendlicht im Festzelt, Lichterketten glänzen",
+  "Spontaner Umzug auf dem Marktplatz — Schützen in dunkelgrünen Uniformen marschieren, Kinder winken vom Straßenrand, Konfetti in der Luft",
+  "Großes Festzelt: vier Generationen sitzen zusammen, der Älteste erzählt, alle hören gespannt zu, warmes Kerzenlicht",
+  "Spontaner Kreistanz auf dem Festplatz — Uniformierte fassen sich an den Händen und wirbeln herum, pure Freude",
+  "Großvater und Enkel, beide in Uniform, stehen Schulter an Schulter — stolze Blicke in die Kamera, Heimgefühl pur",
+  "Siegerehrung: Junge Schützin bekommt ihre erste Medaille, die ganze Gruppe applaudiert mit Tränen vor Stolz",
+  "Festzelt-Aufbau am Morgen — alle packen mit an, Scherze fliegen, Kaffeebecher in der Hand",
+  "Abends nach dem großen Umzug: erschöpfte und glückliche Gruppe, Uniformjacken offen, arme umeinander",
+  "Kerzenlicht und Sternenhimmel: Vereinsmitglieder sitzen draußen, Wein und Lachen, tiefe Gespräche",
+  "Drei Freundinnen in Uniform lachen laut beim Selfie, Feuerwerk im Hintergrund, echter Lebensmoment",
+  "Bieranstich im Festzelt — Bürgermeister schlägt das Fass an, alle jubeln, Schaum fliegt",
+  "Kleines Mädchen im Schützenkostüm tanzt mit Opa auf der Wiese, Publikum schaut begeistert zu",
+  "Marschkapelle in voller Fahrt — Posaunen glänzen in der Sonne, Gesichter voller Konzentration und Stolz",
+  "Abschlussabend: alle Schützen stehen im Kreis, Arme umeinander, singen gemeinsam — echte Bruderschaft",
 ];
 
 export function buildImagePrompt(input: {
@@ -76,7 +80,7 @@ Design:
   GUTE Beispiele: "HEUT WIRD GEFEIERT", "WIR FEIERN ZUSAMMEN", "HERZLICH WILLKOMMEN", "SCHÜTZENFEST SAISON 2026"
   SCHLECHTE Beispiele: "IN EINHEIT STARK", "TRADITION VERBINDET UNS", "FÜR HEIMAT UND VEREIN"
 - Optional: ein kurzes Akzent-Wort in Rot (#c0392b), kleiner, darunter
-- Unten mittig: der Text "HERSFELDER" in sehr kleinen Großbuchstaben, nur als dezente Wortmarke — KEIN Wappen, Adler oder Schildsymbol
+- KEIN Markenname, KEIN Logo, KEIN Wappen, KEIN Adler, KEIN Schild im Bild — reines Text-Design
 - Kein Foto, keine Menschen — reines festliches Grafik-Design
 Format: quadratisch.`;
   }
@@ -86,25 +90,36 @@ Format: quadratisch.`;
     return `${baseContext}
 Szene: ${input.visualDetails || scene}
 
-Erstelle ein Instagram-Hook-Post: authentisches Vereinsfoto mit GROSSEM Text im Bild.
+Erstelle ein Instagram-Hook-Post: authentisches Schützenfest-Foto mit GROSSEM emotionalen Text im Bild.
 
 Foto-Hintergrund:
-- Echte Vereinsmenschen in dunkelgrünen Hersfelder Uniformen
+- Echte, lebendige Menschen in dunkelgrünen Schützen-Uniformen beim Feiern
 - Szene: ${scene}
-- Stil: Reportagefotografie — warm, lebendig, kein Studio
-- Stimmung: Freude, Zusammenhalt, echte Emotionen
+- Stil: Dokumentarfotografie / Reportage — warm, lebendig, spontan, kein Studio
+- Stimmung: Ausgelassene Freude, Bruderschaft, echter Lebensmoment beim Schützenfest
 
-Text-Overlay (direkt im Bild, Teil des Designs):
-- Maximal 4-6 Wörter aus der Kernbotschaft: "${input.message}"
-- WEISS oder GELB, extra-bold serifenlose Schrift
-- SEHR GROSS — nimmt 30-40% der Bildfläche ein
-- Leicht dunkler Schatten oder halbtransparenter dunkler Streifen hinter dem Text für Lesbarkeit
-- Text unten oder mittig platziert, Gesichter der Menschen bleiben sichtbar
-- Wirkt wie ein "Scroll-Stopper": mutig, plakativ, sofort lesbar
-- Kein generisches Wappen, Adler oder Schild im Bild — nur echte Menschen und Uniformen
+Text-Overlay (direkt im Bild, Teil des Designs — das ist das Wichtigste!):
+- MAXIMAL 4-7 WÖRTER — kurz, knackig, emotional
+- Inspiration aus der Kernbotschaft: "${input.message}"
+- Ton: warmherzig, feierlich, gemeinschaftlich — KEIN nationalistischer Klang
+- GUTE Text-Beispiele im richtigen Stil:
+  · "BRUDERSCHAFT IST DAS, WAS UNS VEREINT"
+  · "HEUT WIRD GEFEIERT — WIE JEDEN JAHR"
+  · "ZUSAMMEN SEIT GENERATIONEN"
+  · "UNSER FEST, UNSERE FAMILIE"
+  · "DAS BESTE GEFÜHL DER WELT"
+  · "SCHÜTZENFEST — WIR LIEBEN ES"
+  · "FREUNDE FÜR'S LEBEN"
+- Schrift: WEISS oder WARMGELB, extra-bold, serifenlos, kraftvoll
+- SEHR GROSS — Text nimmt 35-50% der Bildfläche ein
+- Halbtransparenter dunkler Balken/Schatten hinter dem Text für maximale Lesbarkeit
+- Text oben ODER unten — Gesichter der Menschen bleiben immer sichtbar
 
-Vorbild: Hersfelder (schuetzen-ausstatter.de) — "Uniform an - Stimmung hoch!" — Schützenfest-Stimmung, authentisch, warm.
-Keine Waffen, keine politischen Symbole, kein generisches deutsches Wappen.`;
+ABSOLUT VERBOTEN im Bild:
+- Kein Markenname "Hersfelder", kein Logo, kein Wappen, kein Adler, kein Schild
+- Keine Waffen, keine politischen Symbole
+
+Format: Hochformat (Portrait).`;
   }
 
   if (style === "product") {
@@ -126,11 +141,13 @@ Keine Waffen, keine politischen Symbole.`;
   return `${baseContext}
 Szene: ${input.visualDetails || scene}
 
-Erstelle ein hochwertiges Reportage-Foto vom Vereinsleben — wie ein professioneller Fotograf beim Schützenfest.
-Menschen: 3-5 Personen in dunkelgrünen Hersfelder Schützen-Uniformen, verschiedene Altersgruppen.
+Erstelle ein hochwertiges Reportage-Foto vom Vereinsleben — wie ein Fotojournalist beim Schützenfest.
+Menschen: 3-6 Personen in dunkelgrünen Schützen-Uniformen, verschiedene Altersgruppen, echter Moment.
 Moment: ${scene}
-Stil: Warm, lebendig, wie Reportagefotografie — KEIN gestelltes Werbe-Shooting.
-Keine Waffen, kein Alkohol prominent, keine politischen Symbole.`;
+Stil: Warmherzig, lebendig, spontan — wie Dokumentarfotografie, KEIN gestelltes Werbe-Shooting.
+Licht: Goldenes Abendlicht, Festzelt-Atmosphäre oder Tageslicht im Freien.
+Stimmung: Freude, Zusammenhalt, Gemeinschaft — echte Emotionen.
+Kein Markenname, kein Logo, kein Wappen im Bild. Keine Waffen. Kein Alkohol prominent im Vordergrund.`;
 }
 
 export function buildCaptionPrompt(input: {
@@ -284,14 +301,14 @@ Antworte NUR als JSON-Objekt:
     return {
       theme: parsed.theme ?? opts.themeCategory,
       product: parsed.product ?? randomProduct,
-      message: parsed.message ?? "Gemeinsam stark — Hersfelder Schützenbekleidung",
+      message: parsed.message ?? "Zusammen feiern — das verbindet uns",
       visualDetails: parsed.visualDetails ?? "",
     };
   } catch {
     return {
       theme: opts.themeCategory,
       product: randomProduct,
-      message: "Gemeinsam stark — Hersfelder Schützenbekleidung",
+      message: "Zusammen feiern — das verbindet uns",
       visualDetails: "",
     };
   }
@@ -308,6 +325,10 @@ export async function generateImage(opts: {
     prompt: opts.prompt,
     size: opts.size ?? "1024x1024",
     n: 1,
+    // JPEG statt PNG: TikTok akzeptiert nur WebP/JPEG (kein PNG) — sonst
+    // schlägt der Bild-Download bei TikTok fehl. JPEG nehmen alle Plattformen.
+    output_format: "jpeg",
+    output_compression: 90,
   });
   const item = res.data?.[0];
   if (!item) throw new Error("Kein Bild von OpenAI erhalten.");
