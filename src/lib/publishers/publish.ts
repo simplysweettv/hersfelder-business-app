@@ -169,3 +169,113 @@ export async function publishPost(
 
   return { ok: !anyFailed, status: newStatus, perPlatform };
 }
+
+/**
+ * Fragt für EINEN Post den echten Veröffentlichungs-Status beim Anbieter ab
+ * (z.B. Blotato GET /posts/{id}) und aktualisiert post_publications:
+ * - published → public_url + published_at gesetzt
+ * - failed    → status "failed" + error
+ * - in-progress → unverändert (noch nicht live)
+ *
+ * Danach wird der Post-Status neu abgeleitet. Idempotent & gefahrlos
+ * wiederholbar (postet nichts, fragt nur ab).
+ */
+export async function syncPostStatus(
+  supabase: AdminClient,
+  postId: string,
+  getConfig: ConfigGetter,
+): Promise<{ updated: number; postStatus: Post["status"] | null }> {
+  const { data: rows } = await supabase
+    .from("post_publications")
+    .select("platform, status, external_id, public_url")
+    .eq("post_id", postId);
+
+  let updated = 0;
+
+  for (const row of rows ?? []) {
+    const platform = row.platform as Platform;
+    const externalId = row.external_id as string | null;
+    // Nur Einreichungen prüfen, die noch nicht final sind:
+    // hat eine Submission-ID, ist noch nicht als live (public_url) bestätigt
+    // und nicht bereits als Fehler markiert.
+    if (!externalId) continue;
+    if (row.public_url) continue;
+    if (row.status === "failed" || row.status === "skipped") continue;
+
+    const publisher = getPublisher(platform);
+    if (!publisher.checkStatus) continue;
+
+    const outcome = await publisher.checkStatus(externalId, getConfig);
+    if (outcome.state === "in-progress") continue;
+
+    if (outcome.state === "published") {
+      await supabase
+        .from("post_publications")
+        .update({
+          status: "success",
+          public_url: outcome.publicUrl ?? null,
+          published_at: new Date().toISOString(),
+          error: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("post_id", postId)
+        .eq("platform", platform);
+      updated++;
+    } else if (outcome.state === "failed") {
+      await supabase
+        .from("post_publications")
+        .update({
+          status: "failed",
+          error: outcome.error,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("post_id", postId)
+        .eq("platform", platform);
+      updated++;
+    }
+  }
+
+  // Post-Status neu ableiten.
+  const { data: post } = await supabase
+    .from("posts")
+    .select("platforms, published_at")
+    .eq("id", postId)
+    .single();
+  if (!post) return { updated, postStatus: null };
+
+  const { data: pubRows } = await supabase
+    .from("post_publications")
+    .select("platform, status, public_url")
+    .eq("post_id", postId);
+  const byPlatform = new Map(
+    (pubRows ?? []).map((r) => [r.platform as Platform, r]),
+  );
+
+  const platforms = (post.platforms ?? []) as Platform[];
+  const anyFailed = platforms.some((p) => byPlatform.get(p)?.status === "failed");
+  // live = bestätigt veröffentlicht (public_url) ODER skipped (nicht verbunden)
+  const allLive = platforms.every((p) => {
+    const r = byPlatform.get(p);
+    return r?.status === "skipped" || Boolean(r?.public_url);
+  });
+
+  const newStatus: Post["status"] = anyFailed
+    ? "failed"
+    : allLive
+      ? "published"
+      : "scheduled";
+
+  await supabase
+    .from("posts")
+    .update({
+      status: newStatus,
+      published_at:
+        newStatus === "published"
+          ? post.published_at ?? new Date().toISOString()
+          : post.published_at ?? null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", postId);
+
+  return { updated, postStatus: newStatus };
+}

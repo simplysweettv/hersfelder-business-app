@@ -5,6 +5,7 @@ import {
   type Publisher,
   type PublishOutcome,
   type PublishPayload,
+  type StatusOutcome,
 } from "./types";
 
 /**
@@ -243,6 +244,41 @@ export function makeBlotatoPublisher(platform: Platform): Publisher {
         return { ok: true, externalId: String(externalId), raw: json };
       } catch (e) {
         return { ok: false, error: errMsg(e) };
+      }
+    },
+
+    async checkStatus(externalId: string, get: ConfigGetter): Promise<StatusOutcome> {
+      const apiKey = get("blotato_api_key", "BLOTATO_API_KEY");
+      if (!apiKey) return { state: "in-progress" };
+      if (!externalId) return { state: "in-progress" };
+
+      try {
+        const res = await fetch(`${BLOTATO_BASE}/posts/${externalId}`, {
+          headers: { "blotato-api-key": apiKey },
+        });
+        const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+        if (!res.ok) {
+          // Unbekannt → als noch-in-Arbeit behandeln, nicht als Fehler werten.
+          return { state: "in-progress", raw: json };
+        }
+        const status = String(json?.status ?? "in-progress");
+        if (status === "published") {
+          return {
+            state: "published",
+            publicUrl: (json?.publicUrl as string) ?? undefined,
+            raw: json,
+          };
+        }
+        if (status === "failed") {
+          return {
+            state: "failed",
+            error: (json?.errorMessage as string) ?? "Veröffentlichung fehlgeschlagen.",
+            raw: json,
+          };
+        }
+        return { state: "in-progress", raw: json };
+      } catch (e) {
+        return { state: "in-progress", raw: { error: errMsg(e) } };
       }
     },
   };

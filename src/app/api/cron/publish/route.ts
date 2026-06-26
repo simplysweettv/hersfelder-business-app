@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { loadPublishConfig, publishPost } from "@/lib/publishers/publish";
+import { loadPublishConfig, publishPost, syncPostStatus } from "@/lib/publishers/publish";
 import type { Post } from "@/types";
 
 export const runtime = "nodejs";
@@ -44,5 +44,21 @@ export async function GET(req: NextRequest) {
     results.push({ id: post.id, status: r.status, perPlatform: r.perPlatform, skipped: r.skipped });
   }
 
-  return NextResponse.json({ processed: (due ?? []).length, results });
+  // Echten Status offener Blotato-Einreichungen nachziehen (eingeplant → live/fehler).
+  const { data: open } = await supabase
+    .from("post_publications")
+    .select("post_id")
+    .not("external_id", "is", null)
+    .is("public_url", null)
+    .not("status", "in", "(failed,skipped)");
+  const syncIds = Array.from(new Set((open ?? []).map((r) => r.post_id as string)));
+  for (const id of syncIds) {
+    await syncPostStatus(supabase, id, getConfig);
+  }
+
+  return NextResponse.json({
+    processed: (due ?? []).length,
+    synced: syncIds.length,
+    results,
+  });
 }

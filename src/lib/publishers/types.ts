@@ -28,6 +28,15 @@ export type PublishOutcome =
   | { ok: true; externalId: string; raw?: unknown }
   | { ok: false; error: string; reauth?: boolean; raw?: unknown };
 
+/**
+ * Echter Veröffentlichungs-Status beim Anbieter (nach Abfrage per externalId).
+ * "in-progress" = angenommen, aber noch nicht live.
+ */
+export type StatusOutcome =
+  | { state: "published"; publicUrl?: string; raw?: unknown }
+  | { state: "failed"; error: string; raw?: unknown }
+  | { state: "in-progress"; raw?: unknown };
+
 export interface Publisher {
   readonly platform: Platform;
   /** Menschlicher Name für Logs/Fehler, z. B. "Blotato:instagram". */
@@ -35,6 +44,11 @@ export interface Publisher {
   /** Sind die nötigen Zugangsdaten vorhanden? */
   isConfigured(get: ConfigGetter): boolean;
   publish(payload: PublishPayload, get: ConfigGetter): Promise<PublishOutcome>;
+  /**
+   * Optional: echten Status einer Einreichung abfragen (z.B. Blotato
+   * GET /posts/{id}). Anbieter ohne Status-Abfrage lassen das weg.
+   */
+  checkStatus?(externalId: string, get: ConfigGetter): Promise<StatusOutcome>;
 }
 
 export function errMsg(e: unknown): string {
