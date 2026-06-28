@@ -134,23 +134,51 @@ const SAFETY_RULES = `ABSOLUT VERBOTEN — niemals zeigen:
 - Diskriminierende Darstellungen jeglicher Art
 NUR ERLAUBT: Freude, Gemeinschaft, Feiern, Uniformen/Trachten, Sport, Vereinsleben, Natur`;
 
-// Scene pool for variety — picked randomly per call
+// Scene pool — deliberately broad: Hochsaison, Vorsaison, Off-Season, Handwerk, Generationen
 const PHOTO_SCENES = [
+  // Festzelt & Umzug (Hochsaison)
   "Menschen stoßen ausgelassen mit Bierkrügen an, Lachen und Jubeln, goldenes Abendlicht im Festzelt, Lichterketten glänzen",
   "Spontaner Umzug auf dem Marktplatz — Schützen in dunkelgrünen Uniformen marschieren, Kinder winken vom Straßenrand, Konfetti in der Luft",
   "Großes Festzelt: vier Generationen sitzen zusammen, der Älteste erzählt, alle hören gespannt zu, warmes Kerzenlicht",
-  "Spontaner Kreistanz auf dem Festplatz — Uniformierte fassen sich an den Händen und wirbeln herum, pure Freude",
+  "Bieranstich im Festzelt — Bürgermeister schlägt das Fass an, alle jubeln, Schaum fliegt",
+  "Abschlussabend: alle Schützen stehen im Kreis, Arme umeinander, singen gemeinsam — echte Bruderschaft",
+  "Drei Freundinnen in Uniform lachen laut beim Selfie, Feuerwerk im Hintergrund, echter Lebensmoment",
+  "Marschkapelle in voller Fahrt — Posaunen glänzen in der Sonne, Gesichter voller Konzentration und Stolz",
+  // Generationen & Emotion
   "Großvater und Enkel, beide in Uniform, stehen Schulter an Schulter — stolze Blicke in die Kamera, Heimgefühl pur",
   "Siegerehrung: Junge Schützin bekommt ihre erste Medaille, die ganze Gruppe applaudiert mit Tränen vor Stolz",
-  "Festzelt-Aufbau am Morgen — alle packen mit an, Scherze fliegen, Kaffeebecher in der Hand",
-  "Abends nach dem großen Umzug: erschöpfte und glückliche Gruppe, Uniformjacken offen, arme umeinander",
-  "Kerzenlicht und Sternenhimmel: Vereinsmitglieder sitzen draußen, Wein und Lachen, tiefe Gespräche",
-  "Drei Freundinnen in Uniform lachen laut beim Selfie, Feuerwerk im Hintergrund, echter Lebensmoment",
-  "Bieranstich im Festzelt — Bürgermeister schlägt das Fass an, alle jubeln, Schaum fliegt",
   "Kleines Mädchen im Schützenkostüm tanzt mit Opa auf der Wiese, Publikum schaut begeistert zu",
-  "Marschkapelle in voller Fahrt — Posaunen glänzen in der Sonne, Gesichter voller Konzentration und Stolz",
-  "Abschlussabend: alle Schützen stehen im Kreis, Arme umeinander, singen gemeinsam — echte Bruderschaft",
+  "Zwei Schützen, ein älterer Herr und eine Jugendliche, stehen nebeneinander und schauen stolz auf ihr Abzeichen",
+  // Vorsaison & Vorbereitung (Frühling)
+  "Vereinsmitglieder holen im Frühjahr ihre Uniformen aus dem Schrank — erste Anprobe, lächelnde Gesichter, Aufbruchstimmung",
+  "Festzelt-Aufbau am Morgen — alle packen mit an, Scherze fliegen, Kaffeebecher in der Hand, Sonnenschein",
+  "Erste Probe nach der Winterpause: Schützen treffen sich im Vereinshaus, herzliche Umarmungen, alte Freunde",
+  "Gruppe von Schützen beim Probemarschieren auf einer sonnigen Dorfstraße — Frühlingsstimmung, Bäume blühen",
+  // Off-Season & Gemeinschaft (Herbst/Winter)
+  "Gemütlicher Vereinsabend im Herbst: Kerzen auf dem Holztisch, Schützen sitzen zusammen, wärmendes Licht",
+  "Jahresabschlussfeier: Ehrungen und Medaillen werden verteilt, Applaus, Tränen der Rührung, Familienatmosphäre",
+  "Winterlicher Spaziergang — Schützen in Uniformjacken spazieren gemeinsam durch verschneiten Ort, lachen",
+  "Weihnachtsessen des Vereins: festlicher Tisch, Uniformmitglieder feiern gemeinsam, Kerzen und Tannengrün",
+  "Generalversammlung: entspannte Runde im Vereinsheim, alte und neue Vorstandsmitglieder lachen zusammen",
+  // Handwerk & Detail
+  "Nahaufnahme: erfahrener Schneider legt eine frisch gebügelte dunkelgrüne Schützenuniform zurecht, Sorgfalt sichtbar",
+  "Detailaufnahme: Stickerei auf einer Schützenuniform, warmes Licht, feine Handarbeit",
+  "Vereinsmitglied hält stolz seine neue Uniform hoch — frisch aus der Lieferung, breites Lächeln",
+  // Abends & Atmosphäre
+  "Abends nach dem großen Umzug: erschöpfte und glückliche Gruppe, Uniformjacken offen, Arme umeinander",
+  "Kerzenlicht und Sternenhimmel: Vereinsmitglieder sitzen draußen, Wein und Lachen, tiefe Gespräche",
+  "Spontaner Kreistanz auf dem Festplatz — Uniformierte fassen sich an den Händen und wirbeln herum, pure Freude",
 ];
+
+function getSeasonalContext(month: number): string {
+  if (month === 12 || month <= 2)
+    return "Winter/Jahreswende: Weihnachtsfeier, Jahresrückblick, Jahresplanung, Generalversammlung — ruhige, besinnliche Zeit im Verein";
+  if (month <= 5)
+    return "Frühling/Vorsaison: Aufregung vor der Saison, erste Uniformproben, Frühjahrsputz im Vereinsheim, neue Mitglieder begrüßen — Aufbruchstimmung";
+  if (month <= 8)
+    return "Hochsaison: Schützenfeste auf Hochtouren, Umzüge, Festzelte, gemeinsames Feiern — die schönste Zeit im Vereinsjahr";
+  return "Herbst/Saisonausklang: Letztes Fest der Saison, Ehrungen, Jahresabschlussfeier, Rückblick auf ein tolles Vereinsjahr — Gemütlichkeit und Dankbarkeit";
+}
 
 export function buildImagePrompt(input: {
   brandStyle?: string | null;
@@ -265,13 +293,15 @@ export function buildCaptionPrompt(input: {
   const cta = input.pillar ? PILLAR_GUIDANCE[input.pillar].cta : "soft";
   const ctaInstruction =
     cta === "hard"
-      ? `CALL-TO-ACTION (wichtig für diese Säule):
-- Baue am Ende eine klare, warmherzige Handlungsaufforderung ein, die Vereine zur Kontaktaufnahme einlädt.
-- Beispiele (variieren, nicht wörtlich kopieren): "Plant ihr eine Neuausstattung? Schreibt uns eine Nachricht 💚", "Kostenlose Beratung für euren Verein — meldet euch gern", "Muster gratis anfordern – Link in Bio".
-- Ton: einladend und partnerschaftlich, NICHT marktschreierisch oder aufdringlich.`
-      : `CALL-TO-ACTION (dezent):
-- Schließe mit einer leichten Einladung zur Interaktion (offene Frage an die Community), KEIN Verkauf.
-- Beispiele: "Wie feiert ihr in eurem Verein?", "Welcher Verein seid ihr? 👇".`;
+      ? `CALL-TO-ACTION (dezent, letzter Satz — fühlt sich an wie ein Tipp vom Vereinsfreund, nicht wie Werbung):
+- Zuerst: emotionaler Haupt-Content genau wie bei anderen Posts — der Leser MUSS erst bewegt werden, bevor der CTA kommt.
+- Allerletzter Satz: sanfte Einladung, als würde ein Vereinsfreund einen Tipp geben.
+- GUTE Beispiele: "Übrigens — wer seinen Verein neu ausstatten möchte, findet bei uns alles auf einen Blick → Link in Bio 🟢", "Kleine Info am Rande: Wir beraten Vereine kostenlos. Einfach kurz melden 💚", "Wer noch auf der Suche nach der richtigen Vereinsuniform ist — schaut mal bei schuetzen-ausstatter.de vorbei 🟢"
+- Nicht fett, nicht groß, nicht als eigener Absatz — einfach der natürliche letzte Satz.`
+      : `COMMUNITY-FRAGE (am Ende — lädt wirklich zum Kommentieren ein):
+- Schließe mit einer echten, offenen Frage, die Vereinsmenschen gerne beantworten.
+- GUTE Beispiele: "Wie ist das bei euch im Verein? 👇", "Wer erkennt sich hier wieder? 😄", "Was macht euer Schützenfest besonders — was darf auf keinen Fall fehlen? 💬", "Wieviele Jahre seid ihr dabei? 🎯"
+- Die Frage muss konkret und einladend sein — nicht "Was denkt ihr?" sondern echte Neugier zeigen.`;
 
   const hasInstagram = platforms.includes("instagram");
   const hasFacebook = platforms.includes("facebook");
@@ -301,41 +331,52 @@ ${strategyRules}
 
   if (hasInstagram) {
     blocks.push(`---INSTAGRAM---
-Instagram-Caption (max. 125 Zeichen sichtbar, dann wird abgeschnitten):
-- Erster Satz: emotional, direkt, stoppt den Scroll — max. 100 Zeichen
-- 1-2 passende Emojis eingebaut (nicht am Ende geklatscht)
-- Zweite Zeile: genau 3-5 Hashtags, immer #hersfelder dabei
-- Kein Hashtag-Spam, nur wirklich passende Tags
-Beispielformat: "Wenn der Verein zur Familie wird. 🟢\n\n#hersfelder #schützenfest #vereinsleben"`);
+Instagram-Caption — schreibe wie ein echter Vereinsmensch, warmherzig und persönlich:
+
+OPENER (erste Zeile — das Wichtigste, entscheidet ob jemand weiterliest):
+- Beginne mit einem "Wenn..."-Satz, "Der Moment wenn...", "Elf Monate warten...", oder einer persönlichen Erinnerung
+- GUTE Beispiele: "Wenn man nach einem Jahr wieder die Uniform anzieht — dieses Gefühl. 🟢", "Der Moment wenn alle gleichzeitig loslaufen und man weiß: das ist unser Fest. 🎉", "Manche Dinge im Leben erklären sich von selbst. 💚"
+- SCHLECHTE Beispiele: "Gemeinsam in die neue Saison!", "Tradition verbindet uns!", "Ein besonderer Moment!" — zu generisch, zu kurz, keine Persönlichkeit
+
+BODY (optional, nach einer Leerzeile):
+- 1-2 kurze Sätze, die die Stimmung vertiefen — max. 2 Zeilen
+
+ABSCHLUSS:
+- Community-Frage oder dezenter CTA (→ wie oben angegeben)
+
+HASHTAGS (neue Zeile darunter):
+- Genau 4-5 passende Hashtags, immer #hersfelder dabei
+- Mische Reichweiten-Tags (#schützenfest) mit Nischen-Tags (#vereinsleben #schützenverein)
+- Kein Hashtag-Spam`);
   }
 
   if (hasFacebook) {
     blocks.push(`---FACEBOOK---
-Facebook-Post (40-80 Zeichen für maximale Reichweite, alternativ kurze Geschichte bis 150 Wörter):
-- Beginne mit einer Frage oder einer persönlichen Aussage
-- Schreibe für die Vereins-Community — familiär, einladend
-- Optional: Ein kurzer Aufruf zu Kommentaren ("Wer kennt das?", "Wie war das bei euch?")
-- Keine Hashtags oder max. 2`);
+Facebook-Post — persönlicher, erzählender Stil für die Vereins-Community:
+- Starte mit einer Frage oder einer kleinen Geschichte ("Wer kennt das noch...")
+- Schreibe 2-4 Sätze, familiär und einladend — wie ein Freund, der im Festzelt erzählt
+- Lade am Ende zum Kommentieren ein: eine konkrete Frage ("Was war euer schönstes Schützenfest-Moment?")
+- Max. 2 Hashtags oder gar keine — Facebook braucht keine Hashtags`);
   }
 
   if (hasTikTok) {
     blocks.push(`---TIKTOK---
-TikTok-Caption (kurz und knackig, max. 100 Zeichen):
-- Hook in den ersten 3 Wörtern — muss sofort neugierig machen
-- Umgangssprache, jung, lebendig
-- 4-6 Hashtags: mix aus reichweiten-stark (#schützenfest, #vereinsleben) und nischen (#schützenverein, #hersfelder)
-- Kein komplizierter Satz, kein Fließtext`);
+TikTok-Caption (max. 130 Zeichen, knackig und jung):
+- Erster "Satz": direkter Hook — 3-5 Wörter, die neugierig machen oder ein Gefühl triggern
+- Rest: kurze Ergänzung oder Emojis
+- 5-6 Hashtags: mix aus groß (#schützenfest, #vereinsleben, #tradition) und nischen (#schützenverein, #hersfelder, #schützen)
+- Stil: Umgangssprache, lebendig, kein Fließtext`);
   }
 
   if (hasLinkedIn) {
     blocks.push(`---LINKEDIN---
 LinkedIn-Post (150-250 Wörter, professionell-persönlich):
-- Erster Satz: starke Aussage oder Frage über Vereinskultur, Gemeinschaft, Tradition oder Ehrenamt — kein Produkt
-- Absätze: kurz, je 2-3 Sätze, Leerzeile dazwischen (mobile-optimiert)
-- Erzähle eine kleine Geschichte oder teile einen echten Gedanken zum Vereinsleben
-- Verbindung zu Hersfelder als Unterstützer von Vereinskultur (nicht als Verkäufer)
+- Erster Satz: starke, überraschende Aussage über Vereinskultur, Ehrenamt oder Gemeinschaft
+- Absätze: kurz (2-3 Sätze), Leerzeile dazwischen — mobile-optimiert
+- Erzähle eine kleine Geschichte oder teile einen echten Gedanken: was Schützenvereine über Gemeinschaft, Loyalität oder Tradition lehren
+- Verbindung zu Hersfelder als stiller Partner der Vereinskultur (nicht als Verkäufer)
 - Schließe mit einer offenen Frage an die Community
-- Letzte Zeile: 3 Hashtags (mix Deutsch/Englisch), z.B. #Vereinsleben #Schützenfest #CommunityFirst`);
+- Letzte Zeile: 3 Hashtags (z.B. #Vereinsleben #Schützenfest #Gemeinschaft)`);
   }
 
   return `Du bist Social-Media-Texter für Hersfelder Schützenbekleidung (schuetzen-ausstatter.de).
@@ -356,6 +397,7 @@ export async function generateBrief(opts: {
   styleType: "photo" | "typography" | "product" | "hook";
   weekNumber: number;
   year: number;
+  month?: number; // 1-12 — für saisonalen Kontext
   pillar?: PillarKey;
   avoid?: string[]; // kürzlich genutzte Themen/Botschaften — nicht wiederholen
 }): Promise<{
@@ -391,6 +433,10 @@ export async function generateBrief(opts: {
     ? `\nContent-Säule: ${CONTENT_PILLARS.find((p) => p.key === opts.pillar)?.label}\nLeitlinie dieser Säule: ${PILLAR_GUIDANCE[opts.pillar].briefHint}`
     : "";
 
+  const seasonLine = opts.month
+    ? `\nSaisonaler Kontext: ${getSeasonalContext(opts.month)}`
+    : "";
+
   const avoidLine =
     opts.avoid && opts.avoid.length
       ? `\nWICHTIG — VERMEIDE Wiederholung. Diese Themen/Botschaften wurden kürzlich genutzt, mach etwas DEUTLICH anderes:\n- ${opts.avoid.slice(0, 8).join("\n- ")}`
@@ -401,7 +447,7 @@ Erstelle ein originelles, abwechslungsreiches Briefing für KW ${opts.weekNumber
 
 Post-Typ: ${styleDescription}
 Themen-Kategorie: ${opts.themeCategory}
-Mögliches Produkt: ${randomProduct}${pillarLine}${avoidLine}
+Mögliches Produkt: ${randomProduct}${pillarLine}${seasonLine}${avoidLine}
 
 Regeln:
 - Kein Rassismus, keine Waffen, keine rechtsextremen Inhalte

@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Card } from "@/components/ui/card";
 import Image from "next/image";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -17,6 +16,8 @@ import {
   Share2,
   Brain,
   Trophy,
+  Sparkles,
+  ArrowUpRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Insights } from "@/lib/learning";
@@ -64,138 +65,6 @@ const PLATFORM_SHORT: Record<string, string> = {
   linkedin: "LI",
 };
 
-function fmt(n: number): string {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(".0", "") + "M";
-  if (n >= 1_000) return (n / 1_000).toFixed(1).replace(".0", "") + "k";
-  return String(n);
-}
-
-function PlatformBadge({ platform }: { platform: string }) {
-  const color = PLATFORM_COLOR[platform] ?? "#666";
-  const short = PLATFORM_SHORT[platform] ?? platform.slice(0, 2).toUpperCase();
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full"
-      style={{ color, background: `${color}12`, border: `1px solid ${color}30` }}
-    >
-      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-      {short}
-    </span>
-  );
-}
-
-function Metric({
-  icon: Icon,
-  value,
-  label,
-  color,
-}: {
-  icon: typeof Heart;
-  value: number;
-  label: string;
-  color?: string;
-}) {
-  return (
-    <span
-      className="inline-flex items-center gap-1 text-xs text-muted-foreground"
-      title={`${value.toLocaleString("de-DE")} ${label}`}
-    >
-      <Icon className="w-3.5 h-3.5" style={color ? { color } : undefined} />
-      <span className="font-medium text-foreground tabular-nums">{fmt(value)}</span>
-    </span>
-  );
-}
-
-/** Große KPI-Karte oben (Gesamtsumme einer Kennzahl). */
-function KpiCard({
-  icon: Icon,
-  value,
-  label,
-  color,
-}: {
-  icon: typeof Heart;
-  value: number;
-  label: string;
-  color: string;
-}) {
-  return (
-    <Card className="p-3 md:p-4">
-      <div className="flex items-center gap-2">
-        <div
-          className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: `${color}15` }}
-        >
-          <Icon className="w-4 h-4" style={{ color }} />
-        </div>
-        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-          {label}
-        </div>
-      </div>
-      <div className="text-2xl md:text-3xl font-bold tabular-nums mt-1.5">
-        {value.toLocaleString("de-DE")}
-      </div>
-    </Card>
-  );
-}
-
-function PostCard({ post }: { post: AnalyticsPost }) {
-  const date = (() => {
-    try {
-      return format(new Date(post.postTime), "dd. MMM yyyy · HH:mm", { locale: de });
-    } catch {
-      return "—";
-    }
-  })();
-
-  const { likes, comments, views, reach, shares } = post.metrics;
-
-  return (
-    <div className="flex gap-3 p-3 rounded-xl border bg-card transition-shadow hover:shadow-sm">
-      <div className="shrink-0 w-[72px] h-[72px] rounded-lg overflow-hidden bg-muted relative">
-        {post.imageUrl ? (
-          <Image src={post.imageUrl} alt="" fill className="object-cover" unoptimized />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <BarChart3 className="w-5 h-5 text-muted-foreground/30" />
-          </div>
-        )}
-      </div>
-
-      <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-        <div className="flex items-start justify-between gap-2">
-          <PlatformBadge platform={post.platform} />
-          {post.postUrl && (
-            <a
-              href={post.postUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="shrink-0 inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ExternalLink className="w-3 h-3" />
-              <span className="hidden sm:inline">Ansehen</span>
-            </a>
-          )}
-        </div>
-
-        <p className="text-sm text-foreground line-clamp-2 leading-snug">
-          {post.text || <span className="text-muted-foreground italic">Kein Text</span>}
-        </p>
-
-        {/* Engagement-Zeile */}
-        <div className="flex items-center gap-3 flex-wrap mt-0.5">
-          <Metric icon={Heart} value={likes} label="Likes" color="#E1306C" />
-          <Metric icon={MessageCircle} value={comments} label="Kommentare" color="#1877F2" />
-          <Metric icon={Eye} value={views} label="Views" color="#16a34a" />
-          <Metric icon={Users} value={reach} label="Reichweite" color="#9333ea" />
-          {shares > 0 && <Metric icon={Share2} value={shares} label="Shares" color="#0891b2" />}
-        </div>
-
-        <div className="text-[11px] text-muted-foreground">{date}</div>
-      </div>
-    </div>
-  );
-}
-
 const PLATFORM_NAME: Record<string, string> = {
   instagram: "Instagram",
   facebook: "Facebook",
@@ -203,18 +72,189 @@ const PLATFORM_NAME: Record<string, string> = {
   linkedin: "LinkedIn",
 };
 
+function fmt(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(".0", "") + "M";
+  if (n >= 1_000) return (n / 1_000).toFixed(1).replace(".0", "") + "k";
+  return String(n);
+}
+
+function PlatformDot({ platform }: { platform: string }) {
+  const color = PLATFORM_COLOR[platform] ?? "#666";
+  const short = PLATFORM_SHORT[platform] ?? platform.slice(0, 2).toUpperCase();
+  return (
+    <span
+      className="inline-flex items-center justify-center w-5 h-5 rounded-full text-white text-[9px] font-bold shrink-0"
+      style={{ background: color }}
+    >
+      {short}
+    </span>
+  );
+}
+
+/** KPI-Karte oben mit Farbakzent */
+function KpiCard({
+  icon: Icon,
+  value,
+  label,
+  color,
+  bgColor,
+}: {
+  icon: typeof Heart;
+  value: number;
+  label: string;
+  color: string;
+  bgColor: string;
+}) {
+  return (
+    <div
+      className="rounded-2xl p-3.5 flex flex-col gap-2"
+      style={{ background: bgColor }}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-semibold uppercase tracking-wider opacity-70" style={{ color }}>
+          {label}
+        </span>
+        <div
+          className="w-7 h-7 rounded-xl flex items-center justify-center"
+          style={{ background: `${color}25` }}
+        >
+          <Icon className="w-3.5 h-3.5" style={{ color }} />
+        </div>
+      </div>
+      <div className="text-2xl font-bold tabular-nums" style={{ color }}>
+        {value.toLocaleString("de-DE")}
+      </div>
+    </div>
+  );
+}
+
+function PostCard({ post, rank }: { post: AnalyticsPost; rank: number }) {
+  const date = (() => {
+    try {
+      return format(new Date(post.postTime), "dd. MMM · HH:mm", { locale: de });
+    } catch {
+      return "—";
+    }
+  })();
+
+  const { likes, comments, views, reach, shares } = post.metrics;
+  const engagement = likes + comments * 2 + shares * 2;
+
+  const inner = (
+    <div className="flex gap-3 items-start">
+      {/* Bild */}
+      <div className="relative shrink-0">
+        <div className="w-[80px] h-[80px] rounded-xl overflow-hidden bg-muted relative">
+          {post.imageUrl ? (
+            <Image src={post.imageUrl} alt="" fill className="object-cover" unoptimized />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <BarChart3 className="w-5 h-5 text-muted-foreground/30" />
+            </div>
+          )}
+        </div>
+        {/* Rang-Badge */}
+        <div className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-background border text-[10px] font-bold flex items-center justify-center shadow-sm">
+          {rank}
+        </div>
+      </div>
+
+      {/* Inhalt */}
+      <div className="flex-1 min-w-0 flex flex-col gap-1.5 pt-0.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <PlatformDot platform={post.platform} />
+            <span className="text-[11px] text-muted-foreground">{date}</span>
+          </div>
+          {post.postUrl && (
+            <span className="shrink-0 inline-flex items-center gap-0.5 text-[11px] text-muted-foreground">
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </span>
+          )}
+        </div>
+
+        <p className="text-sm text-foreground line-clamp-2 leading-snug font-medium">
+          {post.text || <span className="text-muted-foreground italic font-normal">Kein Text</span>}
+        </p>
+
+        {/* Metriken */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {likes > 0 || views > 0 || comments > 0 ? (
+            <>
+              <span className="inline-flex items-center gap-1 text-xs">
+                <Heart className="w-3 h-3 text-rose-500" />
+                <span className="font-semibold tabular-nums">{fmt(likes)}</span>
+              </span>
+              <span className="inline-flex items-center gap-1 text-xs">
+                <MessageCircle className="w-3 h-3 text-blue-500" />
+                <span className="font-semibold tabular-nums">{fmt(comments)}</span>
+              </span>
+              <span className="inline-flex items-center gap-1 text-xs">
+                <Eye className="w-3 h-3 text-emerald-600" />
+                <span className="font-semibold tabular-nums">{fmt(views)}</span>
+              </span>
+              {reach > 0 && (
+                <span className="inline-flex items-center gap-1 text-xs">
+                  <Users className="w-3 h-3 text-purple-500" />
+                  <span className="font-semibold tabular-nums">{fmt(reach)}</span>
+                </span>
+              )}
+              {shares > 0 && (
+                <span className="inline-flex items-center gap-1 text-xs">
+                  <Share2 className="w-3 h-3 text-cyan-600" />
+                  <span className="font-semibold tabular-nums">{fmt(shares)}</span>
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="text-xs text-muted-foreground">Noch keine Daten</span>
+          )}
+          {engagement > 0 && (
+            <span className="ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+              Ø {engagement}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  if (post.postUrl) {
+    return (
+      <a
+        href={post.postUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block p-3 rounded-2xl bg-card border transition-all hover:shadow-md hover:border-border/70 hover:-translate-y-px active:scale-[0.99]"
+        title="Post auf der Plattform ansehen"
+      >
+        {inner}
+      </a>
+    );
+  }
+
+  return (
+    <div className="block p-3 rounded-2xl bg-card border">
+      {inner}
+    </div>
+  );
+}
+
 function InsightsCard({ insights }: { insights: Insights }) {
   const topPillar = insights.pillars.find((p) => p.posts > 0);
   const learning = insights.learnedWeights != null;
+
   return (
-    <Card className="p-4 space-y-3">
+    <div className="rounded-2xl bg-card border p-4 space-y-3">
       <div className="flex items-center gap-2">
         <Brain className="w-4 h-4" style={{ color: "var(--brand-primary)" }} />
         <h2 className="font-semibold text-sm">Lern-Schleife</h2>
         <span
           className={cn(
-            "ml-auto text-[10px] font-medium px-2 py-0.5 rounded-full",
-            learning ? "bg-emerald-100 text-emerald-800" : "bg-zinc-100 text-zinc-600",
+            "ml-auto text-[10px] font-semibold px-2.5 py-0.5 rounded-full",
+            learning
+              ? "bg-emerald-100 text-emerald-800"
+              : "bg-zinc-100 text-zinc-500",
           )}
         >
           {learning ? "Auto-Optimierung aktiv" : "lernt noch"}
@@ -222,80 +262,57 @@ function InsightsCard({ insights }: { insights: Insights }) {
       </div>
 
       {insights.sampleSize === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          Sobald deine Posts Likes &amp; Kommentare sammeln, lernt die Maschine hier,
-          welche Säule und Uhrzeit am besten ziehen — und generiert automatisch mehr
-          davon.
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          Sobald deine Posts Likes &amp; Kommentare sammeln, lernt die KI hier,
+          welche Inhalte und Uhrzeiten am besten ziehen.
         </p>
       ) : (
         <>
           <div className="grid grid-cols-3 gap-2">
+            <MiniStat label="Beste Säule" value={topPillar ? topPillar.label.split(" ")[0] : "—"} icon={Trophy} />
+            <MiniStat label="Beste Zeit" value={insights.bestHour ? `${insights.bestHour.hour}:00` : "—"} icon={Clock} />
             <MiniStat
-              label="Beste Säule"
-              value={topPillar ? topPillar.label.split(" ")[0] : "—"}
-              icon={Trophy}
-            />
-            <MiniStat
-              label="Beste Zeit"
-              value={insights.bestHour ? `${insights.bestHour.hour}:00` : "—"}
-              icon={Clock}
-            />
-            <MiniStat
-              label="Beste Plattform"
-              value={
-                insights.bestPlatform
-                  ? PLATFORM_NAME[insights.bestPlatform.platform] ?? insights.bestPlatform.platform
-                  : "—"
-              }
+              label="Plattform"
+              value={insights.bestPlatform ? PLATFORM_NAME[insights.bestPlatform.platform] ?? insights.bestPlatform.platform : "—"}
               icon={TrendingUp}
             />
           </div>
 
-          {/* Engagement pro Säule */}
-          <div className="space-y-1.5 pt-1">
+          <div className="space-y-2 pt-1">
             {insights.pillars.map((p) => {
               const max = Math.max(1, ...insights.pillars.map((x) => x.avgEngagement));
               const pct = Math.round((p.avgEngagement / max) * 100);
               return (
                 <div key={p.key} className="flex items-center gap-2">
-                  <div className="w-32 text-xs text-muted-foreground truncate">{p.label}</div>
-                  <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                  <div className="w-28 text-xs text-muted-foreground truncate">{p.label}</div>
+                  <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                     <div
-                      className="h-full rounded-full"
+                      className="h-full rounded-full transition-all"
                       style={{ width: `${pct}%`, background: "var(--brand-primary)" }}
                     />
                   </div>
-                  <div className="w-16 text-right text-xs tabular-nums">
-                    {p.avgEngagement} <span className="text-muted-foreground">Ø</span>
+                  <div className="w-12 text-right text-xs tabular-nums font-medium">
+                    {p.avgEngagement}
                   </div>
                 </div>
               );
             })}
           </div>
           <p className="text-[11px] text-muted-foreground">
-            Ø = durchschnittliches Engagement (Likes + 2×Kommentare + 2×Shares) je Post ·
-            Basis: {insights.sampleSize} veröffentlichte Plattform-Posts
+            Basis: {insights.sampleSize} Posts · Ø = Likes + 2×Kommentare + 2×Shares
           </p>
         </>
       )}
-    </Card>
+    </div>
   );
 }
 
-function MiniStat({
-  label,
-  value,
-  icon: Icon,
-}: {
-  label: string;
-  value: string;
-  icon: typeof Heart;
-}) {
+function MiniStat({ label, value, icon: Icon }: { label: string; value: string; icon: typeof Heart }) {
   return (
-    <div className="rounded-lg border bg-muted/30 p-2.5 text-center">
-      <Icon className="w-4 h-4 mx-auto mb-1 text-muted-foreground" />
-      <div className="text-sm font-semibold truncate">{value}</div>
-      <div className="text-[10px] text-muted-foreground">{label}</div>
+    <div className="rounded-xl border bg-muted/30 p-2.5 text-center">
+      <Icon className="w-3.5 h-3.5 mx-auto mb-1 text-muted-foreground" />
+      <div className="text-sm font-bold truncate">{value}</div>
+      <div className="text-[10px] text-muted-foreground mt-0.5">{label}</div>
     </div>
   );
 }
@@ -308,7 +325,6 @@ export default function AnalyticsDashboard({ posts, insights }: Props) {
     [posts, activeTab],
   );
 
-  // Summen über die aktuelle Auswahl.
   const totals = useMemo(() => {
     return filteredPosts.reduce(
       (acc, p) => {
@@ -333,91 +349,96 @@ export default function AnalyticsDashboard({ posts, insights }: Props) {
   );
 
   return (
-    <div className="flex-1 p-3 md:p-5 bg-background space-y-4">
-      {/* Header */}
-      <Card className="p-3 md:p-4 flex items-center gap-3">
-        <div
-          className="w-10 h-10 rounded-lg flex items-center justify-center text-white shrink-0"
-          style={{ background: "var(--brand-primary)" }}
-        >
-          <TrendingUp className="w-5 h-5" />
+    <div className="flex-1 bg-background pb-24 md:pb-6">
+      {/* Hero-Header */}
+      <div
+        className="px-4 pt-5 pb-6 md:px-6"
+        style={{
+          background: "linear-gradient(135deg, var(--brand-primary) 0%, #1a4a2a 100%)",
+        }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <div className="flex items-center gap-2 mb-0.5">
+              <Sparkles className="w-4 h-4 text-white/70" />
+              <span className="text-white/70 text-xs font-medium uppercase tracking-wider">Analytics</span>
+            </div>
+            <h1 className="text-white text-xl font-bold">Performance</h1>
+          </div>
+          <div className="text-right">
+            <div className="text-white/60 text-[11px]">Veröffentlicht</div>
+            <div className="text-white text-2xl font-bold">{posts.length}</div>
+          </div>
         </div>
-        <div>
-          <h1 className="font-semibold text-base">Social Media Analytics</h1>
-          <p className="text-sm text-muted-foreground">
-            {posts.length} veröffentlichte Posts
-            {activeTab !== "all" &&
-              ` · gefiltert: ${PLATFORMS.find((p) => p.key === activeTab)?.label}`}
-          </p>
-        </div>
-      </Card>
 
-      {/* KPI-Karten — Gesamt-Engagement */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3">
-        <KpiCard icon={Heart} value={totals.likes} label="Likes" color="#E1306C" />
-        <KpiCard icon={Eye} value={totals.views} label="Views" color="#16a34a" />
-        <KpiCard icon={MessageCircle} value={totals.comments} label="Kommentare" color="#1877F2" />
-        <KpiCard icon={Users} value={totals.reach} label="Reichweite" color="#9333ea" />
+        {/* KPI-Grid im Header */}
+        <div className="grid grid-cols-2 gap-2">
+          <KpiCard icon={Heart} value={totals.likes} label="Likes" color="#ff6b8a" bgColor="rgba(255,255,255,0.12)" />
+          <KpiCard icon={Eye} value={totals.views} label="Views" color="#6ee7b7" bgColor="rgba(255,255,255,0.12)" />
+          <KpiCard icon={MessageCircle} value={totals.comments} label="Kommentare" color="#93c5fd" bgColor="rgba(255,255,255,0.12)" />
+          <KpiCard icon={Users} value={totals.reach} label="Reichweite" color="#c4b5fd" bgColor="rgba(255,255,255,0.12)" />
+        </div>
       </div>
 
-      {/* Lern-Schleife */}
-      <InsightsCard insights={insights} />
+      <div className="px-3 md:px-5 space-y-4 mt-4">
+        {/* Lern-Schleife */}
+        <InsightsCard insights={insights} />
 
-      {/* Plattform-Filter */}
-      <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none">
-        {platformsWithPosts.map((p) => {
-          const isActive = activeTab === p.key;
-          const color = p.key === "all" ? "var(--brand-primary)" : PLATFORM_COLOR[p.key] ?? "#666";
-          const count = p.key === "all" ? posts.length : countByPlatform[p.key] ?? 0;
-          return (
-            <button
-              key={p.key}
-              onClick={() => setActiveTab(p.key)}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors shrink-0",
-                isActive
-                  ? "text-white"
-                  : "text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/80",
-              )}
-              style={isActive ? { background: color } : {}}
-            >
-              {p.label}
-              <span
+        {/* Plattform-Filter */}
+        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          {platformsWithPosts.map((p) => {
+            const isActive = activeTab === p.key;
+            const color = p.key === "all" ? "var(--brand-primary)" : PLATFORM_COLOR[p.key] ?? "#666";
+            const count = p.key === "all" ? posts.length : countByPlatform[p.key] ?? 0;
+            return (
+              <button
+                key={p.key}
+                onClick={() => setActiveTab(p.key)}
                 className={cn(
-                  "text-[11px] px-1.5 py-0.5 rounded-full",
-                  isActive ? "bg-white/20" : "bg-muted-foreground/20",
+                  "flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all shrink-0",
+                  isActive
+                    ? "text-white shadow-sm scale-[1.02]"
+                    : "text-muted-foreground bg-muted hover:bg-muted/70 hover:text-foreground",
                 )}
+                style={isActive ? { background: color } : {}}
               >
-                {count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+                {p.label}
+                <span
+                  className={cn(
+                    "text-[10px] px-1.5 py-0.5 rounded-full font-medium",
+                    isActive ? "bg-white/25" : "bg-background text-muted-foreground",
+                  )}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
 
-      {/* Post-Liste */}
-      <div className="space-y-2">
-        {filteredPosts.length === 0 ? (
-          <Card className="p-8 text-center">
-            <BarChart3 className="w-10 h-10 mx-auto mb-3 text-muted-foreground/20" />
-            <p className="text-sm font-medium text-muted-foreground">
-              {activeTab === "all"
-                ? "Noch keine Posts veröffentlicht"
-                : `Noch keine ${PLATFORMS.find((p) => p.key === activeTab)?.label}-Posts`}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Freigegebene Posts erscheinen hier nach der Veröffentlichung.
-            </p>
-          </Card>
-        ) : (
-          filteredPosts.map((post) => <PostCard key={post.id} post={post} />)
-        )}
-      </div>
+        {/* Post-Liste */}
+        <div className="space-y-2">
+          {filteredPosts.length === 0 ? (
+            <div className="rounded-2xl border bg-card p-10 text-center">
+              <BarChart3 className="w-10 h-10 mx-auto mb-3 text-muted-foreground/20" />
+              <p className="text-sm font-medium text-muted-foreground">
+                {activeTab === "all"
+                  ? "Noch keine Posts veröffentlicht"
+                  : `Noch keine ${PLATFORMS.find((p) => p.key === activeTab)?.label}-Posts`}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Freigegebene Posts erscheinen hier nach der Veröffentlichung.
+              </p>
+            </div>
+          ) : (
+            filteredPosts.map((post, i) => <PostCard key={post.id} post={post} rank={i + 1} />)
+          )}
+        </div>
 
-      <p className="text-[11px] text-center text-muted-foreground pb-2 px-4">
-        Engagement-Daten kommen von Blotato und werden nach der Veröffentlichung in
-        Schnappschüssen aktualisiert — direkt nach dem Posten können Likes/Views noch 0 sein.
-      </p>
+        <p className="text-[11px] text-center text-muted-foreground pb-2 px-4">
+          Daten von Blotato — direkt nach dem Posten können Likes/Views noch 0 sein.
+        </p>
+      </div>
     </div>
   );
 }

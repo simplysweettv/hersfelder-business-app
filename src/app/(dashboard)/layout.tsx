@@ -15,16 +15,28 @@ export default async function DashboardLayout({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { count: pendingApprovals } = await supabase
-    .from("posts")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending");
+  const [{ count: pendingApprovals }, { count: unansweredComments }] =
+    await Promise.all([
+      supabase
+        .from("posts")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending"),
+      supabase
+        .from("comments")
+        .select("id", { count: "exact", head: true })
+        .eq("replied", false)
+        .eq("hidden", false),
+    ]);
 
   return (
     <div className="min-h-screen flex bg-muted/30">
       {/* Sidebar — nur auf Desktop sichtbar */}
       <div className="hidden md:flex">
-        <Sidebar user={user} pendingApprovals={pendingApprovals ?? 0} />
+        <Sidebar
+          user={user}
+          pendingApprovals={pendingApprovals ?? 0}
+          unansweredComments={unansweredComments ?? 0}
+        />
       </div>
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar hasNotifications={(pendingApprovals ?? 0) > 0} />
@@ -34,7 +46,10 @@ export default async function DashboardLayout({
         </div>
       </div>
       {/* Mobile Bottom Navigation */}
-      <MobileNav pendingApprovals={pendingApprovals ?? 0} />
+      <MobileNav
+        pendingApprovals={pendingApprovals ?? 0}
+        unansweredComments={unansweredComments ?? 0}
+      />
     </div>
   );
 }

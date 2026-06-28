@@ -156,6 +156,13 @@ export async function GET(req: NextRequest) {
     .flatMap((b) => [b.theme, b.message])
     .filter((x): x is string => Boolean(x));
 
+  // 5er-Zyklus: jeder fünfte Post = Service/CTA-Säule.
+  // Wir zählen alle bisherigen Posts (egal welcher Status).
+  const { count: totalPostCount } = await supabase
+    .from("posts")
+    .select("id", { count: "exact", head: true });
+  const baseIndex = totalPostCount ?? 0;
+
   // Lern-Schleife: gelernte Säulen-Gewichte (oder Basis, wenn zu wenig Daten).
   const insights = await computeInsights(supabase);
   const weights = insights.learnedWeights ?? {};
@@ -167,7 +174,12 @@ export async function GET(req: NextRequest) {
     try {
       const week = isoWeek(slot.when);
       const year = isoWeekYear(slot.when);
-      const pillar = pickPillarWeighted(weights);
+      const month = slot.when.getUTCMonth() + 1; // 1-12 (Berlin-Näherung via UTC — max. 1h Abweichung)
+
+      // Jeder 5. Post bekommt die Service-Säule (CTA), unabhängig von den Lern-Gewichten.
+      const postIndex = baseIndex + created.length;
+      const isCTASlot = postIndex % 5 === 4;
+      const pillar = isCTASlot ? "service" : pickPillarWeighted(weights);
       const { styleType, themeCategory } = pillarPick(pillar);
       const pillarLabel = CONTENT_PILLARS.find((p) => p.key === pillar)?.label;
 
@@ -178,6 +190,7 @@ export async function GET(req: NextRequest) {
           styleType,
           weekNumber: week,
           year,
+          month,
           pillar,
           avoid,
         });
