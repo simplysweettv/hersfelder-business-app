@@ -14,6 +14,7 @@ import {
   Calendar,
   CheckSquare,
   Sparkles,
+  MessageCircle,
 } from "lucide-react";
 
 type NavItem = {
@@ -32,6 +33,7 @@ const TOP_ITEMS: NavItem[] = [
     icon: Megaphone,
     children: [
       { label: "Freigaben", href: "/social/freigaben", icon: CheckSquare },
+      { label: "Kommentare", href: "/social/kommentare", icon: MessageCircle },
       { label: "Kalender", href: "/social/kalender", icon: Calendar },
       { label: "Analytics", href: "/social/analytics", icon: BarChart3 },
       { label: "Generator", href: "/social/generator", icon: Sparkles },
@@ -44,29 +46,30 @@ const TOP_ITEMS: NavItem[] = [
 export function Sidebar({
   user,
   pendingApprovals = 0,
+  unansweredComments = 0,
 }: {
   user?: { email?: string | null };
   pendingApprovals?: number;
+  unansweredComments?: number;
 }) {
   const pathname = usePathname();
 
   return (
-    <aside
-      className="w-[220px] shrink-0 flex flex-col text-white"
-      style={{ background: "var(--brand-sidebar)" }}
-    >
-      <div className="px-4 pt-4 pb-4 border-b border-white/10">
-        <div className="bg-white rounded-xl px-3 py-2.5 inline-flex items-center gap-2.5">
-          <Image
-            src="/logo-hersfelder.png"
-            alt="Hersfelder"
-            width={140}
-            height={184}
-            className="h-9 w-auto"
-          />
+    <aside className="w-[220px] shrink-0 flex flex-col text-white bg-[#0f172a]">
+      <div className="px-5 pt-5 pb-4 border-b border-white/8">
+        <div className="flex items-center gap-3">
+          <div className="bg-white rounded-lg p-1.5 flex items-center justify-center shrink-0">
+            <Image
+              src="/logo-hersfelder.png"
+              alt="Hersfelder Schützenbekleidung"
+              width={140}
+              height={184}
+              className="h-7 w-auto"
+            />
+          </div>
           <div className="leading-tight">
-            <div className="text-[11px] font-bold text-[#0f3d1a] tracking-wide">Business</div>
-            <div className="text-[11px] font-bold text-[#0f3d1a] tracking-wide">Suite</div>
+            <div className="text-[13px] font-medium text-white tracking-[-0.01em]">Hersfelder</div>
+            <div className="text-[10px] text-white/40 tracking-[0.06em] uppercase">Business Suite</div>
           </div>
         </div>
       </div>
@@ -76,7 +79,9 @@ export function Sidebar({
           const active =
             !item.disabled &&
             (pathname === item.href || pathname.startsWith(item.href + "/"));
-          const showDot = item.label === "Social Media" && pendingApprovals > 0;
+          const showDot =
+            item.label === "Social Media" &&
+            (pendingApprovals > 0 || unansweredComments > 0);
 
           return (
             <div key={item.label}>
@@ -113,6 +118,12 @@ export function Sidebar({
                 <div className="mt-1 ml-3 pl-3 border-l border-white/15 space-y-0.5">
                   {item.children.map((sub) => {
                     const subActive = pathname === sub.href;
+                    const subDot =
+                      sub.href === "/social/freigaben" && pendingApprovals > 0
+                        ? pendingApprovals
+                        : sub.href === "/social/kommentare" && unansweredComments > 0
+                        ? unansweredComments
+                        : 0;
                     return (
                       <Link
                         key={sub.href}
@@ -125,7 +136,12 @@ export function Sidebar({
                         )}
                       >
                         <sub.icon className="w-3.5 h-3.5" />
-                        {sub.label}
+                        <span className="flex-1">{sub.label}</span>
+                        {subDot > 0 && (
+                          <span className="text-[10px] font-bold bg-yellow-400 text-yellow-900 px-1.5 py-0.5 rounded-full leading-none">
+                            {subDot}
+                          </span>
+                        )}
                       </Link>
                     );
                   })}
@@ -136,7 +152,7 @@ export function Sidebar({
         })}
       </nav>
 
-      <div className="px-2 py-3 border-t border-white/10 space-y-0.5">
+      <div className="px-2 py-3 border-t border-white/8 space-y-0.5">
         <Link
           href="/einstellungen"
           className={cn(
@@ -153,7 +169,7 @@ export function Sidebar({
           <div className="flex items-center gap-3 px-3 py-2 mt-1">
             <div
               className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold"
-              style={{ background: "var(--brand-primary)" }}
+              style={{ background: "#1e3a5f" }}
             >
               {(user?.email?.[0] ?? "A").toUpperCase()}
             </div>

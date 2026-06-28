@@ -61,7 +61,7 @@ export function Topbar({ hasNotifications = false }: { hasNotifications?: boolea
         </button>
         <div
           className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-semibold"
-          style={{ background: "var(--brand-primary)" }}
+          style={{ background: "#0f172a" }}
         >
           A
         </div>

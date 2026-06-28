@@ -3,17 +3,23 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, CheckSquare, Sparkles, Calendar, BarChart3 } from "lucide-react";
+import { LayoutDashboard, CheckSquare, Calendar, BarChart3, MessageCircle } from "lucide-react";
 
 const NAV_ITEMS = [
   { label: "Leitstand", href: "/dashboard", icon: LayoutDashboard },
   { label: "Freigaben", href: "/social/freigaben", icon: CheckSquare },
+  { label: "Kommentare", href: "/social/kommentare", icon: MessageCircle },
   { label: "Kalender", href: "/social/kalender", icon: Calendar },
   { label: "Analytics", href: "/social/analytics", icon: BarChart3 },
-  { label: "Generator", href: "/social/generator", icon: Sparkles },
 ];
 
-export function MobileNav({ pendingApprovals = 0 }: { pendingApprovals?: number }) {
+export function MobileNav({
+  pendingApprovals = 0,
+  unansweredComments = 0,
+}: {
+  pendingApprovals?: number;
+  unansweredComments?: number;
+}) {
   const pathname = usePathname();
 
   return (
@@ -23,7 +29,9 @@ export function MobileNav({ pendingApprovals = 0 }: { pendingApprovals?: number 
     >
       {NAV_ITEMS.map((item) => {
         const active = pathname === item.href || pathname.startsWith(item.href + "/");
-        const hasBadge = item.href === "/social/freigaben" && pendingApprovals > 0;
+        const hasBadge =
+          (item.href === "/social/freigaben" && pendingApprovals > 0) ||
+          (item.href === "/social/kommentare" && unansweredComments > 0);
 
         return (
           <Link
@@ -44,7 +52,7 @@ export function MobileNav({ pendingApprovals = 0 }: { pendingApprovals?: number 
             {active && (
               <span
                 className="absolute top-0 left-1/2 -translate-x-1/2 h-0.5 w-8 rounded-full"
-                style={{ background: "var(--brand-primary)" }}
+                style={{ background: "#0f172a" }}
               />
             )}
           </Link>
