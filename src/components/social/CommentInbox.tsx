@@ -66,7 +66,7 @@ export function CommentInbox({
     });
   }
 
-  async function sendReply(commentId: string, platform: string) {
+  async function sendReply(commentId: string, _platform: string) {
     const text = replyText[commentId]?.trim();
     if (!text) return;
     setSending(commentId);

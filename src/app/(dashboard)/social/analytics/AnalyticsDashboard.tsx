@@ -5,7 +5,6 @@ import Image from "next/image";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import {
-  ExternalLink,
   Clock,
   BarChart3,
   TrendingUp,
