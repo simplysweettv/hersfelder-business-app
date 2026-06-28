@@ -2,6 +2,6 @@
   "crons": [
     { "path": "/api/cron/publish", "schedule": "0 9 * * *" },
     { "path": "/api/cron/generate-week", "schedule": "0 5 * * *" },
-    { "path": "/api/cron/fetch-comments", "schedule": "0 */2 * * *" }
+    { "path": "/api/cron/fetch-comments", "schedule": "0 7 * * *" }
   ]
 }
