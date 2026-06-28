@@ -201,6 +201,7 @@ export async function GET(req: NextRequest) {
           message: brief.message,
           styleType,
           visualDetails: brief.visualDetails,
+          pillar,
         });
         const captionPrompt = buildCaptionPrompt({
           theme: brief.theme,

@@ -180,6 +180,41 @@ function getSeasonalContext(month: number): string {
   return "Herbst/Saisonausklang: Letztes Fest der Saison, Ehrungen, Jahresabschlussfeier, Rückblick auf ein tolles Vereinsjahr — Gemütlichkeit und Dankbarkeit";
 }
 
+/**
+ * Säulen-spezifisches Bildmotiv: macht die Content-Säule im BILD sichtbar.
+ * craft = Detail/Makro · proof = stolze Gruppe in neuen Uniformen ·
+ * service = Anprobe/Beratung. community/null → bestehende Feier-Szenen.
+ */
+function pillarImageDirective(
+  pillar?: PillarKey,
+): { scene: string; prose: string } | null {
+  switch (pillar) {
+    case "craft":
+      return {
+        scene:
+          "Makro-/Detailaufnahme einer dunkelgrünen Schützenuniform: feiner Wollstoff, präzise Doppelnaht, glänzende Hornknöpfe, sauber bestickter Kragen; ruhige Schneiderhände glätten ein Revers",
+        prose:
+          "Erstelle eine hochwertige Detail-/Makroaufnahme in Produktfoto-Qualität — Fokus auf Material, saubere Verarbeitung und Langlebigkeit der Uniform. Werkstatt/Atelier, warmes gerichtetes Licht, geringe Schärfentiefe. KEINE Menschenmenge, KEIN Festzelt — ruhig, edel, handwerklich.",
+      };
+    case "proof":
+      return {
+        scene:
+          "Stolze Gruppe von 4-6 Vereinsmitgliedern in brandneuen, gestochen scharfen, exakt einheitlichen dunkelgrünen Uniformen, selbstbewusst vor dem Vereinsheim aufgereiht, zufriedene Blicke",
+        prose:
+          "Erstelle ein stolzes Gruppenporträt — der Verein wurde gerade komplett neu eingekleidet und präsentiert sich. Saubere, einheitliche Uniformen, würdevoll aber warm, Tageslicht. Wirkung: 'schaut, wie gut unsere Truppe jetzt aussieht'.",
+      };
+    case "service":
+      return {
+        scene:
+          "Freundliche Anprobe/Beratung: ein Vereinsmitglied wird in einer dunkelgrünen Uniform angepasst, ein Berater hilft mit Maßband — warmherzig, vertrauensvoll, hell",
+        prose:
+          "Erstelle ein einladendes Foto rund um Beratung & Ausstattung — eine Anprobe oder ein freundliches Beratungsgespräch zur Vereinsuniform. Hell, freundlich, vertrauenswürdig, Partner auf Augenhöhe.",
+      };
+    default:
+      return null;
+  }
+}
+
 export function buildImagePrompt(input: {
   brandStyle?: string | null;
   theme: string;
@@ -187,9 +222,12 @@ export function buildImagePrompt(input: {
   message: string;
   styleType?: "photo" | "typography" | "product" | "hook";
   visualDetails?: string;
+  pillar?: PillarKey;
 }): string {
   const style = input.styleType ?? "photo";
   const brand = input.brandStyle?.trim() || BRAND_DESCRIPTION;
+  const pd = pillarImageDirective(input.pillar);
+  const randomScene = () => PHOTO_SCENES[Math.floor(Math.random() * PHOTO_SCENES.length)];
 
   const baseContext = `${brand}
 
@@ -199,51 +237,49 @@ Thema: ${input.theme}
 Kernbotschaft: "${input.message}"`;
 
   if (style === "typography") {
-    return `${baseContext}
-
-Erstelle eine fröhliche, einladende Vereins-Grafik — wie eine Einladung zum Schützenfest, warmherzig und festlich.
-Design:
-- Hintergrund: Tiefes Dunkelgrün (#1a5c2a) — satt, kein Gradient
-- Haupttext: 3-5 Wörter aus der Kernbotschaft — WEISSE Großbuchstaben, extra-bold, serifenlos, zentriert
-- WICHTIG ZUM TEXTINHALT: Der Text muss klingen wie eine FEIER-EINLADUNG — warmherzig, fröhlich, einladend.
+    const isService = input.pillar === "service";
+    const textGuidance = isService
+      ? `- WICHTIG ZUM TEXTINHALT: Der Text ist eine warme EINLADUNG an Schützenvereine zur Neu-Ausstattung — partnerschaftlich, nicht marktschreierisch.
+  GUTE Beispiele: "ZEIT FÜR NEUE UNIFORMEN", "RÜSTET EUREN VEREIN AUS", "EURE VEREINSAUSSTATTUNG 2026", "WIR KLEIDEN EUREN VEREIN EIN"
+  SCHLECHTE Beispiele: Preis-/Rabatt-Schreierei, "JETZT KAUFEN", politische Parolen`
+      : `- WICHTIG ZUM TEXTINHALT: Der Text muss klingen wie eine FEIER-EINLADUNG — warmherzig, fröhlich, einladend.
   NICHT wie eine politische Parole oder ein nationalistischer Slogan.
   GUTE Beispiele: "HEUT WIRD GEFEIERT", "WIR FEIERN ZUSAMMEN", "HERZLICH WILLKOMMEN", "SCHÜTZENFEST SAISON 2026"
-  SCHLECHTE Beispiele: "IN EINHEIT STARK", "TRADITION VERBINDET UNS", "FÜR HEIMAT UND VEREIN"
+  SCHLECHTE Beispiele: "IN EINHEIT STARK", "TRADITION VERBINDET UNS", "FÜR HEIMAT UND VEREIN"`;
+    return `${baseContext}
+
+Erstelle eine ${isService ? "einladende, vertrauensvolle" : "fröhliche, festliche"} Vereins-Grafik — warmherzig.
+Design:
+- Hintergrund: Tiefes Dunkelgrün (#1a5c2a) — satt, kein Gradient
+- Haupttext: 3-5 Wörter — WEISSE Großbuchstaben, extra-bold, serifenlos, zentriert
+${textGuidance}
 - Optional: ein kurzes Akzent-Wort in Rot (#c0392b), kleiner, darunter
 - KEIN Markenname, KEIN Logo, KEIN Wappen, KEIN Adler, KEIN Schild im Bild — reines Text-Design
-- Kein Foto, keine Menschen — reines festliches Grafik-Design
+- Kein Foto, keine Menschen — reines Grafik-Design
 Format: quadratisch.`;
   }
 
   if (style === "hook") {
-    const scene = PHOTO_SCENES[Math.floor(Math.random() * PHOTO_SCENES.length)];
+    const scene = pd?.scene || input.visualDetails || randomScene();
+    const fotoProse = pd
+      ? pd.prose
+      : "Echte, lebendige Menschen in dunkelgrünen Schützen-Uniformen beim Feiern — Dokumentarfotografie, warm und spontan.";
     return `${baseContext}
-Szene: ${input.visualDetails || scene}
+Szene: ${scene}
 
-Erstelle ein Instagram-Hook-Post: authentisches Schützenfest-Foto mit GROSSEM emotionalen Text im Bild.
+Erstelle einen Instagram-Hook-Post: ${pd ? "themenstarkes Foto" : "authentisches Schützenfest-Foto"} mit GROSSEM Text im Bild.
 
 Foto-Hintergrund:
-- Echte, lebendige Menschen in dunkelgrünen Schützen-Uniformen beim Feiern
+- ${fotoProse}
 - Szene: ${scene}
-- Stil: Dokumentarfotografie / Reportage — warm, lebendig, spontan, kein Studio
-- Stimmung: Ausgelassene Freude, Bruderschaft, echter Lebensmoment beim Schützenfest
 
-Text-Overlay (direkt im Bild, Teil des Designs — das ist das Wichtigste!):
-- MAXIMAL 4-7 WÖRTER — kurz, knackig, emotional
+Text-Overlay (direkt im Bild, Teil des Designs — das Wichtigste!):
+- MAXIMAL 4-7 WÖRTER — kurz, knackig
 - Inspiration aus der Kernbotschaft: "${input.message}"
-- Ton: warmherzig, feierlich, gemeinschaftlich — KEIN nationalistischer Klang
-- GUTE Text-Beispiele im richtigen Stil:
-  · "BRUDERSCHAFT IST DAS, WAS UNS VEREINT"
-  · "HEUT WIRD GEFEIERT — WIE JEDEN JAHR"
-  · "ZUSAMMEN SEIT GENERATIONEN"
-  · "UNSER FEST, UNSERE FAMILIE"
-  · "DAS BESTE GEFÜHL DER WELT"
-  · "SCHÜTZENFEST — WIR LIEBEN ES"
-  · "FREUNDE FÜR'S LEBEN"
+- Ton: warmherzig — KEIN nationalistischer Klang
 - Schrift: WEISS oder WARMGELB, extra-bold, serifenlos, kraftvoll
 - SEHR GROSS — Text nimmt 35-50% der Bildfläche ein
 - Halbtransparenter dunkler Balken/Schatten hinter dem Text für maximale Lesbarkeit
-- Text oben ODER unten — Gesichter der Menschen bleiben immer sichtbar
 
 ABSOLUT VERBOTEN im Bild:
 - Kein Markenname "Hersfelder", kein Logo, kein Wappen, kein Adler, kein Schild
@@ -252,31 +288,18 @@ ABSOLUT VERBOTEN im Bild:
 Format: Hochformat (Portrait).`;
   }
 
-  if (style === "product") {
-    const scene = PHOTO_SCENES[Math.floor(Math.random() * PHOTO_SCENES.length)];
-    return `${baseContext}
-Szene: ${input.product}
-${input.visualDetails ? `Details: ${input.visualDetails}` : `Szene: ${scene}`}
-
-Erstelle ein authentisches Vereins-Lifestyle-Foto — KEIN Produktkatalog-Stil.
-2-3 Vereinsmitglieder in dunkelgrünen Hersfelder Schützen-Uniformen bei einem echten Vereinsmoment.
-Die Kleidung ist sichtbar und hochwertig, aber die Menschen und der Moment stehen im Vordergrund.
-Stimmung: Warm, echt, dokumentarisch — wie ein guter Freund der fotografiert.
-Licht: Natürliches Tageslicht oder goldene Stunde, kein Studio.
-Keine Waffen, keine politischen Symbole.`;
-  }
-
-  // Default: lifestyle photo (Vereinsleben)
-  const scene = PHOTO_SCENES[Math.floor(Math.random() * PHOTO_SCENES.length)];
-  return `${baseContext}
-Szene: ${input.visualDetails || scene}
-
-Erstelle ein hochwertiges Reportage-Foto vom Vereinsleben — wie ein Fotojournalist beim Schützenfest.
+  // photo / product / default
+  const scene = pd?.scene || input.visualDetails || randomScene();
+  const prose = pd
+    ? pd.prose
+    : `Erstelle ein hochwertiges Reportage-Foto vom Vereinsleben — wie ein Fotojournalist beim Schützenfest.
 Menschen: 3-6 Personen in dunkelgrünen Schützen-Uniformen, verschiedene Altersgruppen, echter Moment.
-Moment: ${scene}
-Stil: Warmherzig, lebendig, spontan — wie Dokumentarfotografie, KEIN gestelltes Werbe-Shooting.
-Licht: Goldenes Abendlicht, Festzelt-Atmosphäre oder Tageslicht im Freien.
-Stimmung: Freude, Zusammenhalt, Gemeinschaft — echte Emotionen.
+Stil: Warmherzig, lebendig, spontan — KEIN gestelltes Werbe-Shooting. Licht: goldenes Abendlicht oder Tageslicht.
+Stimmung: Freude, Zusammenhalt, Gemeinschaft.`;
+  return `${baseContext}
+Szene: ${scene}
+
+${prose}
 Kein Markenname, kein Logo, kein Wappen im Bild. Keine Waffen. Kein Alkohol prominent im Vordergrund.`;
 }
 
@@ -308,15 +331,25 @@ export function buildCaptionPrompt(input: {
   const hasTikTok = platforms.includes("tiktok");
   const hasLinkedIn = platforms.includes("linkedin");
 
-  // Service-Säule darf zur Ausstattung einladen; alle anderen bleiben werbefrei.
-  const strategyRules =
-    cta === "hard"
-      ? `- Du DARFST hier dezent zur Vereins-Ausstattung/Beratung einladen — als hilfsbereiter Partner, nicht als Verkäufer
+  // Inhaltlicher Fokus je Säule — DAMIT die Säule im Text wirklich sichtbar wird
+  // (sonst klingt jeder Post nach "gemeinsam feiern").
+  const strategyByPillar: Record<PillarKey, string> = {
+    community: `- KEIN Produktmarketing oder Werbung für Kleidung
+- THEMA: echtes Vereinsleben — Zusammenhalt, Freude, Tradition, Gemeinschaft beim Schützenfest
+- Die Hersfelder Kleidung ist im Hintergrund sichtbar — sie gehört dazu, wird aber nicht beworben`,
+    craft: `- THEMA = QUALITÄT & HANDWERK: Sprich konkret über das Material, die saubere Verarbeitung und dass die Uniform jahrelang hält. Das IST hier ausdrücklich das Thema (Ausnahme von "kein Produktmarketing").
+- Ton: stolz auf die Wertarbeit, aber bodenständig — KEIN Katalog-Sprech, keine Superlative-Schleuder.
+- Nicht über Feiern reden — sondern über Stoff, Naht, Langlebigkeit, "das hält ein Vereinsleben lang".`,
+    proof: `- THEMA = VEREINS-STORY (Social Proof): Erzähle, wie ein Schützenverein von Hersfelder neu eingekleidet wurde — wie stolz/zufrieden sie sind, wie gut die Truppe jetzt aussieht.
+- Glaubwürdig & warm, bodenständig — keine erfundenen Namen großspurig behaupten, keine Übertreibung.
+- Nicht generisch übers Feiern — sondern über das Ergebnis der Ausstattung.`,
+    service: `- Du DARFST hier dezent zur Vereins-Ausstattung/Beratung einladen — als hilfsbereiter Partner, nicht als Verkäufer
 - Kein aggressives Produktmarketing, keine Preis-/Rabatt-Schreierei
-- Schreibe warmherzig und partnerschaftlich, auf Augenhöhe mit dem Vereinsvorstand`
-      : `- KEIN Produktmarketing oder Werbung für Kleidung
-- Zeige echtes Vereinsleben: Zusammenhalt, Freude, Tradition, Gemeinschaft beim Schützenfest
-- Die Hersfelder Kleidung ist im Hintergrund sichtbar — sie gehört dazu, wird aber nicht beworben`;
+- Schreibe warmherzig und partnerschaftlich, auf Augenhöhe mit dem Vereinsvorstand`,
+  };
+  const strategyRules = input.pillar
+    ? strategyByPillar[input.pillar]
+    : strategyByPillar.community;
 
   const systemContext = `Thema: ${input.theme}
 Kontext: ${input.product}
