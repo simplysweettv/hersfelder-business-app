@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, CheckSquare, Calendar, BarChart3, MessageCircle } from "lucide-react";
+import { LayoutDashboard, CheckSquare, Calendar, BarChart3, MessageCircle, Wallet } from "lucide-react";
 
 const NAV_ITEMS = [
   { label: "Leitstand", href: "/dashboard", icon: LayoutDashboard },
@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { label: "Kommentare", href: "/social/kommentare", icon: MessageCircle },
   { label: "Kalender", href: "/social/kalender", icon: Calendar },
   { label: "Analytics", href: "/social/analytics", icon: BarChart3 },
+  { label: "Kosten", href: "/kosten", icon: Wallet },
 ];
 
 export function MobileNav({

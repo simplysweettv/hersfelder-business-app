@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { CONTENT_PILLARS, type PillarKey } from "@/types";
+import { recordAiUsage } from "./ai-cost";
 
 /**
  * Server-seitige Säulen-Steuerung: pro Säule passende Post-Stile, Themen,
@@ -509,6 +510,7 @@ Antworte NUR als JSON-Objekt:
     max_tokens: 250,
     response_format: { type: "json_object" },
   });
+  await recordAiUsage({ operation: "brief", model: "gpt-4o-mini", usage: res.usage });
 
   const raw = res.choices?.[0]?.message?.content ?? "{}";
   try {
@@ -580,6 +582,7 @@ Antworte NUR als JSON:
     max_tokens: 500,
     response_format: { type: "json_object" },
   });
+  await recordAiUsage({ operation: "carousel", model: "gpt-4o-mini", usage: res.usage });
 
   const raw = res.choices?.[0]?.message?.content ?? "{}";
   const parsed = JSON.parse(raw) as {
@@ -617,6 +620,12 @@ export async function generateImage(opts: {
   });
   const item = res.data?.[0];
   if (!item) throw new Error("Kein Bild von OpenAI erhalten.");
+  await recordAiUsage({
+    operation: "image",
+    model: "gpt-image-1",
+    usage: (res as { usage?: unknown }).usage,
+    imageCount: 1,
+  });
   return {
     b64: item.b64_json ?? null,
     url: item.url ?? null,
@@ -641,6 +650,7 @@ export async function generateCaption(opts: {
     temperature: 0.85,
     max_tokens: 600,
   });
+  await recordAiUsage({ operation: "caption", model: "gpt-4o-mini", usage: res.usage });
   return res.choices?.[0]?.message?.content?.trim() ?? "";
 }
 
@@ -708,6 +718,7 @@ Antworte NUR als JSON:
       max_tokens: 400,
       response_format: { type: "json_object" },
     });
+    await recordAiUsage({ operation: "review", model: "gpt-4o-mini", usage: res.usage });
 
     const raw = res.choices?.[0]?.message?.content ?? "{}";
     const parsed = JSON.parse(raw) as Partial<PostReview>;

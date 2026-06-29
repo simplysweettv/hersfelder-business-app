@@ -15,6 +15,7 @@ import {
   CheckSquare,
   Sparkles,
   MessageCircle,
+  Wallet,
 } from "lucide-react";
 
 type NavItem = {
@@ -39,6 +40,7 @@ const TOP_ITEMS: NavItem[] = [
       { label: "Generator", href: "/social/generator", icon: Sparkles },
     ],
   },
+  { label: "Kosten", href: "/kosten", icon: Wallet },
   { label: "Shop Manager", href: "#", icon: ShoppingBag, disabled: true },
   { label: "Newsletter", href: "#", icon: Mail, disabled: true },
 ];

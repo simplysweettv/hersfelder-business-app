@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { CheckCircle2, AlertCircle, Share2, Camera, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import CostSettingsCard from "@/components/settings/CostSettingsCard";
 
 interface MetaStatus {
   page_name: string | null;
@@ -127,6 +128,11 @@ export default function EinstellungenPage() {
           </div>
         </div>
       </Card>
+
+      {/* Kosten & Abrechnung */}
+      <div className="mb-4">
+        <CostSettingsCard />
+      </div>
 
       {/* Hinweis */}
       {!isConnected && !loading && (
