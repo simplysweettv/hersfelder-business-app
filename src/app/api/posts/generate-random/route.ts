@@ -11,6 +11,7 @@ import {
   pillarPick,
   reviewPost,
 } from "@/lib/openai";
+import { getTopicalContext } from "@/lib/topical";
 import { CONTENT_PILLARS, type PillarKey } from "@/types";
 
 export const runtime = "nodejs";
@@ -64,13 +65,18 @@ export async function POST(req: NextRequest) {
     const week = isoWeek(refDate);
     const year = isoWeekYear(refDate);
 
+    const topical = await getTopicalContext();
+
     const brief = await generateBrief({
       apiKey,
       themeCategory,
       styleType,
       weekNumber: week,
       year,
+      month: refDate.getMonth() + 1,
       pillar,
+      topical: topical.text,
+      reactiveHook: topical.reactiveHook ?? undefined,
     });
 
     const imagePrompt = buildImagePrompt({

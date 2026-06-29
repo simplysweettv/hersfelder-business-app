@@ -12,6 +12,7 @@ import {
   reviewPost,
 } from "@/lib/openai";
 import { computeInsights } from "@/lib/learning";
+import { getTopicalContext } from "@/lib/topical";
 import { CONTENT_PILLARS } from "@/types";
 import type { Platform } from "@/types";
 
@@ -167,6 +168,9 @@ export async function GET(req: NextRequest) {
   const insights = await computeInsights(supabase);
   const weights = insights.learnedWeights ?? {};
 
+  // Aktueller Kontext (Wetter/Datum) für zeitnahe, spezifische Aufhänger.
+  const topical = await getTopicalContext();
+
   const created: string[] = [];
   const errors: string[] = [];
 
@@ -193,6 +197,9 @@ export async function GET(req: NextRequest) {
           month,
           pillar,
           avoid,
+          topical: topical.text,
+          // starker Wetter-Aufhänger nur für EINEN Post pro Lauf (sonst reagieren alle gleich)
+          reactiveHook: created.length === 0 ? topical.reactiveHook ?? undefined : undefined,
         });
         const imagePrompt = buildImagePrompt({
           brandStyle: settings["brand_style_prompt"],

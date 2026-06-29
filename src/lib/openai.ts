@@ -17,7 +17,8 @@ const PILLAR_GUIDANCE: Record<
   }
 > = {
   community: {
-    styles: ["photo", "photo", "hook"],
+    // Mehr Text-im-Bild: Hook/Typografie überwiegen jetzt deutlich.
+    styles: ["hook", "hook", "photo", "typography"],
     themes: [
       "Schützenfest",
       "Vereinsleben",
@@ -30,7 +31,7 @@ const PILLAR_GUIDANCE: Record<
       "Emotionaler, echter Moment aus dem Vereinsleben — Zusammenhalt, Feiern, Stolz. KEIN Verkauf, reine Stimmung.",
   },
   craft: {
-    styles: ["photo", "hook"],
+    styles: ["hook", "hook", "photo"],
     themes: [
       "Qualität & Handwerk",
       "Detail der Uniform",
@@ -42,7 +43,7 @@ const PILLAR_GUIDANCE: Record<
       "Mach Qualität & Handwerk der Hersfelder Kleidung sichtbar — Detail, saubere Verarbeitung, Langlebigkeit. Vertrauen aufbauen, nicht marktschreierisch.",
   },
   proof: {
-    styles: ["photo", "hook"],
+    styles: ["hook", "hook", "photo"],
     themes: [
       "Verein neu eingekleidet",
       "Erfolgsgeschichte aus dem Verein",
@@ -434,6 +435,8 @@ export async function generateBrief(opts: {
   month?: number; // 1-12 — für saisonalen Kontext
   pillar?: PillarKey;
   avoid?: string[]; // kürzlich genutzte Themen/Botschaften — nicht wiederholen
+  topical?: string; // aktueller Kontext (Wetter/Datum/Anlass) für zeitnahe Aufhänger
+  reactiveHook?: string; // starker reaktiver Aufhänger (z.B. Hitze) — direkt aufgreifen
 }): Promise<{
   theme: string;
   product: string;
@@ -476,21 +479,30 @@ export async function generateBrief(opts: {
       ? `\nWICHTIG — VERMEIDE Wiederholung. Diese Themen/Botschaften wurden kürzlich genutzt, mach etwas DEUTLICH anderes:\n- ${opts.avoid.slice(0, 8).join("\n- ")}`
       : "";
 
+  const topicalLine = opts.topical ? `\n\n${opts.topical}` : "";
+  const reactiveLine = opts.reactiveHook
+    ? `\n\nREAKTIVER AUFHÄNGER (greif das JETZT konkret auf — das macht den Post besonders): ${opts.reactiveHook}`
+    : "";
+
   const prompt = `Du bist kreativer Social-Media-Stratege für Hersfelder Schützenbekleidung (schuetzen-ausstatter.de).
 Erstelle ein originelles, abwechslungsreiches Briefing für KW ${opts.weekNumber}/${opts.year}.
 
 Post-Typ: ${styleDescription}
 Themen-Kategorie: ${opts.themeCategory}
-Mögliches Produkt: ${randomProduct}${pillarLine}${seasonLine}${avoidLine}
+Mögliches Produkt: ${randomProduct}${pillarLine}${seasonLine}${avoidLine}${topicalLine}${reactiveLine}
 
 Regeln:
 - Kein Rassismus, keine Waffen, keine rechtsextremen Inhalte
-- Fokus auf: Freude, Gemeinschaft, Stolz auf den Verein, Tradition, Zusammenhalt
-- KRITISCH: Die "message" darf NIEMALS wie eine nationalistische oder rechtsextreme Parole klingen.
+- KRITISCH: Die "message" darf NIEMALS wie eine nationalistische/rechtsextreme Parole klingen.
   Verboten: "In Einheit stark", "Für Heimat und Volk", militärische Slogans, völkische Sprache.
-  Erlaubt: Feier-Einladungen, warmherzige Gemeinschaftsaussagen, Schützenfest-Begeisterung.
-- Sei kreativ und abwechslungsreich — nicht immer dasselbe
-- Deutsche Botschaften, kurz und festlich
+- ❌ ABSOLUT VERBOTEN sind generische Floskeln. Diese Sätze (und alles in der Art) NIE benutzen:
+  "Gemeinsam feiern", "Tradition verbindet", "Vereinsleben ist ein Fest", "Zusammen sind wir stark",
+  "Gemeinsam lachen, gemeinsam feiern", "Stolz auf unseren Verein". Das ist langweilige Mainstream-Soße.
+- ✅ STATTDESSEN: ein KONKRETER, spezifischer, überraschender Aufhänger — am liebsten zeitnah
+  (Wetter heute, der konkrete Wochentag/Anlass, eine kleine alltägliche Szene, ein Detail, ein Augenzwinkern).
+  Denk wie ein cleverer Social-Media-Mensch, der mit echten, aktuellen Momenten Aufmerksamkeit zieht.
+- Sei kreativ und abwechslungsreich — jeder Post fühlt sich anders an
+- Deutsche Botschaften, kurz und prägnant
 
 Antworte NUR als JSON-Objekt:
 {
