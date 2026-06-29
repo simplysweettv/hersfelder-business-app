@@ -3,8 +3,10 @@ import { createClient } from "@/lib/supabase/server";
 import { loadSettings } from "@/lib/settings";
 import {
   buildCaptionPrompt,
+  buildImagePrompt,
   generateCaption,
   generateCarouselContent,
+  generateImage,
 } from "@/lib/openai";
 import { renderSlide, type CarouselSlide } from "@/lib/carousel";
 import { CONTENT_PILLARS, type PillarKey } from "@/types";
@@ -42,11 +44,43 @@ export async function POST(req: NextRequest) {
   try {
     // 1) Inhalt von der KI
     const content = await generateCarouselContent({ apiKey, pillar });
+    const pillarLabel = CONTENT_PILLARS.find((p) => p.key === pillar)?.label ?? "Hersfelder";
 
-    // 2) Slides bauen: Cover + Punkte
+    // 1b) Cover-Foto (säulen-passend, OHNE Text — Text wird sauber overlay-gerendert)
+    let coverBg: string | undefined;
+    try {
+      const imgPrompt = buildImagePrompt({
+        brandStyle: settings["brand_style_prompt"],
+        theme: content.title,
+        product: "Karussell-Cover",
+        message: content.subtitle || content.title,
+        styleType: "photo",
+        pillar,
+      });
+      const img = await generateImage({ apiKey, prompt: imgPrompt, size: "1024x1536" });
+      if (img.b64) coverBg = `data:image/jpeg;base64,${img.b64}`;
+    } catch {
+      /* ohne Foto → Cover fällt auf Verlaufs-Design zurück */
+    }
+
+    // 2) Slides bauen: Cover (Foto + Hook) + Punkte + Outro (CTA)
+    const ctaTitle =
+      pillar === "service"
+        ? "Rüstet euren Verein aus 💚"
+        : pillar === "craft"
+          ? "Qualität, die ein Vereinsleben hält"
+          : pillar === "proof"
+            ? "Auch euren Verein neu einkleiden?"
+            : "Folgt uns für mehr";
     const slides: CarouselSlide[] = [
-      { kind: "cover", title: content.title, subtitle: content.subtitle || undefined },
-      ...content.points.map((p) => ({ kind: "point" as const, heading: p.heading, body: p.body })),
+      { kind: "cover", title: content.title, eyebrow: pillarLabel, backgroundDataUrl: coverBg },
+      ...content.points.map((p) => ({
+        kind: "point" as const,
+        heading: p.heading,
+        body: p.body,
+        eyebrow: pillarLabel,
+      })),
+      { kind: "outro", title: ctaTitle, handle: "schuetzen-ausstatter.de" },
     ];
 
     // 3) Slides rendern + hochladen (gestochen scharf, kein KI-Bild)
