@@ -529,6 +529,76 @@ Antworte NUR als JSON-Objekt:
   }
 }
 
+/** Inhalt für ein Lehr-/Story-Karussell (Cover + 3-4 Punkte), je nach Säule. */
+export async function generateCarouselContent(opts: {
+  apiKey?: string;
+  pillar: PillarKey;
+}): Promise<{
+  title: string;
+  subtitle: string;
+  points: { heading: string; body: string }[];
+}> {
+  const client = getOpenAIClient(opts.apiKey);
+
+  const topicByPillar: Record<PillarKey, string> = {
+    craft:
+      "Worauf man bei einer guten Schützenuniform achten sollte (Qualitätsmerkmale: Stoff, Naht, Passform, Langlebigkeit)",
+    proof:
+      "Wie ein Schützenverein von Hersfelder komplett neu eingekleidet wurde — Ablauf und stolzes Ergebnis",
+    service:
+      "So läuft eine Vereins-Ausstattung bei Hersfelder — Schritt für Schritt (Beratung, Maße, Muster, Lieferung)",
+    community:
+      "Dinge, die ein richtig gutes Schützenfest ausmachen — warmherzig und gemeinschaftlich",
+  };
+
+  const prompt = `Du bist Social-Media-Stratege für Hersfelder Schützenbekleidung (schuetzen-ausstatter.de).
+Erstelle den Inhalt für ein Instagram-KARUSSELL (Lehr-/Story-Format, mehrere Slides).
+
+Thema: ${topicByPillar[opts.pillar]}
+
+Regeln:
+- Deutsch, warmherzig, bodenständig — kein Werbe-Geschwätz, keine Superlative-Schleuder
+- Kein Rassismus, keine Waffen, keine politischen/nationalistischen Parolen
+- 3 bis 4 Punkte, jeder Punkt knackig
+- Cover-Titel max. 40 Zeichen, packend
+- Punkt-Überschrift max. 38 Zeichen, Punkt-Text max. 95 Zeichen
+
+Antworte NUR als JSON:
+{
+  "title": "Cover-Headline",
+  "subtitle": "kurze Cover-Unterzeile (max 55 Zeichen)",
+  "points": [ { "heading": "Punkt-Überschrift", "body": "1 kurzer Satz" } ]
+}`;
+
+  const res = await client.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: "Antworte ausschließlich mit validem JSON ohne Markdown." },
+      { role: "user", content: prompt },
+    ],
+    temperature: 0.85,
+    max_tokens: 500,
+    response_format: { type: "json_object" },
+  });
+
+  const raw = res.choices?.[0]?.message?.content ?? "{}";
+  const parsed = JSON.parse(raw) as {
+    title?: string;
+    subtitle?: string;
+    points?: { heading?: string; body?: string }[];
+  };
+  const points = (parsed.points ?? [])
+    .filter((p) => p.heading)
+    .slice(0, 4)
+    .map((p) => ({ heading: String(p.heading), body: String(p.body ?? "") }));
+
+  return {
+    title: parsed.title ?? "Hersfelder",
+    subtitle: parsed.subtitle ?? "",
+    points: points.length ? points : [{ heading: "Mehr erfahren", body: "" }],
+  };
+}
+
 export async function generateImage(opts: {
   apiKey?: string;
   prompt: string;

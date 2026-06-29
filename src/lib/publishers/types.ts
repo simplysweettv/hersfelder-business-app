@@ -14,6 +14,8 @@ export type ConfigGetter = (settingKey: string, envKey?: string) => string | und
 
 export type PublishPayload = {
   imageUrl: string;
+  /** Karussell: mehrere Bild-URLs. Hat Vorrang vor imageUrl, wenn gesetzt. */
+  mediaUrls?: string[];
   /** Bereits für DIESE Plattform aufgeteilte Caption (ohne Trenner). */
   caption: string;
   /**

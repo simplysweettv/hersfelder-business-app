@@ -12,6 +12,7 @@ export interface Post {
   id: string;
   title: string;
   image_url: string | null;
+  image_urls: string[] | null; // Karussell: mehrere Slides (image_url = Cover)
   caption: string | null;
   status: PostStatus;
   scheduled_at: string | null;

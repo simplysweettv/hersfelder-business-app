@@ -89,6 +89,7 @@ export function GeneratorForm() {
   // Zufalls-Post
   const [randomScheduledAt, setRandomScheduledAt] = useState("");
   const [pillar, setPillar] = useState<string>("auto");
+  const [format, setFormat] = useState<"single" | "carousel">("single");
   const [randomGenerating, setRandomGenerating] = useState(false);
   const randomDateRef = useRef<HTMLInputElement>(null);
 
@@ -125,7 +126,9 @@ export function GeneratorForm() {
     }
     setRandomGenerating(true);
     try {
-      const res = await fetch("/api/posts/generate-random", {
+      const endpoint =
+        format === "carousel" ? "/api/posts/generate-carousel" : "/api/posts/generate-random";
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -137,12 +140,18 @@ export function GeneratorForm() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Generierung fehlgeschlagen");
       setPreview({ imageUrl: data.image_url, caption: data.caption });
-      const score = data?.review?.score;
-      toast.success("Zufalls-Post erstellt ✓", {
-        description:
-          (typeof score === "number" ? `Qualitäts-TÜV: ${score}/10. ` : "") +
-          "Liegt in den Freigaben — prüfen & freigeben.",
-      });
+      if (format === "carousel") {
+        toast.success("Karussell erstellt ✓", {
+          description: `${data.slides ?? ""} Slides — liegt in den Freigaben.`,
+        });
+      } else {
+        const score = data?.review?.score;
+        toast.success("Zufalls-Post erstellt ✓", {
+          description:
+            (typeof score === "number" ? `Qualitäts-TÜV: ${score}/10. ` : "") +
+            "Liegt in den Freigaben — prüfen & freigeben.",
+        });
+      }
       router.refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Unbekannter Fehler");
@@ -206,6 +215,36 @@ export function GeneratorForm() {
         </div>
 
         <div className="space-y-1.5">
+          <Label>Format</Label>
+          <div className="flex gap-2">
+            {([
+              { key: "single", label: "Einzelbild" },
+              { key: "carousel", label: "Karussell" },
+            ] as const).map((f) => (
+              <button
+                type="button"
+                key={f.key}
+                onClick={() => setFormat(f.key)}
+                className={cn(
+                  "flex-1 px-3 py-1.5 text-sm rounded-md border transition-colors",
+                  format === f.key
+                    ? "bg-foreground text-background border-foreground"
+                    : "bg-white text-foreground border-border hover:bg-muted",
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          {format === "carousel" && (
+            <p className="text-[11px] text-muted-foreground">
+              Mehrere Slides (Cover + Punkte) — z.B. 5 Qualitätsmerkmale oder der
+              Ablauf einer Ausstattung. Text wird scharf gerendert.
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-1.5">
           <Label>Content-Säule</Label>
           <Select value={pillar} onValueChange={(v) => v && setPillar(v)}>
             <SelectTrigger>
@@ -255,7 +294,11 @@ export function GeneratorForm() {
           style={{ background: "var(--brand-primary)", color: "white" }}
         >
           <Shuffle className={`w-4 h-4 mr-2 ${randomGenerating ? "animate-spin" : ""}`} />
-          {randomGenerating ? "KI denkt nach …" : "Zufalls-Post erstellen"}
+          {randomGenerating
+            ? "KI denkt nach …"
+            : format === "carousel"
+              ? "Karussell erstellen"
+              : "Zufalls-Post erstellen"}
         </Button>
       </div>
 

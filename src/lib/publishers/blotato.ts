@@ -194,7 +194,12 @@ export function makeBlotatoPublisher(platform: Platform): Publisher {
           accountId,
           content: {
             text: payload.caption,
-            mediaUrls: payload.imageUrl ? [payload.imageUrl] : [],
+            mediaUrls:
+              payload.mediaUrls && payload.mediaUrls.length
+                ? payload.mediaUrls
+                : payload.imageUrl
+                  ? [payload.imageUrl]
+                  : [],
             platform: BLOTATO_PLATFORM[platform],
           },
           target: buildTarget(platform, get, pageId),

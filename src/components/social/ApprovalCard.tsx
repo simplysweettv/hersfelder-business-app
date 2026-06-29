@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { PlatformPills } from "./PlatformDots";
-import { Pencil, Check, Sparkles, ChevronDown, ChevronUp, RefreshCw, Save, X, Trash2, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Pencil, Check, Sparkles, ChevronDown, ChevronUp, RefreshCw, Save, X, Trash2, ShieldCheck, ShieldAlert, Images } from "lucide-react";
 import type { Post } from "@/types";
 import { formatDateTime } from "@/lib/date-utils";
 // Zentrale Caption-Logik — eine Quelle der Wahrheit (auch der Cron nutzt diese).
@@ -130,6 +130,12 @@ export function ApprovalCard({ post }: { post: Post }) {
           </div>
           <div className="mt-1.5 flex items-center gap-2 flex-wrap">
             <PlatformPills platforms={post.platforms} />
+            {post.image_urls && post.image_urls.length > 1 && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
+                <Images className="w-3 h-3" />
+                Karussell · {post.image_urls.length}
+              </span>
+            )}
             <QualityBadge score={post.quality_score} notes={post.quality_notes} />
           </div>
           {/* Buttons auf Mobile: kompakt unter dem Titel */}
@@ -227,15 +233,32 @@ export function ApprovalCard({ post }: { post: Post }) {
       {expanded && (
         <div className="border-t border-border">
           <div className="flex flex-col md:flex-row">
-            {/* Image */}
-            {post.image_url && (
-              <div className="md:w-72 shrink-0">
-                <img
-                  src={post.image_url}
-                  alt={post.title ?? "Post Bild"}
-                  className="w-full object-cover max-h-72 md:max-h-none md:h-full"
-                />
+            {/* Bild(er) — Karussell zeigt alle Slides */}
+            {post.image_urls && post.image_urls.length > 1 ? (
+              <div className="md:w-72 shrink-0 p-3 flex md:flex-col gap-2 overflow-x-auto md:overflow-y-auto md:max-h-96 bg-muted/20">
+                {post.image_urls.map((url, i) => (
+                  <div key={i} className="relative shrink-0">
+                    <img
+                      src={url}
+                      alt={`Slide ${i + 1}`}
+                      className="w-40 md:w-full rounded-md border border-border"
+                    />
+                    <span className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded">
+                      {i + 1}/{post.image_urls!.length}
+                    </span>
+                  </div>
+                ))}
               </div>
+            ) : (
+              post.image_url && (
+                <div className="md:w-72 shrink-0">
+                  <img
+                    src={post.image_url}
+                    alt={post.title ?? "Post Bild"}
+                    className="w-full object-cover max-h-72 md:max-h-none md:h-full"
+                  />
+                </div>
+              )
             )}
 
             {/* Captions */}

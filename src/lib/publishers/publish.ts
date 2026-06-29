@@ -93,7 +93,12 @@ export async function publishPost(
     // 3. Veröffentlichen/Einplanen über die Abstraktion (Anbieter egal).
     const caption = captionForPlatform(post.caption, platform);
     const outcome = await getPublisher(platform).publish(
-      { imageUrl: post.image_url, caption, scheduledTime },
+      {
+        imageUrl: post.image_url ?? "",
+        mediaUrls: post.image_urls ?? undefined,
+        caption,
+        scheduledTime,
+      },
       getConfig,
     );
 
