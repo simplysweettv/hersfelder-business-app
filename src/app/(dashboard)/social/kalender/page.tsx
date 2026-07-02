@@ -1,12 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
-import { formatDateTime } from "@/lib/date-utils";
-import { StatusBadge } from "@/components/social/StatusBadge";
 import { SyncStatusButton } from "@/components/social/SyncStatusButton";
-import {
-  PublicationStatus,
-  type PublicationRow,
-} from "@/components/social/PublicationStatus";
+import { type PublicationRow } from "@/components/social/PublicationStatus";
+import { PostDetailDialog } from "@/components/social/PostDetailDialog";
 import type { Post } from "@/types";
 import { Calendar as CalendarIcon } from "lucide-react";
 
@@ -65,7 +61,7 @@ export default async function KalenderPage() {
         <>
           <Section title="Anstehend" count={upcoming.length}>
             {upcoming.map((p) => (
-              <PostRow key={p.id} post={p} pubs={pubsByPost.get(p.id) ?? []} />
+              <PostDetailDialog key={p.id} post={p} pubs={pubsByPost.get(p.id) ?? []} />
             ))}
             {upcoming.length === 0 && (
               <p className="text-sm text-muted-foreground px-1">Nichts geplant.</p>
@@ -75,7 +71,7 @@ export default async function KalenderPage() {
           {past.length > 0 && (
             <Section title="Veröffentlicht & vergangen" count={past.length}>
               {past.map((p) => (
-                <PostRow key={p.id} post={p} pubs={pubsByPost.get(p.id) ?? []} />
+                <PostDetailDialog key={p.id} post={p} pubs={pubsByPost.get(p.id) ?? []} />
               ))}
             </Section>
           )}
@@ -104,35 +100,5 @@ function Section({
       </div>
       <div className="space-y-2">{children}</div>
     </div>
-  );
-}
-
-function PostRow({ post, pubs }: { post: Post; pubs: PublicationRow[] }) {
-  return (
-    <Card className="p-3 flex items-start gap-4">
-      <div
-        className="w-12 h-12 rounded-md shrink-0"
-        style={{
-          background: post.image_url
-            ? `center / cover no-repeat url(${post.image_url})`
-            : "linear-gradient(135deg, var(--brand-primary), var(--brand-sidebar))",
-        }}
-      />
-      <div className="flex-1 min-w-0 space-y-1.5">
-        <div className="flex items-center gap-2">
-          <div className="font-medium text-sm truncate flex-1">{post.title}</div>
-          {post.quality_score != null && (
-            <span className="text-[10px] text-muted-foreground shrink-0">
-              TÜV {post.quality_score}
-            </span>
-          )}
-          <StatusBadge status={post.status} />
-        </div>
-        <div className="text-xs text-muted-foreground">
-          {post.scheduled_at ? formatDateTime(post.scheduled_at) : ""}
-        </div>
-        <PublicationStatus platforms={post.platforms} publications={pubs} />
-      </div>
-    </Card>
   );
 }
