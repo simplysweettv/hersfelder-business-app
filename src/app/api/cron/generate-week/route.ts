@@ -147,14 +147,18 @@ export async function GET(req: NextRequest) {
 
   const open = slots.filter((s) => !taken.has(s.when.toISOString())).slice(0, MAX_PER_RUN);
 
-  // 3) Anti-Wiederholung: zuletzt genutzte Themen/Botschaften laden.
+  // 3) Anti-Wiederholung: zuletzt genutzte Themen/Botschaften + Stile laden.
   const { data: recentBriefs } = await supabase
     .from("post_briefs")
-    .select("theme, message")
+    .select("theme, message, style_type")
     .order("created_at", { ascending: false })
     .limit(8);
   const avoid = (recentBriefs ?? [])
     .flatMap((b) => [b.theme, b.message])
+    .filter((x): x is string => Boolean(x));
+  // Letzte Post-Stile (neueste zuerst) — für die Text-im-Bild-Garantie in pillarPick.
+  const recentStyles = (recentBriefs ?? [])
+    .map((b) => b.style_type)
     .filter((x): x is string => Boolean(x));
 
   // 5er-Zyklus: jeder fünfte Post = Service/CTA-Säule.
@@ -184,7 +188,8 @@ export async function GET(req: NextRequest) {
       const postIndex = baseIndex + created.length;
       const isCTASlot = postIndex % 5 === 4;
       const pillar = isCTASlot ? "service" : pickPillarWeighted(weights);
-      const { styleType, themeCategory } = pillarPick(pillar);
+      const { styleType, themeCategory } = pillarPick(pillar, recentStyles);
+      recentStyles.unshift(styleType); // nächster Slot berücksichtigt auch diesen
       const pillarLabel = CONTENT_PILLARS.find((p) => p.key === pillar)?.label;
 
       const makePost = async () => {
@@ -208,6 +213,7 @@ export async function GET(req: NextRequest) {
           message: brief.message,
           styleType,
           visualDetails: brief.visualDetails,
+          sceneIdea: brief.sceneIdea,
           pillar,
         });
         const captionPrompt = buildCaptionPrompt({
@@ -275,6 +281,7 @@ export async function GET(req: NextRequest) {
           message: brief.message,
           prompt_used: imagePrompt,
           pillar,
+          style_type: styleType,
         });
       }
     } catch (e) {

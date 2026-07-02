@@ -9,6 +9,7 @@ import {
   generateImage,
   generateCaption,
 } from "@/lib/openai";
+import { CONTENT_PILLARS, type PillarKey } from "@/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -38,16 +39,24 @@ export async function POST(
   const brief = post.post_briefs?.[0];
   const platforms: string[] = post.platforms ?? ["instagram"];
 
-  // Determine styleType from existing prompt or default to photo
+  // styleType: bevorzugt aus der DB (style_type), sonst aus dem alten Prompt ableiten
   const promptUsed: string = brief?.prompt_used ?? "";
-  const styleType: "photo" | "typography" | "product" | "hook" =
-    promptUsed.includes("Text-Kachel") || promptUsed.includes("Typografie") || promptUsed.includes("Typografie-Grafik")
+  const inferredStyle: "photo" | "typography" | "product" | "hook" =
+    promptUsed.includes("Text-Kachel") || promptUsed.includes("Typografie") || promptUsed.includes("Vereins-Grafik")
       ? "typography"
       : promptUsed.includes("Hook-Post") || promptUsed.includes("Text-Overlay") || promptUsed.includes("Scroll-Stopper")
         ? "hook"
         : promptUsed.includes("Produktfoto") || promptUsed.includes("Vereins-Lifestyle")
           ? "product"
           : "photo";
+  const styleType =
+    (["photo", "typography", "product", "hook"].includes(brief?.style_type)
+      ? (brief.style_type as "photo" | "typography" | "product" | "hook")
+      : null) ?? inferredStyle;
+
+  const pillar: PillarKey | undefined = CONTENT_PILLARS.some((p) => p.key === brief?.pillar)
+    ? (brief.pillar as PillarKey)
+    : undefined;
 
   // Re-generate brief with fresh creativity
   const newBrief = await generateBrief({
@@ -56,6 +65,8 @@ export async function POST(
     styleType,
     weekNumber: post.week_number ?? 21,
     year: post.year ?? 2026,
+    month: new Date().getMonth() + 1,
+    pillar,
   });
 
   const imagePrompt = buildImagePrompt({
@@ -65,6 +76,8 @@ export async function POST(
     message: newBrief.message,
     styleType,
     visualDetails: newBrief.visualDetails,
+    sceneIdea: newBrief.sceneIdea,
+    pillar,
   });
 
   const captionPrompt = buildCaptionPrompt({
@@ -72,6 +85,7 @@ export async function POST(
     product: newBrief.product,
     message: newBrief.message,
     platforms,
+    pillar,
   });
 
   const [image, caption] = await Promise.all([
@@ -113,6 +127,7 @@ export async function POST(
       product: newBrief.product,
       message: newBrief.message,
       prompt_used: imagePrompt,
+      style_type: styleType,
     }).eq("id", brief.id);
   }
 

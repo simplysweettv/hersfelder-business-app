@@ -131,6 +131,7 @@ settings (
 | `typography` | Dunkelgrüner Hintergrund, bold weiße Großbuchstaben, kein Foto |
 
 ### Content-Strategie
+- **Master-Briefing:** `MASTER_BRIEFING` in `src/lib/openai.ts` — bindendes Marken-Briefing von Andreas (Juli 2026), wird JEDEM KI-Prompt (Bild + Text) vorangestellt. Kernpunkte: Standardsortiment-Marke (keine Maßschneiderei!), Größen 23–70 alle zum gleichen Preis, verbotene Claims (maßgeschneidert, handgeschneidert, atmungsaktiv …), realistische Uniformen ohne Goldlitzen/Epauletten/Fantasiedetails
 - **KEIN Produktmarketing** — die Kleidung ist im Hintergrund sichtbar, aber nie das Thema
 - Themen: Zusammenhalt, gemeinsames Feiern, Generationen, Tradition, Stolz auf den Verein
 - Stil: Wie Reportagefotografie — authentisch, nicht gestellt

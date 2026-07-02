@@ -108,6 +108,7 @@ export async function POST(req: NextRequest) {
       season: body.season ?? null,
       message: body.message,
       prompt_used: imagePrompt,
+      style_type: "photo",
     });
 
     return NextResponse.json({

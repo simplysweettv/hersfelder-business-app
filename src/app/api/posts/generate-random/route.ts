@@ -57,7 +57,18 @@ export async function POST(req: NextRequest) {
   try {
     // Content-Säule: explizit gewählt oder gewichtet automatisch.
     const pillar = pillarParam ?? pickPillar();
-    const { styleType, themeCategory } = pillarPick(pillar);
+
+    // Letzte Stile laden — Text-im-Bild-Garantie auch im manuellen Generator.
+    const { data: recentBriefs } = await supabase
+      .from("post_briefs")
+      .select("style_type")
+      .order("created_at", { ascending: false })
+      .limit(4);
+    const recentStyles = (recentBriefs ?? [])
+      .map((b) => b.style_type)
+      .filter((x): x is string => Boolean(x));
+
+    const { styleType, themeCategory } = pillarPick(pillar, recentStyles);
 
     // Woche/Jahr aus dem geplanten Datum berechnen (für Kalender + Wochenplan),
     // sonst aus "jetzt".
@@ -86,6 +97,7 @@ export async function POST(req: NextRequest) {
       message: brief.message,
       styleType,
       visualDetails: brief.visualDetails,
+      sceneIdea: brief.sceneIdea,
       pillar,
     });
     const captionPrompt = buildCaptionPrompt({
@@ -161,6 +173,7 @@ export async function POST(req: NextRequest) {
       message: brief.message,
       prompt_used: imagePrompt,
       pillar,
+      style_type: styleType,
     });
 
     return NextResponse.json({

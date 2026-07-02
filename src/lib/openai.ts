@@ -33,14 +33,15 @@ const PILLAR_GUIDANCE: Record<
   craft: {
     styles: ["hook", "hook", "photo"],
     themes: [
-      "Qualität & Handwerk",
+      "Qualität & Verarbeitung",
       "Detail der Uniform",
       "Langlebigkeit",
       "Stoff & Verarbeitung",
+      "Nachkaufgarantie & Verfügbarkeit",
     ],
     cta: "soft",
     briefHint:
-      "Mach Qualität & Handwerk der Hersfelder Kleidung sichtbar — Detail, saubere Verarbeitung, Langlebigkeit. Vertrauen aufbauen, nicht marktschreierisch.",
+      "Mach Qualität & Verarbeitung der Hersfelder Kleidung sichtbar — Detail, saubere Verarbeitung, Langlebigkeit, konstante Qualität durch eigene Produktion. Vertrauen aufbauen, nicht marktschreierisch. ACHTUNG: Wir sind KEINE Maßschneiderei — kein 'handgeschneidert', kein 'Schneiderhandwerk'.",
   },
   proof: {
     styles: ["hook", "hook", "photo"],
@@ -63,7 +64,7 @@ const PILLAR_GUIDANCE: Record<
     ],
     cta: "hard",
     briefHint:
-      "Lade Vereine herzlich ein, sich für eine Ausstattung zu melden — warm und konkret (z.B. kostenloser Vereins-Check, persönliche Beratung, Muster anfordern). Einladend, nicht aufdringlich.",
+      "Lade Vereine herzlich ein, sich für eine Ausstattung zu melden — warm und konkret (z.B. persönliche Beratung, Muster anfordern, Größen 23–70 alle zum gleichen Preis, jederzeit nachbestellbar). Einladend, nicht aufdringlich.",
   },
 };
 
@@ -93,11 +94,35 @@ export function pickPillarWeighted(weights: Partial<Record<PillarKey, number>>):
   return "community";
 }
 
-/** Passenden Post-Stil und Themen-Vorschlag für eine Säule ziehen. */
-export function pillarPick(pillar: PillarKey) {
+/**
+ * Passenden Post-Stil und Themen-Vorschlag für eine Säule ziehen.
+ * `recentStyles` (neueste zuerst) macht die Wahl verlässlich statt rein zufällig:
+ * - Hatten die letzten 2 Posts KEIN Text-im-Bild (hook/typography), wird es erzwungen.
+ * - Nie 3x derselbe Stil hintereinander.
+ */
+export function pillarPick(pillar: PillarKey, recentStyles: string[] = []) {
   const g = PILLAR_GUIDANCE[pillar];
+  let styleType = g.styles[Math.floor(Math.random() * g.styles.length)];
+
+  const lastTwo = recentStyles.slice(0, 2);
+  const isTextStyle = (s: string) => s === "hook" || s === "typography";
+
+  // Text-im-Bild-Garantie: spätestens jeder 3. Post ist hook/typography.
+  if (lastTwo.length === 2 && !lastTwo.some(isTextStyle) && !isTextStyle(styleType)) {
+    styleType =
+      g.styles.includes("typography") && Math.random() < 0.3 ? "typography" : "hook";
+  }
+
+  // Abwechslung: nicht 3x derselbe Stil in Folge.
+  if (lastTwo.length === 2 && lastTwo[0] === styleType && lastTwo[1] === styleType) {
+    const alternatives = g.styles.filter((s) => s !== styleType);
+    if (alternatives.length) {
+      styleType = alternatives[Math.floor(Math.random() * alternatives.length)];
+    }
+  }
+
   return {
-    styleType: g.styles[Math.floor(Math.random() * g.styles.length)],
+    styleType,
     themeCategory: g.themes[Math.floor(Math.random() * g.themes.length)],
     cta: g.cta,
     briefHint: g.briefHint,
@@ -109,6 +134,32 @@ export function getOpenAIClient(apiKey?: string) {
   if (!key) throw new Error("OPENAI_API_KEY ist nicht gesetzt.");
   return new OpenAI({ apiKey: key });
 }
+
+/**
+ * Master-Briefing der Marke (Andreas, Juli 2026) — bindend für JEDE Bild- und
+ * Texterstellung. Wird jedem Prompt vorangestellt, unabhängig vom
+ * brand_style_prompt aus den Settings.
+ */
+const MASTER_BRIEFING = `MARKEN-BRIEFING HERSFELDER (bindend, hat Vorrang vor allem anderen):
+
+POSITIONIERUNG:
+- Hersfelder ist eine eigene Marke und produziert alle Produkte selbst — ein durchdachtes STANDARDSORTIMENT mit dauerhafter Verfügbarkeit, konstanter Qualität und Nachkaufgarantie.
+- Wir sind KEINE Maßschneiderei, KEIN individueller Uniformschneider. Wir fertigen KEINE Einzelstücke und bieten KEINE Maßkonfektion an.
+- Sortiment: Schützenjacken, Westen, Hosen, Fräcke, Poloshirts, T-Shirts, Softshelljacken, Hoodies — festes Design, jederzeit nachbestellbar.
+- GRÖSSEN-USP: Größe 23 bis 70 — alle Größen zum GLEICHEN Preis, keine Größenaufschläge.
+- Individualisierung nur in 2 Bereichen: (1) Vereinslogo/-name per standardisiertem Druck/Stick auf Polos, T-Shirts, Hoodies, Softshelljacken; (2) individuelle Vereinsuniformen NUR als Projekt bei größeren Vereinen ab produktionsfähigen Stückzahlen — keine Einzelanfertigungen, keine kleinen Stückzahlen.
+- Wir stehen für: faire Preise, dauerhaft verfügbare Produkte, hohe Lieferfähigkeit, große Größenauswahl, unkomplizierte Bestellung, moderne Vereinsausstattung.
+
+NIEMALS BEHAUPTEN (in keinem Text, keiner Caption, keiner Botschaft):
+- "maßgeschneidert", "individuell gefertigt", "Maßkonfektion", "handgeschneidert", "exklusiv für dich gefertigt", "Schneiderhandwerk", "Einzelanfertigung", "Couture"
+- Keine technischen Aussagen ohne Nachweis: "klimaregulierend", "kühlend", "atmungsaktiv", "temperaturregulierend", "Hightech-Faser", "Funktionsstoff"
+- Keine Luxus-, Designer- oder Maßanzug-Positionierung.
+
+BILDSPRACHE (verbindlich für jedes Bild):
+- Ausschließlich Uniformen, die dem echten Standardsortiment entsprechen — realistisch, schlicht-elegant, jederzeit bestellbar wirkend. Wenn Referenzbilder vorliegen, sind diese die gestalterische Grundlage.
+- KEINE Fantasieuniformen. KEINE historischen Uniformen. KEINE militärischen Uniformen. KEINE überladenen Verzierungen, KEINE Goldlitzen, KEINE Epauletten mit übertriebenen Details, KEINE Fantasieknöpfe.
+
+ZIEL JEDER KOMMUNIKATION: Nicht die einzelne Uniform verkaufen, sondern vermitteln: "Hersfelder ist der zuverlässige Ausstatter für Vereine."`;
 
 const BRAND_DESCRIPTION = `Marke: Hersfelder Schützenbekleidung (schuetzen-ausstatter.de)
 Brand-Slogan: "Uniform an - Stimmung hoch!" und "Deine Marke für Deinen Verein!"
@@ -163,7 +214,7 @@ const PHOTO_SCENES = [
   "Weihnachtsessen des Vereins: festlicher Tisch, Uniformmitglieder feiern gemeinsam, Kerzen und Tannengrün",
   "Generalversammlung: entspannte Runde im Vereinsheim, alte und neue Vorstandsmitglieder lachen zusammen",
   // Handwerk & Detail
-  "Nahaufnahme: erfahrener Schneider legt eine frisch gebügelte dunkelgrüne Schützenuniform zurecht, Sorgfalt sichtbar",
+  "Nahaufnahme: frisch gelieferte dunkelgrüne Schützenjacke wird sorgfältig ausgepackt und zurechtgelegt, Vorfreude sichtbar",
   "Detailaufnahme: Stickerei auf einer Schützenuniform, warmes Licht, feine Handarbeit",
   "Vereinsmitglied hält stolz seine neue Uniform hoch — frisch aus der Lieferung, breites Lächeln",
   // Abends & Atmosphäre
@@ -194,9 +245,9 @@ function pillarImageDirective(
     case "craft":
       return {
         scene:
-          "Makro-/Detailaufnahme einer dunkelgrünen Schützenuniform: feiner Wollstoff, präzise Doppelnaht, glänzende Hornknöpfe, sauber bestickter Kragen; ruhige Schneiderhände glätten ein Revers",
+          "Makro-/Detailaufnahme einer schlichten dunkelgrünen Schützenjacke aus dem Standardsortiment: feiner Wollstoff, saubere Nähte, klassische schlichte Knöpfe, ordentlich verarbeiteter Kragen — realistisch, wie aus dem Webshop",
         prose:
-          "Erstelle eine hochwertige Detail-/Makroaufnahme in Produktfoto-Qualität — Fokus auf Material, saubere Verarbeitung und Langlebigkeit der Uniform. Werkstatt/Atelier, warmes gerichtetes Licht, geringe Schärfentiefe. KEINE Menschenmenge, KEIN Festzelt — ruhig, edel, handwerklich.",
+          "Erstelle eine hochwertige Detail-/Makroaufnahme in Produktfoto-Qualität — Fokus auf Material, saubere Verarbeitung und Langlebigkeit der Uniform. Warmes gerichtetes Licht, geringe Schärfentiefe. KEINE Menschenmenge, KEIN Festzelt, KEINE Schneiderwerkstatt/Atelier-Szene (wir sind keine Maßschneiderei) — ruhig, wertig, realistisch bestellbar.",
       };
     case "proof":
       return {
@@ -224,14 +275,25 @@ export function buildImagePrompt(input: {
   message: string;
   styleType?: "photo" | "typography" | "product" | "hook";
   visualDetails?: string;
+  sceneIdea?: string;
   pillar?: PillarKey;
 }): string {
   const style = input.styleType ?? "photo";
   const brand = input.brandStyle?.trim() || BRAND_DESCRIPTION;
   const pd = pillarImageDirective(input.pillar);
   const randomScene = () => PHOTO_SCENES[Math.floor(Math.random() * PHOTO_SCENES.length)];
+  // Szene: Säulen-Direktive > Szenen-Pool (Vielfalt!) > KI-Beschreibung > Zufall.
+  // visualDetails ist nur noch ergänzende Stimmung — vorher hat es den Szenen-Pool
+  // komplett verdrängt und alle Fotos sahen aus wie "Menschen stehen und feiern".
+  const pickScene = () => pd?.scene || input.sceneIdea || input.visualDetails || randomScene();
+  const moodLine =
+    input.visualDetails && !pd?.scene && input.sceneIdea
+      ? `\nZusätzliche Stimmung/Details: ${input.visualDetails}`
+      : "";
 
-  const baseContext = `${brand}
+  const baseContext = `${MASTER_BRIEFING}
+
+${brand}
 
 ${SAFETY_RULES}
 
@@ -262,12 +324,12 @@ Format: quadratisch.`;
   }
 
   if (style === "hook") {
-    const scene = pd?.scene || input.visualDetails || randomScene();
+    const scene = pickScene();
     const fotoProse = pd
       ? pd.prose
-      : "Echte, lebendige Menschen in dunkelgrünen Schützen-Uniformen beim Feiern — Dokumentarfotografie, warm und spontan.";
+      : "Echte, lebendige Menschen in dunkelgrünen Schützen-Uniformen — Dokumentarfotografie, warm und spontan.";
     return `${baseContext}
-Szene: ${scene}
+Szene: ${scene}${moodLine}
 
 Erstelle einen Instagram-Hook-Post: ${pd ? "themenstarkes Foto" : "authentisches Schützenfest-Foto"} mit GROSSEM Text im Bild.
 
@@ -291,15 +353,15 @@ Format: Hochformat (Portrait).`;
   }
 
   // photo / product / default
-  const scene = pd?.scene || input.visualDetails || randomScene();
+  const scene = pickScene();
   const prose = pd
     ? pd.prose
-    : `Erstelle ein hochwertiges Reportage-Foto vom Vereinsleben — wie ein Fotojournalist beim Schützenfest.
-Menschen: 3-6 Personen in dunkelgrünen Schützen-Uniformen, verschiedene Altersgruppen, echter Moment.
-Stil: Warmherzig, lebendig, spontan — KEIN gestelltes Werbe-Shooting. Licht: goldenes Abendlicht oder Tageslicht.
+    : `Erstelle ein hochwertiges Reportage-Foto vom Vereinsleben — wie ein Fotojournalist, der den Verein durchs Jahr begleitet.
+Menschen: passend zur Szene, in dunkelgrünen Schützen-Uniformen, verschiedene Altersgruppen, echter Moment.
+Stil: Warmherzig, lebendig, spontan — KEIN gestelltes Werbe-Shooting. Licht passend zur Szene (Tageslicht, Abendlicht, Kerzenlicht).
 Stimmung: Freude, Zusammenhalt, Gemeinschaft.`;
   return `${baseContext}
-Szene: ${scene}
+Szene: ${scene}${moodLine}
 
 ${prose}
 Kein Markenname, kein Logo, kein Wappen im Bild. Keine Waffen. Kein Alkohol prominent im Vordergrund.`;
@@ -339,9 +401,10 @@ export function buildCaptionPrompt(input: {
     community: `- KEIN Produktmarketing oder Werbung für Kleidung
 - THEMA: echtes Vereinsleben — Zusammenhalt, Freude, Tradition, Gemeinschaft beim Schützenfest
 - Die Hersfelder Kleidung ist im Hintergrund sichtbar — sie gehört dazu, wird aber nicht beworben`,
-    craft: `- THEMA = QUALITÄT & HANDWERK: Sprich konkret über das Material, die saubere Verarbeitung und dass die Uniform jahrelang hält. Das IST hier ausdrücklich das Thema (Ausnahme von "kein Produktmarketing").
-- Ton: stolz auf die Wertarbeit, aber bodenständig — KEIN Katalog-Sprech, keine Superlative-Schleuder.
-- Nicht über Feiern reden — sondern über Stoff, Naht, Langlebigkeit, "das hält ein Vereinsleben lang".`,
+    craft: `- THEMA = QUALITÄT & VERARBEITUNG: Sprich konkret über das Material, die saubere Verarbeitung und dass die Uniform jahrelang hält. Das IST hier ausdrücklich das Thema (Ausnahme von "kein Produktmarketing").
+- Ton: stolz auf die Qualität, aber bodenständig — KEIN Katalog-Sprech, keine Superlative-Schleuder.
+- Nicht über Feiern reden — sondern über Stoff, Naht, Langlebigkeit, "das hält ein Vereinsleben lang".
+- VERBOTEN: "handgeschneidert", "maßgeschneidert", "Schneiderhandwerk", "Einzelanfertigung" — wir sind Standardsortiment-Marke, keine Maßschneiderei. Auch keine unbelegten Technik-Claims ("atmungsaktiv" etc.).`,
     proof: `- THEMA = VEREINS-STORY (Social Proof): Erzähle, wie ein Schützenverein von Hersfelder neu eingekleidet wurde — wie stolz/zufrieden sie sind, wie gut die Truppe jetzt aussieht.
 - Glaubwürdig & warm, bodenständig — keine erfundenen Namen großspurig behaupten, keine Übertreibung.
 - Nicht generisch übers Feiern — sondern über das Ergebnis der Ausstattung.`,
@@ -414,7 +477,9 @@ LinkedIn-Post (150-250 Wörter, professionell-persönlich):
 - Letzte Zeile: 3 Hashtags (z.B. #Vereinsleben #Schützenfest #Gemeinschaft)`);
   }
 
-  return `Du bist Social-Media-Texter für Hersfelder Schützenbekleidung (schuetzen-ausstatter.de).
+  return `${MASTER_BRIEFING}
+
+Du bist Social-Media-Texter für Hersfelder Schützenbekleidung (schuetzen-ausstatter.de).
 ${systemContext}
 
 Erstelle für jede der folgenden Plattformen eine maßgeschneiderte Version:
@@ -442,18 +507,28 @@ export async function generateBrief(opts: {
   product: string;
   message: string;
   visualDetails: string;
+  sceneIdea?: string; // gewählte Szene aus dem Pool — für buildImagePrompt durchreichen
 }> {
   const client = getOpenAIClient(opts.apiKey);
 
+  // Szenen-Vielfalt: für Foto-basierte Posts eine konkrete Szene aus dem Pool
+  // ziehen und das Briefing DARUM bauen — sonst beschreibt die KI immer nur
+  // "Menschen stehen und feiern".
+  const sceneIdea =
+    opts.styleType === "photo" || opts.styleType === "hook" || opts.styleType === "product"
+      ? PHOTO_SCENES[Math.floor(Math.random() * PHOTO_SCENES.length)]
+      : undefined;
+
+  // Nur echtes Standardsortiment (siehe MASTER_BRIEFING) — keine erfundenen Produkte
   const PRODUCTS = [
-    "Herrenschützenrock Classic dunkelgrün",
-    "Damenweste Hersfelder Kollektion",
-    "Schützenuniform Komplett-Set",
-    "Vereinsjacke Premium dunkelgrün",
-    "Festtagsbekleidung Saison 2026",
-    "Jungschützen-Starterset",
-    "Trachtenweste mit Hersfelder Wappen",
-    "Schützenhemd weiß mit grünem Kragen",
+    "Schützenjacke dunkelgrün",
+    "Damenweste aus dem Standardsortiment",
+    "Herrenweste grün",
+    "Uniform-Set (Jacke + Hose)",
+    "Schützenfest-Frack",
+    "Softshelljacke mit Vereinslogo",
+    "Poloshirt mit Vereinsnamen",
+    "Hoodie in Vereinsausführung",
   ];
   const randomProduct = PRODUCTS[Math.floor(Math.random() * PRODUCTS.length)];
 
@@ -483,13 +558,18 @@ export async function generateBrief(opts: {
   const reactiveLine = opts.reactiveHook
     ? `\n\nREAKTIVER AUFHÄNGER (greif das JETZT konkret auf — das macht den Post besonders): ${opts.reactiveHook}`
     : "";
+  const sceneLine = sceneIdea
+    ? `\nBild-Szene (das Foto zeigt GENAU diese Szene — baue Thema und Botschaft darum): ${sceneIdea}`
+    : "";
 
-  const prompt = `Du bist kreativer Social-Media-Stratege für Hersfelder Schützenbekleidung (schuetzen-ausstatter.de).
+  const prompt = `${MASTER_BRIEFING}
+
+Du bist kreativer Social-Media-Stratege für Hersfelder Schützenbekleidung (schuetzen-ausstatter.de).
 Erstelle ein originelles, abwechslungsreiches Briefing für KW ${opts.weekNumber}/${opts.year}.
 
 Post-Typ: ${styleDescription}
 Themen-Kategorie: ${opts.themeCategory}
-Mögliches Produkt: ${randomProduct}${pillarLine}${seasonLine}${avoidLine}${topicalLine}${reactiveLine}
+Mögliches Produkt: ${randomProduct}${pillarLine}${seasonLine}${sceneLine}${avoidLine}${topicalLine}${reactiveLine}
 
 Regeln:
 - Kein Rassismus, keine Waffen, keine rechtsextremen Inhalte
@@ -509,7 +589,7 @@ Antworte NUR als JSON-Objekt:
   "theme": "konkretes Thema (max 50 Zeichen, deutsch)",
   "product": "Produkt oder Vereinselement (max 50 Zeichen)",
   "message": "kurze kraftvolle Botschaft/Zitat auf Deutsch (max 70 Zeichen)",
-  "visualDetails": "brief English description of the scene/mood (max 80 chars)"
+  "visualDetails": "brief English description of mood/light/details matching the Bild-Szene (max 80 chars)"
 }`;
 
   const res = await client.chat.completions.create({
@@ -532,6 +612,7 @@ Antworte NUR als JSON-Objekt:
       product: parsed.product ?? randomProduct,
       message: parsed.message ?? "Zusammen feiern — das verbindet uns",
       visualDetails: parsed.visualDetails ?? "",
+      sceneIdea,
     };
   } catch {
     return {
@@ -539,6 +620,7 @@ Antworte NUR als JSON-Objekt:
       product: randomProduct,
       message: "Zusammen feiern — das verbindet uns",
       visualDetails: "",
+      sceneIdea,
     };
   }
 }
@@ -565,7 +647,9 @@ export async function generateCarouselContent(opts: {
       "Dinge, die ein richtig gutes Schützenfest ausmachen — warmherzig und gemeinschaftlich",
   };
 
-  const prompt = `Du bist Social-Media-Stratege für Hersfelder Schützenbekleidung (schuetzen-ausstatter.de).
+  const prompt = `${MASTER_BRIEFING}
+
+Du bist Social-Media-Stratege für Hersfelder Schützenbekleidung (schuetzen-ausstatter.de).
 Erstelle den Inhalt für ein Instagram-KARUSSELL (Lehr-/Story-Format, mehrere Slides).
 
 Thema: ${topicByPillar[opts.pillar]}
@@ -696,11 +780,13 @@ BILD:
 - Ist im Bild enthaltener Text LESBAR und korrekt geschrieben (kein KI-Kauderwelsch, keine verzerrten Buchstaben)?
 - KEINE Waffen, Gewehre, politischen/rechtsextremen Symbole, kein Reichsadler?
 - Wirkt es markenkonform (echte Menschen in dunkelgrünen Uniformen / authentisches Vereinsleben, kein steriles Werbe-Shooting)?
+- Uniformen realistisch wie aus dem Standardsortiment? VERBOTEN: Fantasieuniformen, historische/militärische Uniformen, Goldlitzen, übertriebene Epauletten, überladene Verzierungen, Fantasieknöpfe.
 - Gute Bildqualität, klares Motiv, keine entstellten Gesichter/Hände?
 
 TEXT (Caption):
 - Markenstimmung: warmherzig, authentisch, gemeinschaftlich?
 - KLINGT NICHT wie nationalistische/rechtsextreme Parole (verboten: "In Einheit stark", "Für Heimat und Volk", militärische Slogans)?
+- KEINE verbotenen Marken-Claims: "maßgeschneidert", "handgeschneidert", "Maßkonfektion", "Einzelanfertigung", "Schneiderhandwerk", "exklusiv gefertigt", "Couture" (Hersfelder ist Standardsortiment-Marke, KEINE Maßschneiderei) — und keine unbelegten Technik-Claims ("atmungsaktiv", "klimaregulierend", "Funktionsstoff")?
 - Sinnvolle Länge, passende Hashtags, kein Kauderwelsch?
 - Stil "${opts.styleType}"${opts.pillarLabel ? `, Content-Säule "${opts.pillarLabel}"` : ""} passend umgesetzt?
 
