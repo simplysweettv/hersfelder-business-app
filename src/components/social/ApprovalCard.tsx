@@ -36,14 +36,32 @@ export function ApprovalCard({ post }: { post: Post }) {
 
   const captionEntries = Object.entries(captions) as [PlatformKey, string][];
 
-  function approve() {
+  function approve(override = false) {
     start(async () => {
       try {
-        const res = await fetch(`/api/posts/${post.id}/approve`, { method: "POST" });
+        const res = await fetch(`/api/posts/${post.id}/approve`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ override }),
+        });
         const data = await res.json().catch(() => ({}));
+
+        // 409 = bewusste Bestätigung nötig (TÜV nicht bestanden, verbotene
+        // Claims, würde sofort posten). Blocker anzeigen, dann Override.
+        if (res.status === 409 && data.requiresConfirm) {
+          const list = [...(data.blockers ?? []), ...(data.warnings ?? [])];
+          const ok = window.confirm(
+            "Vor der Freigabe bitte bestätigen:\n\n• " +
+              list.join("\n• ") +
+              "\n\nTrotzdem freigeben?",
+          );
+          if (ok) approve(true);
+          return;
+        }
+
         if (!res.ok || data.ok === false) {
           toast.error("Freigabe fehlgeschlagen", {
-            description: data.error ?? undefined,
+            description: data.error ?? (data.blockers && data.blockers[0]) ?? undefined,
           });
           return;
         }
@@ -54,7 +72,7 @@ export function ApprovalCard({ post }: { post: Post }) {
               : undefined,
           });
         } else {
-          toast.success("Post freigegeben ✓");
+          toast.success("Freigegeben & veröffentlicht ✓");
         }
         router.refresh();
       } catch {
@@ -110,8 +128,11 @@ export function ApprovalCard({ post }: { post: Post }) {
     <Card className="overflow-hidden">
       {/* Header row */}
       <div className="p-3 flex items-start gap-3">
-        <div
-          className="w-[52px] h-[52px] rounded-md shrink-0 flex items-center justify-center cursor-pointer mt-0.5"
+        <button
+          type="button"
+          aria-label={expanded ? "Vorschau einklappen" : "Vorschau öffnen"}
+          aria-expanded={expanded}
+          className="w-[52px] h-[52px] rounded-md shrink-0 flex items-center justify-center mt-0.5 focus:outline-none focus:ring-2 focus:ring-ring"
           onClick={() => setExpanded((v) => !v)}
           style={{
             background: post.image_url
@@ -120,7 +141,7 @@ export function ApprovalCard({ post }: { post: Post }) {
           }}
         >
           {!post.image_url && <Sparkles className="w-4 h-4 text-white/70" />}
-        </div>
+        </button>
         <div className="flex-1 min-w-0">
           <div className="font-medium text-sm truncate">{post.title || "Ohne Titel"}</div>
           <div className="text-xs text-muted-foreground mt-0.5">
@@ -136,7 +157,11 @@ export function ApprovalCard({ post }: { post: Post }) {
                 Karussell · {post.image_urls.length}
               </span>
             )}
-            <QualityBadge score={post.quality_score} notes={post.quality_notes} />
+            <QualityBadge
+              status={post.quality_status}
+              score={post.quality_score}
+              notes={post.quality_notes}
+            />
           </div>
           {/* Buttons auf Mobile: kompakt unter dem Titel */}
           <div className="mt-2 flex items-center gap-1.5 flex-wrap md:hidden">
@@ -176,7 +201,7 @@ export function ApprovalCard({ post }: { post: Post }) {
                 Löschen
               </Button>
             )}
-            <Button size="sm" disabled={pending || regenerating || deleting} onClick={approve}
+            <Button size="sm" disabled={pending || regenerating || deleting} onClick={() => approve()}
               className="h-7 px-2 text-xs gap-1"
               style={{ background: "var(--brand-primary)", color: "white" }}>
               <Check className="w-3 h-3" />
@@ -221,7 +246,7 @@ export function ApprovalCard({ post }: { post: Post }) {
               Löschen
             </Button>
           )}
-          <Button size="sm" disabled={pending || regenerating || deleting} onClick={approve}
+          <Button size="sm" disabled={pending || regenerating || deleting} onClick={() => approve()}
             style={{ background: "var(--brand-primary)", color: "white" }}>
             <Check className="w-3.5 h-3.5" />
             Freigeben
@@ -305,35 +330,54 @@ export function ApprovalCard({ post }: { post: Post }) {
   );
 }
 
-/** Qualitäts-TÜV-Badge: zeigt die KI-Prüfnote + Mängel (als Tooltip). */
+/**
+ * Qualitäts-TÜV-Badge: nutzt den verbindlichen quality_status (passed/warning/
+ * failed/not_checked) und fällt für Altdaten ohne Status auf die Note zurück.
+ */
 function QualityBadge({
+  status,
   score,
   notes,
 }: {
+  status: Post["quality_status"];
   score: number | null;
   notes: string[] | null;
 }) {
-  if (score == null) return null;
   const issues = notes ?? [];
-  const ok = score >= 8 && issues.length === 0;
-  const warn = score >= 5 && !ok;
-  const cls = ok
-    ? "bg-emerald-100 text-emerald-800"
-    : warn
-      ? "bg-amber-100 text-amber-800"
-      : "bg-red-100 text-red-800";
-  const Icon = ok ? ShieldCheck : ShieldAlert;
+
+  // Effektiver Status: expliziter quality_status, sonst aus Score ableiten.
+  const effective: NonNullable<Post["quality_status"]> =
+    status ??
+    (score == null
+      ? "not_checked"
+      : score >= 8 && issues.length === 0
+        ? "passed"
+        : score >= 5
+          ? "warning"
+          : "failed");
+
+  const cfg = {
+    passed: { cls: "bg-emerald-100 text-emerald-800", Icon: ShieldCheck, label: "TÜV bestanden" },
+    warning: { cls: "bg-amber-100 text-amber-800", Icon: ShieldAlert, label: "TÜV Hinweise" },
+    failed: { cls: "bg-red-100 text-red-800", Icon: ShieldAlert, label: "TÜV nicht bestanden" },
+    not_checked: { cls: "bg-slate-200 text-slate-700", Icon: ShieldAlert, label: "ungeprüft" },
+  }[effective];
+
+  const scoreText = score != null ? ` ${score}/10` : "";
   const tooltip = issues.length
-    ? `KI-Prüfung ${score}/10 — Hinweise:\n• ${issues.join("\n• ")}`
-    : `KI-Prüfung ${score}/10 — keine Mängel`;
+    ? `${cfg.label}${scoreText} — Hinweise:\n• ${issues.join("\n• ")}`
+    : `${cfg.label}${scoreText}`;
+
   return (
     <span
       title={tooltip}
-      className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full cursor-help ${cls}`}
+      className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full cursor-help ${cfg.cls}`}
     >
-      <Icon className="w-3 h-3" />
-      TÜV {score}/10
-      {issues.length > 0 && <span className="opacity-70">· {issues.length} Hinweis{issues.length > 1 ? "e" : ""}</span>}
+      <cfg.Icon className="w-3 h-3" />
+      {cfg.label}
+      {issues.length > 0 && (
+        <span className="opacity-70">· {issues.length} Hinweis{issues.length > 1 ? "e" : ""}</span>
+      )}
     </span>
   );
 }

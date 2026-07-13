@@ -6,7 +6,12 @@ export const runtime = "nodejs";
 
 // Nur diese Schlüssel dürfen über diese Route geschrieben werden — niemals
 // sensible Keys (openai_api_key, meta_access_token o.ä.).
-const ALLOWED_KEYS = new Set(["blotato_monthly_eur", "usd_eur_rate"]);
+const ALLOWED_KEYS = new Set([
+  "blotato_monthly_eur",
+  "usd_eur_rate",
+  "posting_plan",
+  "brand_style_prompt",
+]);
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -27,8 +32,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unbekannter Schlüssel" }, { status: 400 });
   }
 
-  // Zahlenwerte mit Komma → Punkt normalisieren, leere Eingabe = leeren Wert.
-  const value = body.value == null ? "" : String(body.value).trim().replace(",", ".");
+  // Zahlenwerte mit Komma → Punkt normalisieren (nur für numerische Keys —
+  // JSON/Text-Keys wie posting_plan dürfen nicht angefasst werden).
+  const NUMERIC_KEYS = new Set(["blotato_monthly_eur", "usd_eur_rate"]);
+  const rawValue = body.value == null ? "" : String(body.value).trim();
+  const value = NUMERIC_KEYS.has(key) ? rawValue.replace(",", ".") : rawValue;
 
   const admin = createAdminClient();
   const { error } = await admin

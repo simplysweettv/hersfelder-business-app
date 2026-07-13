@@ -1,76 +1,35 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { loadSettings } from "@/lib/settings";
-import { fetchInstagramComments, fetchFacebookComments } from "@/lib/meta";
+import { cronAuthorized } from "@/lib/cron-auth";
+import { syncMetaComments } from "@/lib/comments-sync";
+import { startRun, finishRun } from "@/lib/automation";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
-export async function GET(req: Request) {
-  const authHeader = req.headers.get("authorization");
-  if (
-    process.env.CRON_SECRET &&
-    authHeader !== `Bearer ${process.env.CRON_SECRET}`
-  ) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function GET(req: NextRequest) {
+  const auth = cronAuthorized(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.reason ?? "Unauthorized" }, { status: 401 });
   }
 
-  const supabase = createAdminClient();
-  const settings = await loadSettings();
+  const admin = createAdminClient();
+  const runId = await startRun(admin, "comment_sync", "cron");
 
-  const accessToken =
-    process.env.META_ACCESS_TOKEN ?? settings["meta_access_token"];
-  const igAccountId =
-    process.env.INSTAGRAM_ACCOUNT_ID ?? settings["instagram_account_id"];
-  const fbPageId =
-    process.env.FACEBOOK_PAGE_ID ?? settings["facebook_page_id"];
+  const result = await syncMetaComments();
 
-  if (!accessToken) {
-    return NextResponse.json(
-      { error: "meta_access_token nicht konfiguriert" },
-      { status: 400 }
-    );
-  }
-
-  const allComments = [];
-  const errors: string[] = [];
-
-  if (igAccountId) {
-    try {
-      const igComments = await fetchInstagramComments(igAccountId, accessToken);
-      allComments.push(...igComments);
-    } catch (e) {
-      errors.push(`Instagram: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  }
-
-  if (fbPageId) {
-    try {
-      const fbComments = await fetchFacebookComments(fbPageId, accessToken);
-      allComments.push(...fbComments);
-    } catch (e) {
-      errors.push(`Facebook: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  }
-
-  if (allComments.length > 0) {
-    const { error } = await supabase.from("comments").upsert(allComments, {
-      onConflict: "id",
-      ignoreDuplicates: false,
-    });
-    if (error) {
-      return NextResponse.json(
-        { error: "DB-Fehler beim Speichern", details: error.message },
-        { status: 500 }
-      );
-    }
-  }
-
-  return NextResponse.json({
-    fetched: allComments.length,
-    instagram: igAccountId ? "ok" : "nicht konfiguriert",
-    facebook: fbPageId ? "ok" : "nicht konfiguriert",
-    errors: errors.length > 0 ? errors : undefined,
+  await finishRun(admin, runId, {
+    planned: 1,
+    succeeded: result.ok ? 1 : 0,
+    failed: result.ok ? 0 : 1,
+    errors: result.errors,
+    meta: {
+      fetched: result.fetched,
+      instagram: result.instagram,
+      facebook: result.facebook,
+    },
   });
+
+  return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

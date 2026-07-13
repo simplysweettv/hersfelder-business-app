@@ -22,6 +22,8 @@ export interface Post {
   year: number | null;
   quality_score: number | null;
   quality_notes: string[] | null;
+  quality_status: "passed" | "warning" | "failed" | "not_checked" | null;
+  approved_at: string | null;
   created_at: string;
   updated_at: string;
 }

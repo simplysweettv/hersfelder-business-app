@@ -3,7 +3,9 @@
 ## Projekt-Übersicht
 Interne Business App für **Andreas Hertwig**, Inhaber von **Hersfelder Schützenbekleidung** (schuetzen-ausstatter.de). Modulares Dashboard, das mit neuen Funktionen wachsen kann. Aktuell in Betrieb: **Modul 1 — Social Media Automation**.
 
-**Ziel:** Andreas soll jeden Mittwoch 2 fertig generierte Posts in der App sehen, sie reviewen, freigeben — und sie werden automatisch veröffentlicht. Ohne dass sein PC an sein muss.
+**Ziel:** Andreas soll fertig generierte Posts in der App sehen, sie reviewen, freigeben — und sie werden automatisch zur geplanten Zeit veröffentlicht. Ohne dass sein PC an sein muss.
+
+> **Zuverlässigkeits-Update (Juli 2026, `20260712100000_review_hardening`):** Sammelfreigabe nutzt jetzt dieselbe Publishing-Pipeline wie die Einzel-Freigabe (keine verspäteten Posts mehr); atomarer Publish-Claim (`claim_publication` RPC) gegen Doppel-Posts; Retry-Klassifizierung (transient/permanent/reauth) mit Backoff; `automation_runs`-Protokoll + echte Systemampel im Leitstand; verbindlicher Qualitäts-TÜV (`quality_status`) mit Freigabe-Blockern + Override; fail-closed Cron-Auth; `post_metrics`-Snapshots; konfigurierbarer Posting-Plan. Details siehe Abschnitt „Zuverlässigkeit & Betrieb".
 
 ---
 
@@ -104,24 +106,45 @@ settings (
   value text
 )
 -- Wichtige Keys: openai_api_key, brand_style_prompt, meta_access_token,
---               instagram_account_id, facebook_page_id
+--               instagram_account_id, facebook_page_id, posting_plan
 ```
+
+**Weitere Tabellen (vollständig in `20260624_init_full_schema.sql` + `20260712100000_review_hardening.sql`):**
+- `posts` zusätzlich: `image_urls[]`, `quality_score`, `quality_notes[]`, `quality_status` (`passed|warning|failed|not_checked`), `approved_at`
+- `post_briefs` zusätzlich: `pillar`, `style_type`
+- `post_publications`: Per-Plattform-Status + `public_url`, `attempt_count`, `last_attempt_at`, `next_retry_at`, `error_code`
+- `comments` — IG/FB-Kommentar-Inbox (personenbezogen)
+- `ai_usage` — KI-Kosten pro Aufruf
+- `automation_runs` — Protokoll jedes Cron-Laufs (Grundlage der Systemampel)
+- `post_metrics` — tägliche Engagement-Snapshots (24h/7d/30d-Historie)
+- `claim_publication(post_id, platform, stale_minutes)` — RPC für atomaren Publish-Claim
 
 ### RLS
 - User-facing Routen: `createClient()` (anon key, RLS greift)
 - Cron-Routen: `createAdminClient()` (service_role key, bypasses RLS) — **WICHTIG**
+- `settings`: **Lese-Whitelist** für authentifizierte Nutzer (keine Secrets sichtbar); Schreiben nur über `/api/settings` (Admin-Client, Key-Whitelist). Secrets kommen als Vercel-ENV-Vars.
+- `loadSettings()` läuft server-seitig mit Admin-Client — **nie** aus Client-Komponenten importieren.
 
 ---
 
-## Wöchentliche Automatisierung
+## Automatisierung (Crons)
+
+Drei tägliche Vercel-Crons (`vercel.json`), alle **fail-closed** abgesichert (`src/lib/cron-auth.ts` — ohne `CRON_SECRET` in Produktion abgelehnt) und mit `automation_runs`-Protokoll:
+
+| Cron | Zeit (UTC) | Aufgabe |
+|---|---|---|
+| `generate-week` | 05:00 | Content-Puffer auffüllen (rollierend, nächste ~8 Tage) |
+| `fetch-comments` | 07:00 | IG/FB-Kommentare abgleichen |
+| `publish` | 09:00 | Fällige Posts posten (Sicherheitsnetz) + Status-Sync + `post_metrics`-Snapshot |
 
 ### generate-week (`/api/cron/generate-week`)
-- Läuft **jeden Mittwoch 08:00 UTC** auf Vercel — PC muss nicht online sein
-- Generiert **2 Posts für die nächste Woche**:
-  - **Mittwoch 17:00** — Lifestyle-Foto, Portrait-Format (1024×1536), immer `photo`
-  - **Samstag 12:00** — rotiert wöchentlich: `hook` → `typography` → `photo` (via HOOK_ROTATION)
-- **Per-Slot-Idempotenz:** Jeder Slot hat einen `scheduled_at`-Timestamp. Wird beim Timeout nur Slot 1 gespeichert, generiert der nächste Aufruf automatisch Slot 2
-- Vercel Hobby: max. 60s pro Function — beide Posts passen bei normaler Bildgenerierung rein
+- Läuft **täglich 05:00 UTC** — hält einen rollenden Puffer geplanter Posts
+- **Slots kommen aus dem konfigurierbaren Posting-Plan** (`src/lib/posting-plan.ts`, settings-Key `posting_plan`): Modi **Ruhig** (2×/Wo), **Normal** (3×), **Aktiv** (4×) oder **Individuell**. UI: Einstellungen → Posting-Plan
+- Wochentage/Uhrzeiten in **deutscher Zeit** (DST-bewusst via `src/lib/berlin-time.ts`)
+- **Idempotenz pro Berlin-Kalendertag** (nicht exaktem Timestamp) — Uhrzeit-Änderung erzeugt keinen Doppel-Post; max. 1 Post/Tag, bis zu 3 pro Lauf
+- **Wetter-Aufhänger termin-gebunden** (`getWeatherForPublishDay`): Termin <24h → aktuelles Wetter als reaktiver Hook; sonst Tages-**Prognose** für den Veröffentlichungstag (kein „heute")
+- **Service-Säule NUR im festen 5er-CTA-Slot** (jeder 5. Post) — die gewichtete Zufallsauswahl schließt `service` aus, damit der Werbeanteil ~20 % bleibt
+- Vercel: `maxDuration = 300`
 
 ### Post-Typen
 | Typ | Beschreibung |
@@ -174,7 +197,9 @@ NEXT_PUBLIC_SUPABASE_URL=https://tjcpyzzexfulxwhykiap.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...   # Für Cron-Jobs — niemals im Client verwenden
 OPENAI_API_KEY=...
-CRON_SECRET=...                 # Optional: schützt die Cron-Endpoints
+BLOTATO_API_KEY=...             # Veröffentlichung (alle Kanäle)
+CRON_SECRET=...                 # PFLICHT in Produktion — Cron ist fail-closed
+FACEBOOK_APP_ID=... FACEBOOK_APP_SECRET=...   # Meta-OAuth
 ```
 
 ---
@@ -184,15 +209,27 @@ CRON_SECRET=...                 # Optional: schützt die Cron-Endpoints
 1. **Admin-Client nur in Server-Routen** — `createAdminClient()` niemals in Client-Komponenten
 2. **Bildformate:** gpt-image-1 unterstützt nur `1024x1024`, `1024x1536`, `1536x1024`
 3. **Vercel Hobby Timeout:** 60s max. pro Serverless Function — nie zwei lange OpenAI-Calls sequenziell ohne Idempotenz
-4. **Caption-Parsing:** `splitCaption()` in `ApprovalCard.tsx` parst die Trennzeichen für die Inline-Bearbeitung
-5. **Woche berechnen:** `getISOWeek` + `getISOWeekYear` aus `date-fns` — immer ISO-Wochen verwenden
+4. **Caption-Parsing:** `splitCaption()`/`buildCaption()` liegen zentral in `src/lib/caption.ts` (eine Quelle der Wahrheit für UI + Cron)
+5. **Woche berechnen:** ISO-Wochen — Helfer in `src/lib/berlin-time.ts` (`isoWeek`, `isoWeekYear`); für Berlin-Zeit `berlinWallToUtc`/`berlinDayKey`
 6. **Next.js 14:** `viewport` als eigenen Export (`export const viewport: Viewport`), nicht in `metadata`
+7. **Publishing IMMER über `publishPost()`** (`src/lib/publishers/publish.ts`) — nie den Post-Status direkt umstellen. Freigabe (einzeln + Sammel) und Cron nutzen dieselbe Pipeline
+8. **Qualitäts-TÜV:** `reviewPost()` liefert `checked`; `qualityStatusFrom()` mappt auf `quality_status`. Freigabe-Regeln in `src/lib/quality.ts` (`approvalGate`) — Blocker verlangen `override:true`
+
+## Zuverlässigkeit & Betrieb (Juli 2026)
+
+- **Sammelfreigabe = echte Pipeline:** „Alle freigeben" ruft `publishPost(…, "schedule")` je Post, überspringt geprüft-blockierte Posts und meldet eine ehrliche Zusammenfassung (freigegeben / eingeplant / Plattform-Übergaben / Fehler)
+- **Atomarer Claim:** `claim_publication` RPC verhindert Doppel-Posts bei parallelen Läufen (Freigabe-Klick + Cron)
+- **Retry-Klassifizierung** (`src/lib/publishers/errors.ts`): transient → Backoff (5/15/60/360/1440 min), permanent/reauth → kein Auto-Retry
+- **Systemampel:** `getSystemHealth()` (`src/lib/automation.ts`) leitet grün/gelb/rot aus `automation_runs` + Post-Lage ab (überfällig, Puffer, wartende Freigaben, fehlgeschlagene Veröffentlichungen). Sichtbar im Leitstand mit Aufgaben-Liste
+- **Tests:** `npm test` (Vitest, 46 Tests) — Caption, Berlin-Zeit/DST, ISO-Wochen, Quality-Gate, Retry-Klassifizierung, Posting-Plan, Status-Ableitung. CI: `.github/workflows/ci.yml` (typecheck, lint, test, build, audit)
 
 ---
 
-## Noch nicht implementiert (nächste Phasen)
+## Noch nicht implementiert / bewusst verschoben
 
-- **Meta Graph API** — Instagram + Facebook Publishing (Tokens in Settings eintragen)
-- **TikTok + LinkedIn API** — Tokens noch ausstehend
-- **Logo** — `/public/logo-hersfelder.png` noch nicht vorhanden
-- **Shop Manager, Analytics, Newsletter** — in der Sidebar als "bald" markiert
+- **Next.js 15/16-Upgrade** — bewusst NACH der Vorstellung als eigenes Arbeitspaket (die 2 verbleibenden `npm audit`-Findings sind Next-14-transitiv). Nicht `npm audit fix --force`
+- **Medienbibliothek / echte Produktreferenz-Bilder** (Review Abschnitt 10) — nächste Phase
+- **Plattformnative Formate + TikTok-Video** (Review Abschnitt 11) — nächste Phase
+- **E-Mail-Benachrichtigungen** bei Publish-Fehler / leerem Puffer — Systemampel zeigt es bereits in der App
+- **TikTok + LinkedIn Direct-API** — laufen aktuell über Blotato
+- **Shop Manager, Newsletter** — in der Sidebar als „bald" markiert

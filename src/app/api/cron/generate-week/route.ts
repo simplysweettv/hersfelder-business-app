@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadSettings } from "@/lib/settings";
+import { cronAuthorized } from "@/lib/cron-auth";
+import { startRun, finishRun } from "@/lib/automation";
 import {
   buildCaptionPrompt,
   buildImagePrompt,
@@ -12,9 +14,19 @@ import {
   reviewPost,
 } from "@/lib/openai";
 import { computeInsights } from "@/lib/learning";
-import { getTopicalContext } from "@/lib/topical";
+import { getWeatherForPublishDay } from "@/lib/topical";
+import { qualityStatusFrom } from "@/lib/quality";
+import { parsePostingPlan } from "@/lib/posting-plan";
+import {
+  berlinWallToUtc,
+  berlinDayKey,
+  berlinWeekday,
+  isoWeek,
+  isoWeekYear,
+} from "@/lib/berlin-time";
 import { CONTENT_PILLARS } from "@/types";
 import type { Platform } from "@/types";
+import type { ImageSize } from "@/lib/posting-plan";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -25,77 +37,22 @@ export const dynamic = "force-dynamic";
  * Autonome Content-Engine.
  *
  * Läuft täglich und hält einen rollenden Puffer geplanter Posts für die
- * nächsten LOOKAHEAD_DAYS Tage. Slots stehen zu Zeiten, an denen die
- * Schützen-Zielgruppe aktiv ist (Abende & Wochenende, DEUTSCHE Zeit).
+ * nächsten LOOKAHEAD_DAYS Tage. Die Slots (Wochentage/Uhrzeiten/Plattformen)
+ * kommen aus dem konfigurierbaren Posting-Plan (Einstellungen → Ruhig/Normal/
+ * Aktiv/Individuell), nicht mehr fest aus dem Code.
+ *
  * Pro Lauf werden bis zu MAX_PER_RUN leere Slots gefüllt — mit gewichteter
- * Content-Säule, Anti-Wiederholung und Qualitäts-TÜV.
+ * Content-Säule (service nur im festen 5er-CTA-Slot), Anti-Wiederholung und
+ * verbindlichem Qualitäts-TÜV.
  */
-
-// Wochentag: 0=So, 1=Mo … 6=Sa. Uhrzeiten in DEUTSCHER Ortszeit.
-const POSTING_PLAN: Array<{
-  weekday: number;
-  hour: number;
-  minute: number;
-  platforms: Platform[];
-  imageSize: "1024x1024" | "1024x1536" | "1536x1024";
-}> = [
-  { weekday: 3, hour: 19, minute: 0, platforms: ["instagram", "facebook", "tiktok"], imageSize: "1024x1536" }, // Mi
-  { weekday: 5, hour: 18, minute: 0, platforms: ["instagram", "facebook", "tiktok"], imageSize: "1024x1536" }, // Fr
-  { weekday: 6, hour: 11, minute: 0, platforms: ["instagram", "facebook", "tiktok"], imageSize: "1024x1536" }, // Sa
-  { weekday: 0, hour: 19, minute: 0, platforms: ["instagram", "facebook", "tiktok"], imageSize: "1024x1536" }, // So
-];
 
 const LOOKAHEAD_DAYS = 8;
 const MAX_PER_RUN = 3;
 
-function authorized(req: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return true;
-  const header = req.headers.get("authorization") ?? "";
-  return header === `Bearer ${secret}`;
-}
-
-// Offset (Minuten) der Zeitzone Europe/Berlin für einen UTC-Zeitpunkt (DST-bewusst).
-function berlinOffsetMinutes(d: Date): number {
-  const f = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Europe/Berlin",
-    hour12: false,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const p: Record<string, string> = {};
-  for (const part of f.formatToParts(d)) p[part.type] = part.value;
-  const asUTC = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute);
-  return Math.round((asUTC - d.getTime()) / 60000);
-}
-
-// Deutsche Wandzeit (Y-M-D H:M) → korrekter UTC-Instant.
-function berlinWallToUtc(y: number, m: number, day: number, hour: number, minute: number): Date {
-  const guess = new Date(Date.UTC(y, m, day, hour, minute));
-  const off = berlinOffsetMinutes(guess);
-  return new Date(guess.getTime() - off * 60000);
-}
-
-function isoWeek(d: Date) {
-  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-  const day = t.getUTCDay() || 7;
-  t.setUTCDate(t.getUTCDate() + 4 - day);
-  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
-  return Math.ceil(((t.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
-}
-function isoWeekYear(d: Date) {
-  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-  const day = t.getUTCDay() || 7;
-  t.setUTCDate(t.getUTCDate() + 4 - day);
-  return t.getUTCFullYear();
-}
-
 export async function GET(req: NextRequest) {
-  if (!authorized(req))
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = cronAuthorized(req);
+  if (!auth.ok)
+    return NextResponse.json({ error: auth.reason ?? "Unauthorized" }, { status: 401 });
 
   const supabase = createAdminClient();
   const settings = await loadSettings();
@@ -104,35 +61,27 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "OPENAI_API_KEY missing." }, { status: 400 });
   }
 
+  const runId = await startRun(supabase, "content_generation", "cron");
   const now = new Date();
+  const plan = parsePostingPlan(settings["posting_plan"]);
 
   // 1) Kommende Slots (deutsche Zeit) für die nächsten LOOKAHEAD_DAYS berechnen.
-  const slots: { when: Date; size: "1024x1024" | "1024x1536" | "1536x1024"; platforms: Platform[] }[] = [];
+  const slots: { when: Date; size: ImageSize; platforms: Platform[] }[] = [];
   for (let i = 0; i <= LOOKAHEAD_DAYS; i++) {
     const dayUtc = new Date(now.getTime() + i * 86_400_000);
-    // Wochentag in Berlin bestimmen
-    const berlinWeekday = new Date(
-      new Date(dayUtc).toLocaleString("en-US", { timeZone: "Europe/Berlin" }),
-    ).getDay();
-    for (const plan of POSTING_PLAN) {
-      if (plan.weekday !== berlinWeekday) continue;
-      // Berlin-Datum dieses Tages holen
-      const bf = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Europe/Berlin",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      }).formatToParts(dayUtc);
-      const bp: Record<string, string> = {};
-      for (const part of bf) bp[part.type] = part.value;
-      const when = berlinWallToUtc(+bp.year, +bp.month - 1, +bp.day, plan.hour, plan.minute);
+    const weekday = berlinWeekday(dayUtc);
+    for (const p of plan.slots) {
+      if (p.weekday !== weekday) continue;
+      const [y, m, d] = berlinDayKey(dayUtc).split("-").map(Number);
+      const when = berlinWallToUtc(y, m - 1, d, p.hour, p.minute);
       if (when.getTime() <= now.getTime() + 60 * 60 * 1000) continue; // mind. 1h Vorlauf
-      slots.push({ when, size: plan.imageSize, platforms: plan.platforms });
+      slots.push({ when, size: p.imageSize, platforms: p.platforms });
     }
   }
   slots.sort((a, b) => a.when.getTime() - b.when.getTime());
 
-  // 2) Bereits belegte Slot-Zeiten ermitteln (Idempotenz).
+  // 2) Belegte Slots ermitteln — Idempotenz pro Berlin-KALENDERTAG (nicht exaktem
+  //    Timestamp): wird die Uhrzeit im Plan geändert, entsteht kein Doppel-Post.
   const from = now.toISOString();
   const to = new Date(now.getTime() + (LOOKAHEAD_DAYS + 1) * 86_400_000).toISOString();
   const { data: existing } = await supabase
@@ -141,11 +90,22 @@ export async function GET(req: NextRequest) {
     .gte("scheduled_at", from)
     .lte("scheduled_at", to)
     .not("status", "in", "(draft)");
-  const taken = new Set(
-    (existing ?? []).map((p) => new Date(p.scheduled_at as string).toISOString()),
+  const takenDays = new Set(
+    (existing ?? [])
+      .filter((p) => p.scheduled_at)
+      .map((p) => berlinDayKey(new Date(p.scheduled_at as string))),
   );
 
-  const open = slots.filter((s) => !taken.has(s.when.toISOString())).slice(0, MAX_PER_RUN);
+  // Nur ein Post pro Tag; erste freien Tage bis MAX_PER_RUN.
+  const open: typeof slots = [];
+  const plannedDays = new Set<string>();
+  for (const s of slots) {
+    const key = berlinDayKey(s.when);
+    if (takenDays.has(key) || plannedDays.has(key)) continue;
+    plannedDays.add(key);
+    open.push(s);
+    if (open.length >= MAX_PER_RUN) break;
+  }
 
   // 3) Anti-Wiederholung: zuletzt genutzte Themen/Botschaften + Stile laden.
   const { data: recentBriefs } = await supabase
@@ -156,13 +116,11 @@ export async function GET(req: NextRequest) {
   const avoid = (recentBriefs ?? [])
     .flatMap((b) => [b.theme, b.message])
     .filter((x): x is string => Boolean(x));
-  // Letzte Post-Stile (neueste zuerst) — für die Text-im-Bild-Garantie in pillarPick.
   const recentStyles = (recentBriefs ?? [])
     .map((b) => b.style_type)
     .filter((x): x is string => Boolean(x));
 
-  // 5er-Zyklus: jeder fünfte Post = Service/CTA-Säule.
-  // Wir zählen alle bisherigen Posts (egal welcher Status).
+  // 5er-Zyklus: jeder fünfte Post = Service/CTA-Säule (der EINZIGE Weg zu service).
   const { count: totalPostCount } = await supabase
     .from("posts")
     .select("id", { count: "exact", head: true });
@@ -172,9 +130,6 @@ export async function GET(req: NextRequest) {
   const insights = await computeInsights(supabase);
   const weights = insights.learnedWeights ?? {};
 
-  // Aktueller Kontext (Wetter/Datum) für zeitnahe, spezifische Aufhänger.
-  const topical = await getTopicalContext();
-
   const created: string[] = [];
   const errors: string[] = [];
 
@@ -182,15 +137,17 @@ export async function GET(req: NextRequest) {
     try {
       const week = isoWeek(slot.when);
       const year = isoWeekYear(slot.when);
-      const month = slot.when.getUTCMonth() + 1; // 1-12 (Berlin-Näherung via UTC — max. 1h Abweichung)
+      const month = slot.when.getUTCMonth() + 1;
 
-      // Jeder 5. Post bekommt die Service-Säule (CTA), unabhängig von den Lern-Gewichten.
       const postIndex = baseIndex + created.length;
       const isCTASlot = postIndex % 5 === 4;
       const pillar = isCTASlot ? "service" : pickPillarWeighted(weights);
       const { styleType, themeCategory } = pillarPick(pillar, recentStyles);
-      recentStyles.unshift(styleType); // nächster Slot berücksichtigt auch diesen
+      recentStyles.unshift(styleType);
       const pillarLabel = CONTENT_PILLARS.find((p) => p.key === pillar)?.label;
+
+      // Wetter für den KONKRETEN Veröffentlichungstag (Prognose, wenn > 24h weg).
+      const topical = await getWeatherForPublishDay(slot.when, now);
 
       const makePost = async () => {
         const brief = await generateBrief({
@@ -203,8 +160,8 @@ export async function GET(req: NextRequest) {
           pillar,
           avoid,
           topical: topical.text,
-          // starker Wetter-Aufhänger nur für EINEN Post pro Lauf (sonst reagieren alle gleich)
-          reactiveHook: created.length === 0 ? topical.reactiveHook ?? undefined : undefined,
+          // Reaktiver Hook nur, wenn der Termin < 24h weg ist (sonst null).
+          reactiveHook: topical.reactiveHook ?? undefined,
         });
         const imagePrompt = buildImagePrompt({
           brandStyle: settings["brand_style_prompt"],
@@ -246,13 +203,14 @@ export async function GET(req: NextRequest) {
 
       // Generieren + TÜV; bei schlechtem Ergebnis EINMAL komplett neu.
       let result = await makePost();
-      if (!result.review.imageOk || result.review.score < 5) {
+      if (!result.review.imageOk || (result.review.checked && result.review.score < 5)) {
         const retry = await makePost();
         if (retry.review.score >= result.review.score) result = retry;
       }
 
       const { brief, imagePrompt, caption, imageUrl, review } = result;
-      avoid.unshift(brief.theme, brief.message); // nächster Slot vermeidet auch diesen
+      const qualityStatus = qualityStatusFrom(review);
+      avoid.unshift(brief.theme, brief.message);
 
       const { data: post } = await supabase
         .from("posts")
@@ -267,6 +225,7 @@ export async function GET(req: NextRequest) {
           year,
           quality_score: review.score,
           quality_notes: review.issues,
+          quality_status: qualityStatus,
         })
         .select("id")
         .single();
@@ -290,6 +249,15 @@ export async function GET(req: NextRequest) {
       errors.push(msg);
     }
   }
+
+  await finishRun(supabase, runId, {
+    planned: open.length,
+    succeeded: created.length,
+    failed: open.length - created.length,
+    errors,
+    postIds: created,
+    meta: { mode: plan.mode },
+  });
 
   return NextResponse.json({
     created: created.length,

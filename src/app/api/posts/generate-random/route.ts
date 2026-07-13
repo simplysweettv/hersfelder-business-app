@@ -12,6 +12,7 @@ import {
   reviewPost,
 } from "@/lib/openai";
 import { getTopicalContext } from "@/lib/topical";
+import { qualityStatusFrom } from "@/lib/quality";
 import { CONTENT_PILLARS, type PillarKey } from "@/types";
 
 export const runtime = "nodejs";
@@ -160,6 +161,7 @@ export async function POST(req: NextRequest) {
         year,
         quality_score: review.score,
         quality_notes: review.issues,
+        quality_status: qualityStatusFrom(review),
       })
       .select("*")
       .single();

@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { randomBytes } from "crypto";
+
+export const runtime = "nodejs";
 
 export async function GET() {
   const appId = process.env.FACEBOOK_APP_ID;
@@ -7,6 +11,18 @@ export async function GET() {
   if (!appId) {
     return NextResponse.json({ error: "FACEBOOK_APP_ID nicht konfiguriert" }, { status: 500 });
   }
+
+  // CSRF-Schutz: zufälliger state, in einem httpOnly-Cookie gespiegelt und im
+  // Callback verglichen. Ersetzt den vorherigen konstanten state.
+  const state = randomBytes(16).toString("hex");
+  const cookieStore = await cookies();
+  cookieStore.set("meta_oauth_state", state, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 600, // 10 Minuten
+  });
 
   const params = new URLSearchParams({
     client_id: appId,
@@ -19,10 +35,10 @@ export async function GET() {
       "instagram_content_publish",
     ].join(","),
     response_type: "code",
-    state: "hersfelder_meta_connect",
+    state,
   });
 
   return NextResponse.redirect(
-    `https://www.facebook.com/dialog/oauth?${params.toString()}`
+    `https://www.facebook.com/dialog/oauth?${params.toString()}`,
   );
 }

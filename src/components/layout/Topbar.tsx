@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, ChevronRight } from "lucide-react";
 
@@ -50,15 +51,19 @@ export function Topbar({ hasNotifications = false }: { hasNotifications?: boolea
       </nav>
 
       <div className="flex items-center gap-3 md:gap-4">
-        <button
-          aria-label="Benachrichtigungen"
+        <Link
+          href="/social/freigaben"
+          aria-label={
+            hasNotifications ? "Offene Aufgaben ansehen" : "Keine offenen Aufgaben"
+          }
+          title={hasNotifications ? "Offene Freigaben" : "Keine offenen Aufgaben"}
           className="relative text-muted-foreground hover:text-foreground transition-colors"
         >
           <Bell className="w-[18px] h-[18px]" />
           {hasNotifications && (
             <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white" />
           )}
-        </button>
+        </Link>
         <div
           className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-semibold"
           style={{ background: "#0f172a" }}

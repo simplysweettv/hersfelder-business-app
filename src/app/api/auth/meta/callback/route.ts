@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
+
+export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://hersfelder-business-app.vercel.app";
@@ -9,9 +12,19 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const code = searchParams.get("code");
   const error = searchParams.get("error");
+  const state = searchParams.get("state");
+
+  // CSRF-Schutz: state gegen das httpOnly-Cookie prüfen, dann Cookie löschen.
+  const cookieStore = await cookies();
+  const expectedState = cookieStore.get("meta_oauth_state")?.value;
+  cookieStore.delete("meta_oauth_state");
 
   if (error) {
     console.error("[meta/callback] OAuth error:", error, searchParams.get("error_description"));
+    return NextResponse.redirect(`${appUrl}/einstellungen?meta=error`);
+  }
+  if (!state || !expectedState || state !== expectedState) {
+    console.error("[meta/callback] State-Mismatch — möglicher CSRF-Versuch.");
     return NextResponse.redirect(`${appUrl}/einstellungen?meta=error`);
   }
   if (!code) {

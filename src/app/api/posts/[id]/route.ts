@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-// PATCH /api/posts/[id] — caption aktualisieren
+// PATCH /api/posts/[id] — Caption und/oder Termin aktualisieren
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } },
@@ -10,15 +10,39 @@ export async function PATCH(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await req.json();
-  const { caption } = body;
-  if (typeof caption !== "string") {
-    return NextResponse.json({ error: "caption required" }, { status: 400 });
+  const body = (await req.json().catch(() => ({}))) as {
+    caption?: unknown;
+    scheduled_at?: unknown;
+  };
+
+  const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+
+  if (body.caption !== undefined) {
+    if (typeof body.caption !== "string") {
+      return NextResponse.json({ error: "caption muss ein String sein" }, { status: 400 });
+    }
+    update.caption = body.caption;
+  }
+
+  if (body.scheduled_at !== undefined) {
+    if (body.scheduled_at === null || body.scheduled_at === "") {
+      update.scheduled_at = null;
+    } else {
+      const d = new Date(String(body.scheduled_at));
+      if (Number.isNaN(d.getTime())) {
+        return NextResponse.json({ error: "scheduled_at ist kein gültiges Datum" }, { status: 400 });
+      }
+      update.scheduled_at = d.toISOString();
+    }
+  }
+
+  if (Object.keys(update).length === 1) {
+    return NextResponse.json({ error: "Nichts zu ändern" }, { status: 400 });
   }
 
   const { error } = await supabase
     .from("posts")
-    .update({ caption, updated_at: new Date().toISOString() })
+    .update(update)
     .eq("id", params.id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

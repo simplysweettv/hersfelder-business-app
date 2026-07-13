@@ -8,7 +8,9 @@ import {
   generateBrief,
   generateImage,
   generateCaption,
+  reviewPost,
 } from "@/lib/openai";
+import { qualityStatusFrom } from "@/lib/quality";
 import { CONTENT_PILLARS, type PillarKey } from "@/types";
 
 export const runtime = "nodejs";
@@ -109,6 +111,10 @@ export async function POST(
     imageUrl = image.url;
   }
 
+  // Verbindlicher Qualitäts-TÜV auch bei Regeneration.
+  const pillarLabel = CONTENT_PILLARS.find((p) => p.key === pillar)?.label;
+  const review = await reviewPost({ apiKey, caption, imageUrl, styleType, pillarLabel });
+
   // Update post
   await admin
     .from("posts")
@@ -116,6 +122,9 @@ export async function POST(
       title: `KW${post.week_number} ${newBrief.theme}`,
       image_url: imageUrl,
       caption,
+      quality_score: review.score,
+      quality_notes: review.issues,
+      quality_status: qualityStatusFrom(review),
       updated_at: new Date().toISOString(),
     })
     .eq("id", params.id);

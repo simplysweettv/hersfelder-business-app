@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computeInsights } from "@/lib/learning";
+import { getSystemHealth, RUN_TYPE_LABEL, type SystemHealth } from "@/lib/automation";
 import { formatDateTime } from "@/lib/date-utils";
 import { Card } from "@/components/ui/card";
 import {
@@ -12,6 +13,7 @@ import {
   Brain,
   ShieldCheck,
   AlertTriangle,
+  AlertOctagon,
   CalendarClock,
 } from "lucide-react";
 import {
@@ -38,14 +40,13 @@ export default async function DashboardPage() {
   const nowIso = new Date().toISOString();
 
   const [
-    { count: pending },
     { count: scheduled },
     { count: published },
     { data: upcomingRaw },
     insights,
     { data: fbIssues },
+    health,
   ] = await Promise.all([
-    supabase.from("posts").select("id", { count: "exact", head: true }).eq("status", "pending"),
     supabase
       .from("posts")
       .select("id", { count: "exact", head: true })
@@ -67,10 +68,11 @@ export default async function DashboardPage() {
       .eq("status", "skipped")
       .ilike("error", "%Page%")
       .limit(1),
+    getSystemHealth(supabase),
   ]);
 
   const upcoming = (upcomingRaw ?? []) as UpcomingPost[];
-  const pendingCount = pending ?? 0;
+  const pendingCount = health.pendingCount;
   const topPillar = insights.pillars.find((p) => p.posts > 0);
 
   const openaiOk = Boolean(process.env.OPENAI_API_KEY);
@@ -85,25 +87,8 @@ export default async function DashboardPage() {
         <p className="text-sm text-muted-foreground">Dein Social-Media-Leitstand</p>
       </div>
 
-      {/* Maschinen-Status */}
-      <Card className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
-        <div className="flex items-center gap-2.5">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping" />
-            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-          </span>
-          <span className="font-medium text-sm">Content-Maschine läuft</span>
-        </div>
-        <div className="hidden sm:block h-4 w-px bg-border" />
-        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <CalendarClock className="w-3.5 h-3.5" />
-          Nächster Lauf: täglich 5:00
-        </div>
-        <div className="hidden sm:block h-4 w-px bg-border" />
-        <div className="text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">{scheduled ?? 0}</span> Posts eingeplant
-        </div>
-      </Card>
+      {/* Echte Systemampel — aus automation_runs + Post-Lage abgeleitet */}
+      <SystemStatus health={health} scheduled={scheduled ?? 0} />
 
       {/* Primär-Aktion */}
       {pendingCount > 0 ? (
@@ -253,6 +238,86 @@ export default async function DashboardPage() {
         <MiniKpi icon={CheckCircle2} label="Veröffentlicht" value={published ?? 0} />
       </div>
     </div>
+  );
+}
+
+function SystemStatus({ health, scheduled }: { health: SystemHealth; scheduled: number }) {
+  const dot =
+    health.level === "ok"
+      ? "bg-emerald-500"
+      : health.level === "warn"
+        ? "bg-amber-500"
+        : "bg-red-500";
+  const ping =
+    health.level === "ok" ? "bg-emerald-400" : health.level === "warn" ? "bg-amber-400" : "bg-red-400";
+
+  const lastGen = health.lastRuns.find((r) => r.run_type === "content_generation");
+
+  return (
+    <Card className="p-4 space-y-3">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className={`absolute inline-flex h-full w-full rounded-full opacity-60 animate-ping ${ping}`} />
+            <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${dot}`} />
+          </span>
+          <span className="font-medium text-sm">{health.headline}</span>
+        </div>
+        <div className="hidden sm:block h-4 w-px bg-border" />
+        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <CalendarClock className="w-3.5 h-3.5" />
+          {lastGen?.finished_at
+            ? `Letzter Content-Lauf: ${formatDateTime(lastGen.finished_at)}`
+            : "Noch kein Lauf protokolliert"}
+        </div>
+        <div className="hidden sm:block h-4 w-px bg-border" />
+        <div className="text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">{scheduled}</span> Posts eingeplant
+        </div>
+      </div>
+
+      {health.tasks.length > 0 && (
+        <div className="pt-1 space-y-1.5 border-t border-border">
+          {health.tasks.slice(0, 5).map((t, i) => (
+            <Link
+              key={i}
+              href={t.href}
+              className="flex items-center gap-2 text-sm hover:underline pt-1.5"
+            >
+              {t.level === "error" ? (
+                <AlertOctagon className="w-4 h-4 text-red-600 shrink-0" />
+              ) : (
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              )}
+              <span className="flex-1">{t.text}</span>
+              <ArrowRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {health.lastRuns.length > 0 && (
+        <div className="pt-2 border-t border-border flex flex-wrap gap-x-4 gap-y-1">
+          {health.lastRuns.map((r) => (
+            <span key={r.run_type} className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  r.status === "ok"
+                    ? "bg-emerald-500"
+                    : r.status === "partial"
+                      ? "bg-amber-500"
+                      : r.status === "error"
+                        ? "bg-red-500"
+                        : "bg-slate-400"
+                }`}
+              />
+              {RUN_TYPE_LABEL[r.run_type]}
+              {r.finished_at ? ` · ${formatDateTime(r.finished_at)}` : " · läuft"}
+            </span>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }
 

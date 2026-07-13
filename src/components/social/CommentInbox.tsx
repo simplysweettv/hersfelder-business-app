@@ -46,6 +46,7 @@ export function CommentInbox({
   const [openReply, setOpenReply] = useState<string | null>(null);
   const [sending, setSending] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [syncing, startSync] = useTransition();
 
   const filtered = comments.filter((c) => {
@@ -59,10 +60,26 @@ export function CommentInbox({
 
   async function syncComments() {
     startSync(async () => {
-      await fetch("/api/cron/fetch-comments");
-      const res = await fetch("/api/comments?filter=all");
-      const data = await res.json();
-      if (data.comments) setComments(data.comments);
+      setSyncError(null);
+      try {
+        // Authentifizierter Sync (nicht der abgesicherte Cron) — Fehler sichtbar machen.
+        const sync = await fetch("/api/comments/sync", { method: "POST" });
+        const syncData = await sync.json().catch(() => ({}));
+        if (!sync.ok) {
+          setSyncError(
+            (syncData.errors && syncData.errors[0]) ??
+              syncData.error ??
+              "Abgleich fehlgeschlagen.",
+          );
+        } else if (Array.isArray(syncData.errors) && syncData.errors.length) {
+          setSyncError(syncData.errors.join(" · "));
+        }
+        const res = await fetch("/api/comments?filter=all");
+        const data = await res.json();
+        if (data.comments) setComments(data.comments);
+      } catch {
+        setSyncError("Netzwerkfehler beim Abgleich.");
+      }
     });
   }
 
@@ -119,6 +136,12 @@ export function CommentInbox({
         <RefreshCw className={cn("w-4 h-4", syncing && "animate-spin")} />
         {syncing ? "Kommentare werden geladen…" : "Aktualisieren — neue Kommentare von Instagram & Facebook holen"}
       </button>
+
+      {syncError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {syncError}
+        </div>
+      )}
 
       {/* Filter */}
       <div className="flex gap-1 flex-wrap">

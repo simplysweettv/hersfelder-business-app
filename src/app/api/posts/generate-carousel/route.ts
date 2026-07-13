@@ -124,6 +124,7 @@ export async function POST(req: NextRequest) {
         year,
         quality_score: 10, // selbst gerendert → Text immer perfekt lesbar
         quality_notes: [],
+        quality_status: "passed",
       })
       .select("id")
       .single();

@@ -51,6 +51,68 @@ export type TopicalContext = {
   tempC: number | null;
 };
 
+/**
+ * Wetter-Aufhänger für einen KONKRETEN Veröffentlichungstag.
+ *
+ * Wichtig (Review): Ein am Sonntag erzeugter Post für nächsten Samstag darf
+ * NICHT das Sonntagswetter erwähnen.
+ * - Termin < 24h entfernt → aktuelles Wetter als starker reaktiver Aufhänger.
+ * - Termin weiter weg → Tages-PROGNOSE für den Veröffentlichungstag (open-meteo
+ *   daily, bis ~16 Tage), nur als sanfter Kontext, kein "heute"-Hook.
+ */
+export async function getWeatherForPublishDay(
+  publishAt: Date,
+  now: Date = new Date(),
+): Promise<TopicalContext> {
+  const hoursAway = (publishAt.getTime() - now.getTime()) / 3_600_000;
+
+  // Innerhalb 24h → aktuelles Wetter ist relevant (reaktiver Hook erlaubt).
+  if (hoursAway <= 24) return getTopicalContext(now);
+
+  // Sonst: Prognose für den Zieltag (nur Kontext, kein "heute").
+  const target = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Berlin",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(publishAt);
+
+  const berlin = new Date(publishAt.toLocaleString("en-US", { timeZone: "Europe/Berlin" }));
+  const weekday = WEEKDAYS[berlin.getDay()];
+  const day = berlin.getDate();
+  const month = berlin.getMonth() + 1;
+  const dateStr = `${weekday}, ${day}. ${MONTHS[month - 1]}`;
+  const season = seasonOf(month);
+  const occasion = occasionHint(month, day);
+
+  let forecast: string | null = null;
+  try {
+    const res = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}` +
+        `&daily=weather_code,temperature_2m_max&timezone=Europe/Berlin&start_date=${target}&end_date=${target}`,
+      { cache: "no-store" },
+    );
+    if (res.ok) {
+      const json = (await res.json()) as {
+        daily?: { temperature_2m_max?: number[]; weather_code?: number[] };
+      };
+      const t = json.daily?.temperature_2m_max?.[0];
+      const c = json.daily?.weather_code?.[0];
+      if (typeof t === "number") {
+        forecast = `${Math.round(t)}°C, ${typeof c === "number" ? weatherText(c) : "wechselhaft"}`;
+      }
+    }
+  } catch {
+    /* Prognose optional */
+  }
+
+  const text = `AKTUELLER KONTEXT (für den VERÖFFENTLICHUNGSTAG — nutze ihn als Stimmung, aber schreibe NICHT "heute"):
+- Veröffentlichung: ${dateStr}
+- Saison: ${season}${occasion ? `\n- Anlass: ${occasion}` : ""}${forecast ? `\n- Wetterprognose für den Tag: ${forecast}` : ""}`;
+
+  return { text, reactiveHook: null, tempC: null };
+}
+
 export async function getTopicalContext(now: Date = new Date()): Promise<TopicalContext> {
   // Datum in deutscher Zeit
   const berlin = new Date(now.toLocaleString("en-US", { timeZone: "Europe/Berlin" }));

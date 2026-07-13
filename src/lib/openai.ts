@@ -79,9 +79,17 @@ export function pickPillar(): PillarKey {
   return "community";
 }
 
-/** Wie pickPillar, aber mit (gelernten) Gewichten. Fehlende/0-Gewichte → Basis. */
+/**
+ * Wie pickPillar, aber mit (gelernten) Gewichten.
+ *
+ * WICHTIG (Review): "service" ist hier AUSGESCHLOSSEN — die Service-/Werbe-
+ * Säule kommt ausschließlich über die festen CTA-Slots (jeder 5. Post). Sonst
+ * läge der Werbeanteil in Summe deutlich über den angepeilten ~20 %.
+ * Die verbleibenden Säulen werden auf den Ziel-Mix normalisiert
+ * (community 45 % · craft 20 % · proof 20 % + Rest, wenn service fehlt).
+ */
 export function pickPillarWeighted(weights: Partial<Record<PillarKey, number>>): PillarKey {
-  const entries = CONTENT_PILLARS.map((p) => ({
+  const entries = CONTENT_PILLARS.filter((p) => p.key !== "service").map((p) => ({
     key: p.key,
     w: Math.max(1, weights[p.key] ?? p.weight),
   }));
@@ -259,9 +267,9 @@ function pillarImageDirective(
     case "service":
       return {
         scene:
-          "Freundliche Anprobe/Beratung: ein Vereinsmitglied wird in einer dunkelgrünen Uniform angepasst, ein Berater hilft mit Maßband — warmherzig, vertrauensvoll, hell",
+          "Freundliche Größenberatung: ein Vereinsmitglied probiert eine dunkelgrüne Uniform aus dem Standardsortiment an und schaut in den Spiegel, ein Berater reicht die passende Konfektionsgröße aus einem Musterset an — warmherzig, hell, vertrauensvoll. KEIN Maßband, KEIN Vermessen, KEINE Schneiderwerkstatt.",
         prose:
-          "Erstelle ein einladendes Foto rund um Beratung & Ausstattung — eine Anprobe oder ein freundliches Beratungsgespräch zur Vereinsuniform. Hell, freundlich, vertrauenswürdig, Partner auf Augenhöhe.",
+          "Erstelle ein einladendes Foto rund um Größenberatung & Ausstattung — eine Anprobe aus dem Standardsortiment oder ein freundliches Beratungsgespräch zur Vereinsausstattung. Hell, freundlich, Partner auf Augenhöhe. WICHTIG: Wir sind KEINE Maßschneiderei — zeige Auswahl aus fertigen Größen und ein Musterset, NIEMALS Maßband, Vermessen, Kreide oder Nähwerkstatt.",
       };
     default:
       return null;
@@ -642,7 +650,7 @@ export async function generateCarouselContent(opts: {
     proof:
       "Wie ein Schützenverein von Hersfelder komplett neu eingekleidet wurde — Ablauf und stolzes Ergebnis",
     service:
-      "So läuft eine Vereins-Ausstattung bei Hersfelder — Schritt für Schritt (Beratung, Maße, Muster, Lieferung)",
+      "So läuft eine Vereins-Ausstattung bei Hersfelder — Schritt für Schritt (Beratung, Größenberatung mit Musterset aus dem Standardsortiment, Bestellung, Lieferung — KEINE Maßanfertigung)",
     community:
       "Dinge, die ein richtig gutes Schützenfest ausmachen — warmherzig und gemeinschaftlich",
   };
@@ -744,7 +752,7 @@ export async function generateCaption(opts: {
       { role: "user", content: opts.prompt },
     ],
     temperature: 0.85,
-    max_tokens: 600,
+    max_tokens: 900,
   });
   await recordAiUsage({ operation: "caption", model: "gpt-4o-mini", usage: res.usage });
   return res.choices?.[0]?.message?.content?.trim() ?? "";
@@ -755,13 +763,18 @@ export type PostReview = {
   captionOk: boolean;
   imageOk: boolean;
   issues: string[]; // verständliche Mängel (deutsch)
+  /** false = Prüfung ist technisch fehlgeschlagen → quality_status "not_checked". */
+  checked: boolean;
 };
 
 /**
  * Qualitäts-TÜV: eine zweite KI prüft Bild (Vision) UND Text gegen eine
  * Marken-/Sicherheits-Checkliste und gibt eine Note + Mängelliste zurück.
- * Schlägt der Aufruf fehl, gilt der Post als "ok" (kein Blockieren), aber
- * ohne Note.
+ *
+ * WICHTIG (Review): Schlägt der Aufruf technisch fehl, wird der Post NICHT
+ * mehr stillschweigend mit Score 7 als "ok" behandelt — `checked: false`
+ * signalisiert der aufrufenden Stelle "not_checked", damit ungeprüfte Posts
+ * sichtbar markiert und nicht blind freigegeben werden.
  */
 export async function reviewPost(opts: {
   apiKey?: string;
@@ -825,9 +838,10 @@ Antworte NUR als JSON:
       captionOk: parsed.captionOk !== false,
       imageOk: parsed.imageOk !== false,
       issues: Array.isArray(parsed.issues) ? parsed.issues.slice(0, 6) : [],
+      checked: true,
     };
   } catch {
-    // Review-Fehler darf die Generierung nicht blockieren.
-    return { score: 7, captionOk: true, imageOk: true, issues: [] };
+    // Technischer Prüf-Fehler → NICHT als bestanden tarnen (not_checked).
+    return { score: 0, captionOk: true, imageOk: true, issues: ["Qualitätsprüfung technisch fehlgeschlagen"], checked: false };
   }
 }

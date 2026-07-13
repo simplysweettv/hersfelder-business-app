@@ -1,8 +1,9 @@
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { captionForPlatform } from "@/lib/caption";
 import { getPublisher } from "./registry";
+import { classifyPublishError, nextRetryAt } from "./errors";
 import type { ConfigGetter } from "./types";
-import type { Platform, Post } from "@/types";
+import type { Platform, Post, PostStatus } from "@/types";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -21,17 +22,52 @@ export async function loadPublishConfig(
 }
 
 export type PublishMode =
-  // sofort posten (Cron: fällige Posts) → Erfolg = veröffentlicht
+  // sofort posten (fällige Posts / Freigabe ohne Termin) → Erfolg = veröffentlicht
   | "immediate"
   // an den Anbieter mit Wunsch-Uhrzeit übergeben (Freigabe) → Erfolg = eingeplant
   | "schedule";
 
+/**
+ * Wer hat den Lauf ausgelöst? Manuelle Aktionen (Freigabe-Klick) versuchen
+ * fehlgeschlagene Plattformen immer erneut; der Cron respektiert die
+ * Retry-Klassifizierung (permanent = kein Auto-Retry, transient = Backoff).
+ */
+export type PublishTrigger = "manual" | "cron";
+
+export type PerPlatformResult = {
+  platform: Platform;
+  ok: boolean;
+  error?: string;
+  /** true = diese Runde bewusst nicht versucht (Backoff/permanent/fremder Claim). */
+  skippedAttempt?: boolean;
+};
+
 export type PublishPostResult = {
   ok: boolean;
   status: Post["status"];
-  perPlatform: { platform: Platform; ok: boolean; error?: string }[];
+  perPlatform: PerPlatformResult[];
   skipped?: string;
 };
+
+/**
+ * Post-Status aus den Per-Plattform-Zeilen ableiten (pure, unit-getestet).
+ * skipped (z.B. Konto nicht verbunden) blockiert nicht; ein fremder
+ * pending-Claim hält den Post auf "scheduled".
+ */
+export function derivePostStatus(
+  platforms: Platform[],
+  statusByPlatform: Map<Platform, string>,
+  mode: PublishMode,
+): PostStatus {
+  const anyFailed = platforms.some((p) => statusByPlatform.get(p) === "failed");
+  if (anyFailed) return "failed";
+  const allSuccess = platforms.every((p) => {
+    const s = statusByPlatform.get(p);
+    return s === "success" || s === "skipped";
+  });
+  if (allSuccess) return mode === "immediate" ? "published" : "scheduled";
+  return "scheduled";
+}
 
 /**
  * Veröffentlicht (oder plant) EINEN Post über alle seine Plattformen.
@@ -40,14 +76,17 @@ export type PublishPostResult = {
  * - mode "schedule":  übergibt mit scheduledTime = post.scheduled_at an den
  *   Anbieter, der dann selbst zur richtigen Zeit postet.
  *
- * Idempotent: bereits erfolgreiche Plattformen werden übersprungen, sodass ein
- * späterer Cron-Lauf nie doppelt postet.
+ * Doppel-Post-Schutz: pro Plattform ein ATOMARER Datenbank-Claim
+ * (claim_publication) — parallele Aufrufe (Freigabe-Klick + Cron) können
+ * dieselbe Plattform nie gleichzeitig bearbeiten; bereits erfolgreiche
+ * Plattformen werden übersprungen.
  */
 export async function publishPost(
   supabase: AdminClient,
   post: Post,
   getConfig: ConfigGetter,
   mode: PublishMode,
+  trigger: PublishTrigger = "manual",
 ): Promise<PublishPostResult> {
   if (!post.image_url || !post.caption) {
     return {
@@ -63,32 +102,61 @@ export async function publishPost(
       ? new Date(post.scheduled_at).toISOString()
       : undefined;
 
-  const perPlatform: { platform: Platform; ok: boolean; error?: string }[] = [];
+  const perPlatform: PerPlatformResult[] = [];
 
   for (const platform of post.platforms) {
-    // 1. Idempotenz: bereits erfolgreich → überspringen (kein Doppel-Post).
+    // 1. Aktuellen Stand lesen: erfolgreich → überspringen; Cron respektiert
+    //    außerdem permanent-Fehler und Backoff-Zeitfenster.
     const { data: existing } = await supabase
       .from("post_publications")
-      .select("status")
+      .select("status, error, error_code, next_retry_at")
       .eq("post_id", post.id)
       .eq("platform", platform)
       .maybeSingle();
+
     if (existing?.status === "success") {
       perPlatform.push({ platform, ok: true });
       continue;
     }
 
-    // 2. Claim: Zeile auf "pending" setzen (unique post_id+platform).
-    await supabase.from("post_publications").upsert(
-      {
-        post_id: post.id,
+    if (trigger === "cron" && existing?.status === "failed") {
+      if (existing.error_code === "permanent") {
+        perPlatform.push({
+          platform,
+          ok: false,
+          error: existing.error ?? "Dauerhafter Fehler — manuell prüfen.",
+          skippedAttempt: true,
+        });
+        continue;
+      }
+      if (existing.next_retry_at && new Date(existing.next_retry_at) > new Date()) {
+        perPlatform.push({
+          platform,
+          ok: false,
+          error: existing.error ?? "Wartet auf nächsten Retry.",
+          skippedAttempt: true,
+        });
+        continue;
+      }
+    }
+
+    // 2. ATOMARER Claim — die DB entscheidet, wer diese Plattform bearbeitet.
+    const { data: attempt, error: claimErr } = await supabase.rpc("claim_publication", {
+      p_post_id: post.id,
+      p_platform: platform,
+      p_stale_minutes: 10,
+    });
+    if (claimErr || attempt == null || attempt < 0) {
+      // Ein anderer Prozess arbeitet gerade (oder hat gerade gewonnen) —
+      // kein Fehler, diese Runde einfach nicht anfassen.
+      perPlatform.push({
         platform,
-        status: "pending",
-        error: null,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "post_id,platform" },
-    );
+        ok: false,
+        error: claimErr?.message ?? "Wird gerade von einem anderen Lauf verarbeitet.",
+        skippedAttempt: true,
+      });
+      continue;
+    }
 
     // 3. Veröffentlichen/Einplanen über die Abstraktion (Anbieter egal).
     const caption = captionForPlatform(post.caption, platform);
@@ -102,16 +170,22 @@ export async function publishPost(
       getConfig,
     );
 
-    // reauth = kein verbundener Account → skip, kein Fehler
+    // 4. Ergebnis klassifizieren + pro Plattform festhalten.
+    //    reauth = kein verbundener Account → skipped (kein Fehler, blockiert nicht)
+    const errorCode = outcome.ok
+      ? null
+      : classifyPublishError(outcome.error, outcome.reauth);
     const pubStatus = outcome.ok ? "success" : outcome.reauth ? "skipped" : "failed";
+    const retryAt = outcome.ok ? null : nextRetryAt(errorCode!, attempt);
 
-    // 4. Ergebnis pro Plattform festhalten.
     await supabase
       .from("post_publications")
       .update({
         status: pubStatus,
         external_id: outcome.ok ? outcome.externalId : null,
         error: outcome.ok ? null : outcome.error,
+        error_code: errorCode,
+        next_retry_at: retryAt ? retryAt.toISOString() : null,
         // Bei "schedule" ist noch nichts live → published_at erst beim echten Posten.
         published_at:
           outcome.ok && mode === "immediate" ? new Date().toISOString() : null,
@@ -145,33 +219,21 @@ export async function publishPost(
   const statusByPlatform = new Map(
     (pubRows ?? []).map((r) => [r.platform as Platform, r.status as string]),
   );
-  // skipped (z.B. LinkedIn nicht verbunden) zählt nicht als Fehler
-  const allSuccess = post.platforms.every(
-    (p) =>
-      statusByPlatform.get(p) === "success" || statusByPlatform.get(p) === "skipped",
-  );
-  const anyFailed = post.platforms.some((p) => statusByPlatform.get(p) === "failed");
-
-  // immediate + allSuccess → published. schedule + allSuccess → scheduled
-  // (an Blotato übergeben, postet selbst zur Zeit).
-  let newStatus: Post["status"];
-  if (anyFailed) newStatus = "failed";
-  else if (allSuccess) newStatus = mode === "immediate" ? "published" : "scheduled";
-  else newStatus = "scheduled";
-
-  const justPublished = allSuccess && mode === "immediate";
+  const newStatus = derivePostStatus(post.platforms, statusByPlatform, mode);
+  const justPublished = newStatus === "published";
 
   await supabase
     .from("posts")
     .update({
       status: newStatus,
       published_at: justPublished
-        ? new Date().toISOString()
+        ? post.published_at ?? new Date().toISOString()
         : post.published_at ?? null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", post.id);
 
+  const anyFailed = newStatus === "failed";
   return { ok: !anyFailed, status: newStatus, perPlatform };
 }
 
@@ -221,6 +283,8 @@ export async function syncPostStatus(
           public_url: outcome.publicUrl ?? null,
           published_at: new Date().toISOString(),
           error: null,
+          error_code: null,
+          next_retry_at: null,
           updated_at: new Date().toISOString(),
         })
         .eq("post_id", postId)
@@ -232,6 +296,7 @@ export async function syncPostStatus(
         .update({
           status: "failed",
           error: outcome.error,
+          error_code: classifyPublishError(outcome.error),
           updated_at: new Date().toISOString(),
         })
         .eq("post_id", postId)

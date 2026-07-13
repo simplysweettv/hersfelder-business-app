@@ -8,6 +8,10 @@ type AdminClient = ReturnType<typeof createAdminClient>;
  * public_url zurück mit Säule + Uhrzeit + Plattform jedes Posts und leitet
  * daraus ab, was am besten performt — plus gelernte Säulen-Gewichte für die
  * Content-Engine.
+ *
+ * Statistik-Leitplanken (Review): Vergleiche laufen INNERHALB einer Plattform
+ * (Scores werden am Plattform-Durchschnitt normalisiert, sonst gewinnt immer
+ * der größte Kanal), Gewichte erst ab Mindeststichprobe, Anpassung gedeckelt.
  */
 
 export type PillarInsight = {
@@ -30,25 +34,39 @@ function num(v: unknown): number {
   return Number.isNaN(n) ? 0 : n;
 }
 
-// Engagement-Score: Aktionen zählen, nicht reine Reichweite (sonst Plattform-
-// Verzerrung). Likes + 2×Kommentare + 2×Shares.
-function engagementScore(m: { likes: number; comments: number; shares: number }) {
+export type PostMetrics = {
+  likes: number;
+  comments: number;
+  shares: number;
+  views: number;
+  reach: number;
+};
+
+// Engagement-Score: Aktionen zählen, nicht reine Reichweite.
+// Likes + 2×Kommentare + 2×Shares.
+export function engagementScore(m: Pick<PostMetrics, "likes" | "comments" | "shares">) {
   return m.likes + 2 * m.comments + 2 * m.shares;
 }
 
-/** Blotato published-posts → Map public_url → Engagement. */
-async function fetchMetricsByUrl(): Promise<
-  Map<string, { likes: number; comments: number; shares: number; views: number; reach: number }>
-> {
-  const out = new Map<
-    string,
-    { likes: number; comments: number; shares: number; views: number; reach: number }
-  >();
-  const key = process.env.BLOTATO_API_KEY;
-  if (!key) return out;
+/** Blotato-API-Key: ENV zuerst, sonst settings-Tabelle (Service-Role). */
+async function resolveBlotatoKey(supabase: AdminClient): Promise<string | undefined> {
+  if (process.env.BLOTATO_API_KEY) return process.env.BLOTATO_API_KEY;
+  const { data } = await supabase
+    .from("settings")
+    .select("value")
+    .eq("key", "blotato_api_key")
+    .maybeSingle();
+  return data?.value ?? undefined;
+}
+
+/** Blotato published-posts → Map public_url → Metriken. Exportiert für die
+ *  täglichen post_metrics-Snapshots im Publish-Cron. */
+export async function fetchMetricsByUrl(apiKey: string | undefined): Promise<Map<string, PostMetrics>> {
+  const out = new Map<string, PostMetrics>();
+  if (!apiKey) return out;
   try {
     const res = await fetch("https://backend.blotato.com/v2/published-posts?limit=100", {
-      headers: { "blotato-api-key": key },
+      headers: { "blotato-api-key": apiKey },
       cache: "no-store",
     });
     if (!res.ok) return out;
@@ -84,7 +102,8 @@ export async function computeInsights(supabase: AdminClient): Promise<Insights> 
     sampleSize: 0,
   };
 
-  const metricsByUrl = await fetchMetricsByUrl();
+  const apiKey = await resolveBlotatoKey(supabase);
+  const metricsByUrl = await fetchMetricsByUrl(apiKey);
   if (metricsByUrl.size === 0) return empty;
 
   // Veröffentlichte Plattform-Posts mit public_url.
@@ -113,38 +132,49 @@ export async function computeInsights(supabase: AdminClient): Promise<Insights> 
     if (b.pillar) pillarByPost.set(b.post_id as string, b.pillar as PillarKey);
   }
 
-  // Aggregation.
-  const byPillar = new Map<PillarKey, { sum: number; n: number }>();
+  // 1. Durchgang: roher Score + Plattform-Durchschnitt (für Normalisierung).
+  type Row = { pub: (typeof pubs)[number]; raw: number };
+  const rows: Row[] = [];
+  const platformTotals = new Map<string, { sum: number; n: number }>();
+  for (const pub of pubs) {
+    const m = metricsByUrl.get(pub.public_url as string);
+    if (!m) continue;
+    const raw = engagementScore(m);
+    rows.push({ pub, raw });
+    const t = platformTotals.get(pub.platform as string) ?? { sum: 0, n: 0 };
+    t.sum += raw;
+    t.n += 1;
+    platformTotals.set(pub.platform as string, t);
+  }
+  const platformAvg = new Map<string, number>();
+  platformTotals.forEach((t, plat) => platformAvg.set(plat, t.n ? t.sum / t.n : 0));
+
+  // 2. Durchgang: Aggregation mit plattform-normalisiertem Score
+  //    (1.0 = Plattform-Durchschnitt) — Säulen/Zeiten werden fair verglichen.
+  const byPillar = new Map<PillarKey, { sum: number; n: number; rawSum: number }>();
   const byHour = new Map<number, { sum: number; n: number }>();
-  const byPlatform = new Map<string, { sum: number; n: number }>();
   let sampleSize = 0;
 
-  for (const pub of pubs) {
-    const url = pub.public_url as string;
-    const m = metricsByUrl.get(url);
-    if (!m) continue;
-    const score = engagementScore(m);
+  for (const { pub, raw } of rows) {
+    const pAvg = platformAvg.get(pub.platform as string) ?? 0;
+    const norm = pAvg > 0 ? raw / pAvg : raw > 0 ? 1 : 0;
     sampleSize++;
 
     const pillar = pillarByPost.get(pub.post_id as string);
     if (pillar) {
-      const e = byPillar.get(pillar) ?? { sum: 0, n: 0 };
-      e.sum += score;
+      const e = byPillar.get(pillar) ?? { sum: 0, n: 0, rawSum: 0 };
+      e.sum += norm;
+      e.rawSum += raw;
       e.n += 1;
       byPillar.set(pillar, e);
     }
     const hour = hourByPost.get(pub.post_id as string);
     if (hour != null) {
       const e = byHour.get(hour) ?? { sum: 0, n: 0 };
-      e.sum += score;
+      e.sum += norm;
       e.n += 1;
       byHour.set(hour, e);
     }
-    const plat = pub.platform as string;
-    const e = byPlatform.get(plat) ?? { sum: 0, n: 0 };
-    e.sum += score;
-    e.n += 1;
-    byPlatform.set(plat, e);
   }
 
   const pillars: PillarInsight[] = CONTENT_PILLARS.map((p) => {
@@ -153,7 +183,8 @@ export async function computeInsights(supabase: AdminClient): Promise<Insights> 
       key: p.key,
       label: p.label,
       posts: e?.n ?? 0,
-      avgEngagement: e && e.n ? Math.round((e.sum / e.n) * 10) / 10 : 0,
+      // Anzeige: roher Durchschnitt (verständlich) — Gewichte nutzen norm.
+      avgEngagement: e && e.n ? Math.round((e.rawSum / e.n) * 10) / 10 : 0,
     };
   });
 
@@ -162,21 +193,20 @@ export async function computeInsights(supabase: AdminClient): Promise<Insights> 
       .map(([hour, e]) => ({ hour, avg: e.sum / e.n }))
       .sort((a, b) => b.avg - a.avg)[0] ?? null;
   const bestPlatform =
-    Array.from(byPlatform.entries())
+    Array.from(platformTotals.entries())
       .map(([platform, e]) => ({ platform, avg: e.sum / e.n }))
       .sort((a, b) => b.avg - a.avg)[0] ?? null;
 
-  // Gelernte Gewichte: nur wenn genug Daten (≥8 Posts, ≥2 Säulen mit ≥2 Posts).
-  const pillarsWithData = pillars.filter((p) => p.posts >= 2);
+  // Gelernte Gewichte: nur bei Mindeststichprobe (≥8 Posts, ≥2 Säulen mit ≥2
+  // Posts) — kleine Stichproben erzeugen sonst Zufallssieger.
+  const withData = Array.from(byPillar.entries()).filter(([, e]) => e.n >= 2);
   let learnedWeights: Record<PillarKey, number> | null = null;
-  if (sampleSize >= 8 && pillarsWithData.length >= 2) {
-    const avgAll =
-      pillarsWithData.reduce((s, p) => s + p.avgEngagement, 0) / pillarsWithData.length || 1;
+  if (sampleSize >= 8 && withData.length >= 2) {
+    const avgAll = withData.reduce((s, [, e]) => s + e.sum / e.n, 0) / withData.length || 1;
     learnedWeights = {} as Record<PillarKey, number>;
     for (const base of CONTENT_PILLARS) {
-      const insight = pillars.find((p) => p.key === base.key)!;
-      // Performt diese Säule besser/schlechter als der Schnitt?
-      const rel = insight.posts >= 2 && avgAll > 0 ? insight.avgEngagement / avgAll : 1;
+      const e = byPillar.get(base.key);
+      const rel = e && e.n >= 2 && avgAll > 0 ? e.sum / e.n / avgAll : 1;
       // Gewinner bis ~1.5×, Verlierer bis ~0.5× — aber nie unter 40% (Exploration).
       const factor = Math.max(0.4, Math.min(1.5, 0.5 + 0.5 * rel));
       learnedWeights[base.key] = Math.round(base.weight * factor);
@@ -185,7 +215,7 @@ export async function computeInsights(supabase: AdminClient): Promise<Insights> 
 
   return {
     pillars: pillars.sort((a, b) => b.avgEngagement - a.avgEngagement),
-    bestHour: bestHour ? { hour: bestHour.hour, avg: Math.round(bestHour.avg * 10) / 10 } : null,
+    bestHour: bestHour ? { hour: bestHour.hour, avg: Math.round(bestHour.avg * 100) / 100 } : null,
     bestPlatform: bestPlatform
       ? { platform: bestPlatform.platform, avg: Math.round(bestPlatform.avg * 10) / 10 }
       : null,
