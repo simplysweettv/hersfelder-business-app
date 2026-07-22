@@ -195,6 +195,49 @@ function outputSpecFor(format: ConceptFormat): string {
   }
 }
 
+/**
+ * Baut ein synthetisches Konzept-Format aus den FREIEN Eingaben des manuellen
+ * Generators (Thema/Produkt/Botschaft). So läuft auch der manuelle Weg über die
+ * designte Pipeline inkl. aller Leitplanken — nur dass Inhalt/Idee vom Nutzer
+ * vorgegeben statt aus einer Format-Formel gezogen wird.
+ */
+export function buildManualFormat(
+  lane: "emotional" | "product",
+  input: { theme: string; product: string; message: string },
+): ConceptFormat {
+  const subject = `Thema: „${input.theme}". Produkt/Kontext: „${input.product}". Kernbotschaft: „${input.message}".`;
+  if (lane === "product") {
+    return {
+      code: "MANUAL-P",
+      lane: "product",
+      name: input.theme?.slice(0, 40) || "Manueller Produkt-Post",
+      template: "product-feature",
+      brief: `Setze GENAU diese Vorgaben des Nutzers als Produkt-Post um. ${subject} Die Headline dreht sich um genau dieses Produkt/diese Botschaft; erfinde nichts Fremdes hinzu.`,
+      exampleHeadlines: [
+        "Die Damenweste für alle, die Tradition modern leben.",
+        "Vom Jungschützen bis zum Ehrenvorstand. Ein Preis für alle.",
+      ],
+      photoDirection: `Ein markttreues, authentisches Foto passend zu „${input.product}" und „${input.theme}" — dunkelgrüne Schützenkleidung, schlicht-elegant, Motiv rechts im Bild, linke Bildhälfte ruhig für Text.`,
+      benefits: [
+        { icon: "badge-check", title: "Bewährte Qualität", text: "Eigene Produktion, konstante Qualität" },
+        { icon: "ruler", title: "Größen 23–70", text: "Für jedes Mitglied die passende Größe" },
+        { icon: "handshake", title: "Faire Vereinspreise", text: "Attraktive Konditionen für Vereine" },
+      ],
+      cta: "Muster & Beratung anfragen",
+      footerIcons: ["shield-check", "repeat", "users"],
+    };
+  }
+  return {
+    code: "MANUAL-E",
+    lane: "emotional",
+    name: input.theme?.slice(0, 40) || "Manueller Emotional-Post",
+    template: "emotional-minimal",
+    brief: `Setze GENAU diese Vorgaben des Nutzers als emotionalen Post um. ${subject} Formuliere daraus eine zweizeilige Headline (Zeile 1 Serife = konkretes Bild/Moment, Zeile 2 Schreibschrift = das Gefühl), die genau diese Botschaft trägt — kein fremdes Thema.`,
+    exampleHeadlines: ["Gemeinsam heute. / Tradition für morgen.", "Eingehakt am Festplatz. / Das Gefühl von Zuhause."],
+    photoDirection: `Ein authentisches, warmes Reportage-Foto passend zu „${input.theme}" — Menschen bevorzugt von hinten/Profil in dunkelgrünen Schützenwesten/-jacken, Festplatz-Stimmung, goldenes Licht, oberes Bilddrittel ruhig für Text.`,
+  };
+}
+
 export async function generateDesignedConcept(opts: {
   apiKey?: string;
   format: ConceptFormat;

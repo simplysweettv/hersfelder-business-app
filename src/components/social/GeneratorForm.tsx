@@ -93,6 +93,7 @@ export function GeneratorForm() {
   const randomDateRef = useRef<HTMLInputElement>(null);
 
   // Manuell
+  const [manualLane, setManualLane] = useState<string>("emotional");
   const [theme, setTheme] = useState(THEMES[0]);
   const [product, setProduct] = useState("");
   const [message, setMessage] = useState("");
@@ -169,13 +170,14 @@ export function GeneratorForm() {
       return;
     }
     setGenerating(true);
-    const body: GeneratorInput & { occasion?: string; scheduledAt?: string } = {
+    const body: GeneratorInput & { occasion?: string; scheduledAt?: string; lane?: string } = {
       theme,
       occasion: theme,
       product,
       message,
       season,
       platforms,
+      lane: manualLane,
       ...(scheduledAt ? { scheduledAt: localToIso(scheduledAt) } : {}),
     };
     try {
@@ -313,6 +315,22 @@ export function GeneratorForm() {
 
       {/* ── Manuelles Formular ───────────────────────── */}
       <div className="space-y-4">
+        <div className="space-y-1.5">
+          <Label>Säule</Label>
+          <Select value={manualLane} onValueChange={(v) => v && setManualLane(v)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="emotional">💚 Emotional — Vereinsleben & Gefühl</SelectItem>
+              <SelectItem value="product">🛍️ Produkt — mit Benefits & CTA</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-[11px] text-muted-foreground">
+            Bestimmt das Layout: emotional (Wappen + Serifen-/Schreibschrift) oder Produkt (Benefit-Leiste + CTA).
+          </p>
+        </div>
+
         <div className="space-y-1.5">
           <Label>Thema / Anlass</Label>
           <Select value={theme} onValueChange={(v) => v && setTheme(v)}>

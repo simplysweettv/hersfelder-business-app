@@ -1,17 +1,27 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { loadSettings } from "@/lib/settings";
+import { buildCaptionPrompt, reviewPost } from "@/lib/openai";
 import {
-  buildCaptionPrompt,
-  buildImagePrompt,
-  generateCaption,
-  generateImage,
-} from "@/lib/openai";
+  buildManualFormat,
+  generateDesignedConcept,
+  createDesignedPostImage,
+  conceptHookText,
+  generateCompliantCaption,
+} from "@/lib/designed-post";
+import { BANNED_PHRASES, type Lane } from "@/lib/concepts";
+import { qualityStatusFrom } from "@/lib/quality";
 import type { GeneratorInput } from "@/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+/**
+ * Manueller Generator — jetzt ebenfalls über die designte Zwei-Säulen-Pipeline:
+ * Die freien Eingaben (Thema/Produkt/Botschaft) werden als synthetisches Format
+ * an die Konzept-KI gegeben, die daraus Overlay + Foto-Szene ableitet; danach
+ * Marken-Composite + floskelsichere Caption + Qualitäts-TÜV.
+ */
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const {
@@ -19,7 +29,7 @@ export async function POST(req: NextRequest) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  let body: GeneratorInput & { occasion?: string; scheduledAt?: string };
+  let body: GeneratorInput & { occasion?: string; scheduledAt?: string; lane?: string };
   try {
     body = await req.json();
   } catch {
@@ -37,57 +47,67 @@ export async function POST(req: NextRequest) {
   const apiKey = process.env.OPENAI_API_KEY || settings["openai_api_key"] || undefined;
   if (!apiKey) {
     return NextResponse.json(
-      {
-        error:
-          "Kein OPENAI_API_KEY gesetzt (weder als env var noch im Settings-Eintrag 'openai_api_key').",
-      },
+      { error: "Kein OPENAI_API_KEY gesetzt (env var oder Settings 'openai_api_key')." },
       { status: 400 },
     );
   }
 
   try {
-    const imagePrompt = buildImagePrompt({
-      brandStyle: settings["brand_style_prompt"],
+    const lane: Lane = body.lane === "product" ? "product" : "emotional";
+    const format = buildManualFormat(lane, {
       theme: body.theme,
       product: body.product,
       message: body.message,
     });
-    const captionPrompt = buildCaptionPrompt({
-      theme: body.theme,
-      product: body.product,
-      message: body.message,
-    });
-
-    const [image, caption] = await Promise.all([
-      generateImage({ apiKey, prompt: imagePrompt, size: "1024x1024" }),
-      generateCaption({ apiKey, prompt: captionPrompt }),
-    ]);
-
-    // Upload image to Supabase Storage
-    let imageUrl: string | null = null;
-    if (image.b64) {
-      const buffer = Buffer.from(image.b64, "base64");
-      const filename = `${crypto.randomUUID()}.jpg`;
-      const { error: upErr } = await supabase.storage
-        .from("post-images")
-        .upload(filename, buffer, { contentType: "image/jpeg", upsert: false });
-      if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
-      const { data: pub } = supabase.storage
-        .from("post-images")
-        .getPublicUrl(filename);
-      imageUrl = pub.publicUrl;
-    } else if (image.url) {
-      imageUrl = image.url;
-    }
 
     const now = new Date();
+    const concept = await generateDesignedConcept({
+      apiKey,
+      format,
+      reactiveHook: null,
+      topical: null,
+      avoid: [],
+      month: now.getMonth() + 1,
+    });
+
+    const pillar = lane === "product" ? "service" : "community";
+    const captionPrompt = buildCaptionPrompt({
+      theme: concept.theme,
+      product: concept.product,
+      message: concept.message,
+      platforms: body.platforms,
+      pillar,
+      hook: conceptHookText(concept),
+      bannedPhrases: BANNED_PHRASES,
+    });
+
+    const [rendered, caption] = await Promise.all([
+      createDesignedPostImage({ apiKey, concept, brandStyle: settings["brand_style_prompt"] }),
+      generateCompliantCaption({ apiKey, captionPrompt, bannedPhrases: BANNED_PHRASES }),
+    ]);
+
+    const filename = `${crypto.randomUUID()}.jpg`;
+    const { error: upErr } = await supabase.storage
+      .from("post-images")
+      .upload(filename, rendered.jpeg, { contentType: "image/jpeg", upsert: false });
+    if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
+    const imageUrl = supabase.storage.from("post-images").getPublicUrl(filename).data.publicUrl;
+
+    const review = await reviewPost({
+      apiKey,
+      caption,
+      imageUrl,
+      styleType: "hook",
+      pillarLabel: format.name,
+    });
+
     const week = isoWeek(now);
     const year = isoWeekYear(now);
 
     const { data: post, error: insertErr } = await supabase
       .from("posts")
       .insert({
-        title: `${body.theme}: ${body.product}`.slice(0, 200),
+        title: `${concept.theme}: ${concept.product}`.slice(0, 200),
         image_url: imageUrl,
         caption,
         status: "pending",
@@ -95,6 +115,9 @@ export async function POST(req: NextRequest) {
         scheduled_at: body.scheduledAt ?? null,
         week_number: week,
         year,
+        quality_score: review.score,
+        quality_notes: review.issues,
+        quality_status: qualityStatusFrom(review),
       })
       .select("*")
       .single();
@@ -102,19 +125,25 @@ export async function POST(req: NextRequest) {
 
     await supabase.from("post_briefs").insert({
       post_id: post.id,
-      theme: body.theme,
+      theme: concept.theme,
       occasion: body.occasion ?? body.theme,
-      product: body.product,
+      product: concept.product,
       season: body.season ?? null,
-      message: body.message,
-      prompt_used: imagePrompt,
-      style_type: "photo",
+      message: concept.message,
+      prompt_used: rendered.photoPrompt,
+      pillar,
+      style_type: "designed",
+      lane,
+      format_code: format.code,
+      template: concept.template,
     });
 
     return NextResponse.json({
       id: post.id,
       image_url: imageUrl,
       caption,
+      lane,
+      review: { score: review.score, issues: review.issues },
     });
   } catch (e) {
     return NextResponse.json(

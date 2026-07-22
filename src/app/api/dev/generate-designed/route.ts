@@ -7,6 +7,7 @@ import {
   createDesignedPostImage,
   conceptHookText,
   generateCompliantCaption,
+  buildManualFormat,
 } from "@/lib/designed-post";
 import { conceptByCode, pickConceptFormat, BANNED_PHRASES, type Lane } from "@/lib/concepts";
 import { getTopicalContext } from "@/lib/topical";
@@ -54,9 +55,17 @@ export async function GET(req: NextRequest) {
 
     const now = new Date();
     const month = now.getMonth() + 1;
+    // Manuell-Testmodus: ?manualTheme=..&manualProduct=..&manualMessage=..
+    const mTheme = req.nextUrl.searchParams.get("manualTheme");
     const format =
-      (formatParam ? conceptByCode(formatParam) : undefined) ??
-      pickConceptFormat({ lane, avoidCodes: recentFormats, month });
+      mTheme
+        ? buildManualFormat(lane, {
+            theme: mTheme,
+            product: req.nextUrl.searchParams.get("manualProduct") ?? "",
+            message: req.nextUrl.searchParams.get("manualMessage") ?? "",
+          })
+        : (formatParam ? conceptByCode(formatParam) : undefined) ??
+          pickConceptFormat({ lane, avoidCodes: recentFormats, month });
 
     const topical = await getTopicalContext();
     const concept = await generateDesignedConcept({
