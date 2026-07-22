@@ -146,19 +146,32 @@ Drei tägliche Vercel-Crons (`vercel.json`), alle **fail-closed** abgesichert (`
 - **Service-Säule NUR im festen 5er-CTA-Slot** (jeder 5. Post) — die gewichtete Zufallsauswahl schließt `service` aus, damit der Werbeanteil ~20 % bleibt
 - Vercel: `maxDuration = 300`
 
-### Post-Typen
+### Zwei-Säulen-System (Juli 2026) — designte Posts
+**Alle Einzelposts (Generator + Cron) laufen über das Zwei-Säulen-System:**
+- **Säule EMOTIONAL (60 %)** — Vereinsleben & Gefühl, reduzierte Layouts (Wappen + Serifen-Headline + Schreibschrift-Akzent bzw. dunkles Statement-Feld)
+- **Säule PRODUKT (40 %)** — konkrete Produkte mit Benefits + CTA (Creme-Panel + Benefit-Icon-Leiste bzw. Panel + CTA-Button) — nie zwei Produkt-Posts in Folge, der 5er-Slot erzwingt einen Produkt-Post
+
+**Hybrid-Rendering:** gpt-image-1 generiert NUR das Foto (ohne Text, mit „copy space"-Komposition), das Marken-Layout (echtes Wappen-PNG, Playfair Display/Great Vibes/Montserrat/Inter, Icon-Leisten, CTA-Buttons) wird deterministisch mit `next/og`/satori composited → Text immer perfekt, `sharp` konvertiert zu JPEG (TikTok).
+
+**Bausteine:**
+- `src/lib/concepts.ts` — 20 Konzept-Formate (E1–E10 emotional, P1–P10 produkt) mit Idee-Formeln, Beispiel-Headlines, Saison-Fenstern; `pickConceptFormat` (Rotation) + `pickLane` (60:40)
+- `src/lib/designed-post.ts` — Konzept-KI (`generateDesignedConcept`, gpt-4o-mini) + Foto-Prompt-Bausteine + `createDesignedPostImage` (Foto → Overlay → JPEG)
+- `src/lib/render-post.tsx` — Template-Engine, 4 Layouts nach den Vorbild-Posts (`product-feature`, `emotional-minimal`, `product-reactive`, `emotional-statement`), 1024×1536, Instagram-4:5-Crop-sicher
+- `src/lib/brand-icons.ts` — Lucide-Icon-Pfade für Satori; Fonts in `src/assets/fonts/`, Wappen in `src/assets/brand/` (via `outputFileTracingIncludes` im Bundle)
+- Anti-Generik: `BANNED_PHRASES` (Floskel-Verbot) + Spezifitäts-Pflicht (Zahl/Detail/Kontrast/Wortspiel) im Konzept-Prompt; Ansprache immer „ihr/euch"
+- `post_briefs` speichert `lane`, `format_code`, `template` (`style_type: "designed"`) — Basis für Rotation
+- Dev-Vorschau: `GET /api/dev/render-preview?template=a|b|c|d` (Templates), `GET /api/dev/generate-designed?lane=…&format=…` (echte Pipeline) — beide nur lokal, in Produktion 404
+
+### Alte Post-Typen (nur noch Karussell-Pfad)
 | Typ | Beschreibung |
 |---|---|
-| `photo` | Authentisches Reportage-Foto: Menschen in Uniform beim Feiern/Marschieren/Lachen |
-| `hook` | Vereinsfoto mit GROSSEM Text-Overlay im Bild (Scroll-Stopper) |
-| `typography` | Dunkelgrüner Hintergrund, bold weiße Großbuchstaben, kein Foto |
+| `photo` / `hook` / `typography` | Alter KI-rendert-alles-Weg — nur noch vom Karussell-Cover + manuellen Formular genutzt |
 
 ### Content-Strategie
 - **Master-Briefing:** `MASTER_BRIEFING` in `src/lib/openai.ts` — bindendes Marken-Briefing von Andreas (Juli 2026), wird JEDEM KI-Prompt (Bild + Text) vorangestellt. Kernpunkte: Standardsortiment-Marke (keine Maßschneiderei!), Größen 23–70 alle zum gleichen Preis, verbotene Claims (maßgeschneidert, handgeschneidert, atmungsaktiv …), realistische Uniformen ohne Goldlitzen/Epauletten/Fantasiedetails
-- **KEIN Produktmarketing** — die Kleidung ist im Hintergrund sichtbar, aber nie das Thema
-- Themen: Zusammenhalt, gemeinsames Feiern, Generationen, Tradition, Stolz auf den Verein
-- Stil: Wie Reportagefotografie — authentisch, nicht gestellt
-- 10 Szenen-Pool in `openai.ts` (`PHOTO_SCENES`) — zufällig gewählt für Vielfalt
+- Emotionale Themen: Zusammenhalt, Generationen, Rituale, Vorfreude, Ehrenamt — immer mit konkreter Idee (siehe Format-Formeln)
+- Produkt-Themen: Damenweste, leichte Sommerqualität, Größen-USP 23–70, Neuausstattung, Nachkaufgarantie, Jungschützen, Stick/Druck, Frack, Musterkollektion
+- Stil: Wie Reportagefotografie — authentisch, nicht gestellt; Menschen bevorzugt von hinten/Profil/Detail (Uncanny-Valley-Schutz)
 
 ### Caption-Format
 Captions werden mit Plattform-Trennern in einer DB-Spalte gespeichert:

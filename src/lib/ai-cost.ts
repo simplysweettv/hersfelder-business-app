@@ -25,7 +25,7 @@ const PRICE = {
 export const BACKFILL_IMAGE_USD = 0.17; // 1 gpt-image-1 Bild (high)
 export const BACKFILL_TEXT_USD = 0.001; // Brief + Caption + Qualitätsprüfung je Post
 
-export type AiOperation = "image" | "caption" | "brief" | "review" | "carousel";
+export type AiOperation = "image" | "caption" | "brief" | "review" | "carousel" | "concept";
 
 type ChatUsage = { prompt_tokens?: number; completion_tokens?: number };
 type ImageUsage = {

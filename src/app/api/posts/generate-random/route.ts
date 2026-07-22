@@ -1,23 +1,26 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { loadSettings } from "@/lib/settings";
+import { buildCaptionPrompt, reviewPost } from "@/lib/openai";
 import {
-  buildCaptionPrompt,
-  buildImagePrompt,
-  generateBrief,
-  generateCaption,
-  generateImage,
-  pickPillar,
-  pillarPick,
-  reviewPost,
-} from "@/lib/openai";
+  generateDesignedConcept,
+  createDesignedPostImage,
+  conceptHookText,
+  generateCompliantCaption,
+} from "@/lib/designed-post";
+import { conceptByCode, pickConceptFormat, pickLane, BANNED_PHRASES, type Lane } from "@/lib/concepts";
 import { getTopicalContext } from "@/lib/topical";
 import { qualityStatusFrom } from "@/lib/quality";
-import { CONTENT_PILLARS, type PillarKey } from "@/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+/**
+ * Zufalls-Post im Zwei-Säulen-System (Juli 2026):
+ * Konzept-Format wählen (Rotation + Saison) → Konzept-KI (Idee + Headline nach
+ * Formel) → Foto ohne Text (gpt-image-1) → Marken-Overlay (render-post) →
+ * JPEG-Upload → Caption → Qualitäts-TÜV → pending in den Freigaben.
+ */
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const {
@@ -27,7 +30,8 @@ export async function POST(req: NextRequest) {
 
   let platforms: string[] = ["instagram", "facebook"];
   let scheduledAt: string | null = null;
-  let pillarParam: PillarKey | null = null;
+  let laneParam: Lane | null = null;
+  let formatCodeParam: string | null = null;
   try {
     const body = await req.json().catch(() => ({}));
     if (Array.isArray(body.platforms) && body.platforms.length > 0) {
@@ -36,11 +40,11 @@ export async function POST(req: NextRequest) {
     if (typeof body.scheduledAt === "string" && body.scheduledAt.trim()) {
       scheduledAt = body.scheduledAt;
     }
-    if (
-      typeof body.pillar === "string" &&
-      CONTENT_PILLARS.some((p) => p.key === body.pillar)
-    ) {
-      pillarParam = body.pillar as PillarKey;
+    if (body.lane === "emotional" || body.lane === "product") {
+      laneParam = body.lane;
+    }
+    if (typeof body.formatCode === "string" && body.formatCode.trim()) {
+      formatCodeParam = body.formatCode.trim();
     }
   } catch {
     // use defaults
@@ -49,109 +53,89 @@ export async function POST(req: NextRequest) {
   const settings = await loadSettings();
   const apiKey = process.env.OPENAI_API_KEY || settings["openai_api_key"] || undefined;
   if (!apiKey) {
-    return NextResponse.json(
-      { error: "Kein OPENAI_API_KEY gesetzt." },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "Kein OPENAI_API_KEY gesetzt." }, { status: 400 });
   }
 
   try {
-    // Content-Säule: explizit gewählt oder gewichtet automatisch.
-    const pillar = pillarParam ?? pickPillar();
-
-    // Letzte Stile laden — Text-im-Bild-Garantie auch im manuellen Generator.
+    // Rotation: letzte Formate/Themen meiden, Lane-Wechsel erzwingen
     const { data: recentBriefs } = await supabase
       .from("post_briefs")
-      .select("style_type")
+      .select("format_code, lane, theme")
       .order("created_at", { ascending: false })
-      .limit(4);
-    const recentStyles = (recentBriefs ?? [])
-      .map((b) => b.style_type)
+      .limit(8);
+    const recentFormats = (recentBriefs ?? [])
+      .map((b) => b.format_code)
+      .filter((x): x is string => Boolean(x))
+      .slice(0, 4);
+    const avoidThemes = (recentBriefs ?? [])
+      .map((b) => b.theme)
       .filter((x): x is string => Boolean(x));
+    const prevLane = ((recentBriefs?.[0]?.lane as Lane | null) ?? null) || null;
 
-    const { styleType, themeCategory } = pillarPick(pillar, recentStyles);
-
-    // Woche/Jahr aus dem geplanten Datum berechnen (für Kalender + Wochenplan),
-    // sonst aus "jetzt".
     const refDate = scheduledAt ? new Date(scheduledAt) : new Date();
+    const month = refDate.getMonth() + 1;
     const week = isoWeek(refDate);
     const year = isoWeekYear(refDate);
 
+    const lane: Lane = laneParam ?? pickLane({ previousLane: prevLane });
+    const format =
+      (formatCodeParam ? conceptByCode(formatCodeParam) : undefined) ??
+      pickConceptFormat({ lane, avoidCodes: recentFormats, month });
+
     const topical = await getTopicalContext();
 
-    const brief = await generateBrief({
+    // 1) Konzept: Idee + Overlay-Text + Foto-Szene aus einer Hand
+    const concept = await generateDesignedConcept({
       apiKey,
-      themeCategory,
-      styleType,
-      weekNumber: week,
-      year,
-      month: refDate.getMonth() + 1,
-      pillar,
-      topical: topical.text,
-      reactiveHook: topical.reactiveHook ?? undefined,
+      format,
+      reactiveHook: topical.reactiveHook ?? null,
+      // Wetter-Kontext nur bei echtem reaktivem Aufhänger (sonst leakt Temperatur in Produkt-Text)
+      topical: topical.reactiveHook ? topical.text : null,
+      avoid: avoidThemes,
+      month,
     });
 
-    const imagePrompt = buildImagePrompt({
-      brandStyle: settings["brand_style_prompt"],
-      theme: brief.theme,
-      product: brief.product,
-      message: brief.message,
-      styleType,
-      visualDetails: brief.visualDetails,
-      sceneIdea: brief.sceneIdea,
-      pillar,
-    });
+    // 2) Foto + Marken-Composite (parallel zur Caption)
+    const pillar = lane === "product" ? "service" : "community";
     const captionPrompt = buildCaptionPrompt({
-      theme: brief.theme,
-      product: brief.product,
-      message: brief.message,
+      theme: concept.theme,
+      product: concept.product,
+      message: concept.message,
       platforms,
       pillar,
+      hook: conceptHookText(concept),
+      bannedPhrases: BANNED_PHRASES,
     });
-
-    const imageSize = styleType === "hook" ? "1024x1536" : "1024x1024";
-    const [image, captionInitial] = await Promise.all([
-      generateImage({ apiKey, prompt: imagePrompt, size: imageSize }),
-      generateCaption({ apiKey, prompt: captionPrompt }),
+    const [rendered, captionInitial] = await Promise.all([
+      createDesignedPostImage({ apiKey, concept, brandStyle: settings["brand_style_prompt"] }),
+      generateCompliantCaption({ apiKey, captionPrompt, bannedPhrases: BANNED_PHRASES }),
     ]);
     let caption = captionInitial;
 
-    let imageUrl: string | null = null;
-    if (image.b64) {
-      const buffer = Buffer.from(image.b64, "base64");
-      const filename = `${crypto.randomUUID()}.jpg`;
-      const { error: upErr } = await supabase.storage
-        .from("post-images")
-        .upload(filename, buffer, { contentType: "image/jpeg", upsert: false });
-      if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
-      const { data: pub } = supabase.storage
-        .from("post-images")
-        .getPublicUrl(filename);
-      imageUrl = pub.publicUrl;
-    } else if (image.url) {
-      imageUrl = image.url;
-    }
+    // 3) Upload (JPEG — TikTok akzeptiert kein PNG)
+    const filename = `${crypto.randomUUID()}.jpg`;
+    const { error: upErr } = await supabase.storage
+      .from("post-images")
+      .upload(filename, rendered.jpeg, { contentType: "image/jpeg", upsert: false });
+    if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
+    const { data: pub } = supabase.storage.from("post-images").getPublicUrl(filename);
+    const imageUrl = pub.publicUrl;
 
-    // Qualitäts-TÜV: zweite KI prüft Bild + Text.
-    const pillarLabel = CONTENT_PILLARS.find((p) => p.key === pillar)?.label;
-    let review = await reviewPost({ apiKey, caption, imageUrl, styleType, pillarLabel });
-
-    // Caption durchgefallen → einmal neu texten (günstig, kein Bild-Neugen).
+    // 4) Qualitäts-TÜV auf dem FERTIGEN Composite (Overlay-Text ist gerendert,
+    //    der Check greift v. a. für Foto-Realismus + Caption)
+    let review = await reviewPost({ apiKey, caption, imageUrl, styleType: "hook", pillarLabel: format.name });
     if (!review.captionOk) {
-      const retry = await generateCaption({ apiKey, prompt: captionPrompt });
+      const retry = await generateCompliantCaption({ apiKey, captionPrompt, bannedPhrases: BANNED_PHRASES });
       if (retry) {
         caption = retry;
-        review = await reviewPost({ apiKey, caption, imageUrl, styleType, pillarLabel });
+        review = await reviewPost({ apiKey, caption, imageUrl, styleType: "hook", pillarLabel: format.name });
       }
     }
 
-    // Immer "pending": der Post landet zuerst in den Freigaben, damit Andreas
-    // ihn reviewen kann. Nach der Freigabe macht die approve-Route daraus
-    // "scheduled" (weil scheduled_at gesetzt ist) und der Cron postet zum Termin.
     const { data: post, error: insertErr } = await supabase
       .from("posts")
       .insert({
-        title: `${brief.theme}: ${brief.product}`.slice(0, 200),
+        title: `${concept.theme}: ${concept.product}`.slice(0, 200),
         image_url: imageUrl,
         caption,
         status: "pending",
@@ -169,13 +153,16 @@ export async function POST(req: NextRequest) {
 
     await supabase.from("post_briefs").insert({
       post_id: post.id,
-      theme: brief.theme,
-      occasion: themeCategory,
-      product: brief.product,
-      message: brief.message,
-      prompt_used: imagePrompt,
+      theme: concept.theme,
+      occasion: format.name,
+      product: concept.product,
+      message: concept.message,
+      prompt_used: rendered.photoPrompt,
       pillar,
-      style_type: styleType,
+      style_type: "designed",
+      lane,
+      format_code: format.code,
+      template: concept.template,
     });
 
     return NextResponse.json({
@@ -184,7 +171,8 @@ export async function POST(req: NextRequest) {
       caption,
       status: "pending",
       scheduled_at: scheduledAt,
-      pillar,
+      lane,
+      format: { code: format.code, name: format.name, template: concept.template },
       review: {
         score: review.score,
         issues: review.issues,
@@ -192,10 +180,10 @@ export async function POST(req: NextRequest) {
         captionOk: review.captionOk,
       },
       brief: {
-        theme: brief.theme,
-        product: brief.product,
-        message: brief.message,
-        styleType,
+        theme: concept.theme,
+        product: concept.product,
+        message: concept.message,
+        styleType: "designed",
       },
     });
   } catch (e) {

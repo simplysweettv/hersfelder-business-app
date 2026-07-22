@@ -16,7 +16,6 @@ import { Sparkles, CalendarClock, Shuffle } from "lucide-react";
 import {
   PLATFORM_COLOR,
   PLATFORM_LABEL,
-  CONTENT_PILLARS,
   type GeneratorInput,
   type Platform,
 } from "@/types";
@@ -88,7 +87,7 @@ export function GeneratorForm() {
 
   // Zufalls-Post
   const [randomScheduledAt, setRandomScheduledAt] = useState("");
-  const [pillar, setPillar] = useState<string>("auto");
+  const [lane, setLane] = useState<string>("auto");
   const [format, setFormat] = useState<"single" | "carousel">("single");
   const [randomGenerating, setRandomGenerating] = useState(false);
   const randomDateRef = useRef<HTMLInputElement>(null);
@@ -134,7 +133,11 @@ export function GeneratorForm() {
         body: JSON.stringify({
           platforms,
           scheduledAt: localToIso(randomScheduledAt),
-          ...(pillar !== "auto" ? { pillar } : {}),
+          // Einzelpost: Säule (Lane) fürs Zwei-Säulen-System; Karussell: alte Pillar-Logik
+          ...(format === "single" && lane !== "auto" ? { lane } : {}),
+          ...(format === "carousel" && lane !== "auto"
+            ? { pillar: lane === "product" ? "service" : "community" }
+            : {}),
         }),
       });
       const data = await res.json();
@@ -245,24 +248,23 @@ export function GeneratorForm() {
         </div>
 
         <div className="space-y-1.5">
-          <Label>Content-Säule</Label>
-          <Select value={pillar} onValueChange={(v) => v && setPillar(v)}>
+          <Label>Säule</Label>
+          <Select value={lane} onValueChange={(v) => v && setLane(v)}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="auto">🎲 Automatisch (gewichtet)</SelectItem>
-              {CONTENT_PILLARS.map((p) => (
-                <SelectItem key={p.key} value={p.key}>
-                  {p.emoji} {p.label}
-                </SelectItem>
-              ))}
+              <SelectItem value="auto">🎲 Automatisch (60 % emotional, 40 % Produkt)</SelectItem>
+              <SelectItem value="emotional">💚 Emotional — Vereinsleben & Gefühl</SelectItem>
+              <SelectItem value="product">🛍️ Produkt — mit Benefits & CTA</SelectItem>
             </SelectContent>
           </Select>
           <p className="text-[11px] text-muted-foreground">
-            {pillar === "auto"
-              ? "Die KI mischt strategisch — meist Gemeinschaft, ab und zu Qualität, Stories & Angebote."
-              : CONTENT_PILLARS.find((p) => p.key === pillar)?.hint}
+            {lane === "product"
+              ? "Designtes Produkt-Layout: Wappen, Benefit-Leiste, CTA-Button — wie die Vorbild-Posts."
+              : lane === "emotional"
+                ? "Reduziertes Emotional-Layout: Wappen, Serifen-Headline, Schreibschrift-Akzent."
+                : "Die KI wählt Säule + Konzept-Format mit Rotation — nie zwei Produkt-Posts in Folge."}
           </p>
         </div>
 

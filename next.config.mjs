@@ -1,5 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Font-/Wappen-Assets für das Post-Rendering (render-post.tsx) müssen mit in
+  // die Serverless-Bundles — sonst fehlen sie zur Laufzeit auf Vercel.
+  experimental: {
+    outputFileTracingIncludes: {
+      "/api/**": ["./src/assets/**"],
+    },
+  },
   images: {
     remotePatterns: [
       {

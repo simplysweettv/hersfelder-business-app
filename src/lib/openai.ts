@@ -183,7 +183,7 @@ Das ECHTE Hersfelder-Logo (nur verwenden, wenn explizit auf die Marke hingewiese
 - KEIN Löwe, KEIN Adler, KEIN Reichsadler — das Motiv ist eine botanische Pflanze auf Wasserlinien
 
 In Social-Media-Fotos: Das Logo NICHT in die generierten Bilder einbauen — zeige stattdessen echte Menschen in dunkelgrünen Hersfelder Uniformen. Die Marke erkennst du an Uniformfarbe und Vereinsstimmung, nicht am Logo.
-Content-Strategie: KEIN Produktmarketing. Zeige echtes Vereinsleben — die Kleidung ist Teil der Szene, nicht das Thema.
+Content-Strategie (Zwei-Säulen-System, Juli 2026): Säule EMOTIONAL zeigt echtes Vereinsleben — die Kleidung ist Teil der Szene, nicht das Thema. Säule PRODUKT zeigt konkrete Produkte mit ehrlichen Benefits (designtes Layout mit Wappen + Benefit-Leiste) — immer mit einer Idee dahinter, nie Katalog-Optik.
 Themen: Zusammenhalt beim Schützenfest, gemeinsames Feiern, Generationen im Verein, Stolz auf Tradition, Lachen und Freude
 Stil: Authentisch wie Reportagefotografie — keine gestellten Werbeshootings
 Zielgruppe: Schützenverein-Mitglieder in Deutschland, alle Altersgruppen`;
@@ -381,6 +381,10 @@ export function buildCaptionPrompt(input: {
   message: string;
   platforms?: string[];
   pillar?: PillarKey;
+  /** Die konkrete Bild-Headline dieses Posts — die Caption baut FRISCH darauf auf. */
+  hook?: string;
+  /** Floskeln, die nicht vorkommen dürfen (aus dem Konzept-System). */
+  bannedPhrases?: string[];
 }): string {
   const platforms = input.platforms ?? ["instagram"];
 
@@ -424,14 +428,19 @@ export function buildCaptionPrompt(input: {
     ? strategyByPillar[input.pillar]
     : strategyByPillar.community;
 
+  const bannedList = (input.bannedPhrases ?? []).join(" · ");
   const systemContext = `Thema: ${input.theme}
 Kontext: ${input.product}
-Kernbotschaft: "${input.message}"
+Kernbotschaft: "${input.message}"${input.hook ? `\nBild-Headline dieses Posts: "${input.hook}"` : ""}
 
 WICHTIG — Content-Strategie:
 ${strategyRules}
 - Schreibe wie ein echter Vereinsmensch: warmherzig, authentisch, stolz auf die Gemeinschaft
-- Sprache: Deutsch. Kein Rassismus, keine Waffen, keine politischen Aussagen.`;
+- Ansprache immer "ihr/euch/euer" — niemals "Sie/Ihnen".
+- Sprache: Deutsch. Kein Rassismus, keine Waffen, keine politischen Aussagen.
+- NIEMALS über das Schießen/Zielen/Gewehre schreiben ("Schuss", "schießen", "Treffer", "Gewehr" o. Ä. sind tabu) — es geht um Gemeinschaft, Fest und Ausstattung, nie um den Schießsport selbst.
+- ANTI-FLOSKEL: keine abgedroschenen Phrasen${bannedList ? ` — konkret verboten: ${bannedList}` : ""}. Jeder Post braucht einen konkreten, eigenen Gedanken statt Allgemeinplätze.
+${input.hook ? `- Die Bild-Headline gibt die Idee vor: Greife ihren Gedanken auf und formuliere ihn im Text FRISCH weiter — wiederhole die Headline (oder Teile davon) NICHT wörtlich.` : ""}`;
 
   const blocks: string[] = [];
 
@@ -440,9 +449,10 @@ ${strategyRules}
 Instagram-Caption — schreibe wie ein echter Vereinsmensch, warmherzig und persönlich:
 
 OPENER (erste Zeile — das Wichtigste, entscheidet ob jemand weiterliest):
-- Beginne mit einem "Wenn..."-Satz, "Der Moment wenn...", "Elf Monate warten...", oder einer persönlichen Erinnerung
-- GUTE Beispiele: "Wenn man nach einem Jahr wieder die Uniform anzieht — dieses Gefühl. 🟢", "Der Moment wenn alle gleichzeitig loslaufen und man weiß: das ist unser Fest. 🎉", "Manche Dinge im Leben erklären sich von selbst. 💚"
-- SCHLECHTE Beispiele: "Gemeinsam in die neue Saison!", "Tradition verbindet uns!", "Ein besonderer Moment!" — zu generisch, zu kurz, keine Persönlichkeit
+- Muss zu DIESEM Post passen (Thema/Headline oben) — kein Standard-Einstieg von der Stange.
+- VARIIERE die Form bewusst: mal eine echte Frage, mal ein sinnliches Bild, mal eine Erinnerung, mal eine überraschende Aussage, mal ein Kontrast. NICHT jeder Post darf mit "Wenn..." anfangen.
+- SCHLECHTE (verbotene) Opener — niemals so oder ähnlich: "Wenn man nach einem Jahr wieder die Uniform anzieht — dieses Gefühl.", "Gemeinsam in die neue Saison!", "Tradition verbindet uns!", "Ein besonderer Moment!" — abgedroschen, austauschbar, seelenlos.
+- Konkret schlägt allgemein: ein echtes Detail (ein Geräusch, eine Uhrzeit, eine Zahl, ein Handgriff) wirkt tausendmal stärker als "Gemeinschaft" und "Tradition".
 
 BODY (optional, nach einer Leerzeile):
 - 1-2 kurze Sätze, die die Stimmung vertiefen — max. 2 Zeilen
@@ -495,6 +505,8 @@ Erstelle für jede der folgenden Plattformen eine maßgeschneiderte Version:
 ${blocks.join("\n\n")}
 
 ${ctaInstruction}
+
+Achte auf einwandfreie deutsche Rechtschreibung und Grammatik: korrekte Leerzeichen zwischen Wörtern (keine zusammengeklebten Wörter wie "undeinander"), richtige Zeichensetzung, vollständige Sätze.
 
 Antworte NUR mit den Texten in der angegebenen Reihenfolge mit den Trennern (---INSTAGRAM---, ---FACEBOOK--- etc.). Keine Anführungszeichen, keine Erklärungen.`;
 }
@@ -800,6 +812,8 @@ TEXT (Caption):
 - Markenstimmung: warmherzig, authentisch, gemeinschaftlich?
 - KLINGT NICHT wie nationalistische/rechtsextreme Parole (verboten: "In Einheit stark", "Für Heimat und Volk", militärische Slogans)?
 - KEINE verbotenen Marken-Claims: "maßgeschneidert", "handgeschneidert", "Maßkonfektion", "Einzelanfertigung", "Schneiderhandwerk", "exklusiv gefertigt", "Couture" (Hersfelder ist Standardsortiment-Marke, KEINE Maßschneiderei) — und keine unbelegten Technik-Claims ("atmungsaktiv", "klimaregulierend", "Funktionsstoff")?
+- WICHTIG — diese sind ERLAUBT und KEIN Verstoß: Produktnamen aus dem Sortiment (Jacke, Weste, Hose, FRACK/Fräcke, Polo, Hoodie, Softshelljacke), "leichte Stoffqualität", "angenehmer Tragekomfort", Größen 23–70, "faire Vereinspreise". Diese NIEMALS als verbotenen Claim werten.
+- KEIN Bezug zum Schießen/Zielen/Waffen im Text ("Schuss", "Treffer", "schießen", "zielen", "Gewehr")?
 - Sinnvolle Länge, passende Hashtags, kein Kauderwelsch?
 - Stil "${opts.styleType}"${opts.pillarLabel ? `, Content-Säule "${opts.pillarLabel}"` : ""} passend umgesetzt?
 
