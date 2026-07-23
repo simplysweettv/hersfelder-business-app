@@ -1,8 +1,22 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computeInsights } from "@/lib/learning";
+import { loadSettings, getEnvOrSetting } from "@/lib/settings";
+import { IntegrationStatus } from "@/components/social/IntegrationStatus";
 import AnalyticsDashboard, { type AnalyticsPost } from "./AnalyticsDashboard";
 
 export const dynamic = "force-dynamic";
+
+type State = "ok" | "warn" | "off";
+
+/** Aus den Blotato-Posts ableiten, ob eine Plattform echte Insights liefert. */
+function platformState(posts: AnalyticsPost[], match: string): State {
+  const rel = posts.filter((p) => p.platform.toLowerCase().includes(match));
+  if (rel.length === 0) return "warn";
+  const hasData = rel.some(
+    (p) => p.metrics.likes + p.metrics.views + p.metrics.reach + p.metrics.comments > 0,
+  );
+  return hasData ? "ok" : "warn";
+}
 
 function num(v: unknown): number {
   const n = parseInt(String(v ?? 0), 10);
@@ -82,10 +96,41 @@ async function fetchAnalytics(): Promise<AnalyticsPost[]> {
 export default async function AnalyticsPage() {
   const supabase = createAdminClient();
 
-  const [posts, insights] = await Promise.all([
+  const [posts, insights, settings, lastSnap, publishedCount] = await Promise.all([
     fetchAnalytics(),
     computeInsights(supabase),
+    loadSettings(),
+    supabase
+      .from("post_metrics")
+      .select("captured_on")
+      .order("captured_on", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("posts")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "published"),
   ]);
 
-  return <AnalyticsDashboard posts={posts} insights={insights} />;
+  const metaConnected = Boolean(
+    getEnvOrSetting("META_ACCESS_TOKEN", settings, "meta_access_token"),
+  );
+  const lastSnapshot = (lastSnap.data?.captured_on as string | undefined) ?? null;
+
+  return (
+    <>
+      <div className="bg-background px-4 pt-4 md:px-6">
+        <div className="max-w-5xl mx-auto w-full">
+          <IntegrationStatus
+            instagram={platformState(posts, "insta")}
+            facebook={platformState(posts, "face")}
+            metaConnected={metaConnected}
+            lastSnapshot={lastSnapshot}
+            publishedCount={publishedCount.count ?? 0}
+          />
+        </div>
+      </div>
+      <AnalyticsDashboard posts={posts} insights={insights} />
+    </>
+  );
 }

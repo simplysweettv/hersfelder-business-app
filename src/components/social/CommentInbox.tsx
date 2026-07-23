@@ -117,12 +117,22 @@ export function CommentInbox({
     <div className="flex flex-col gap-4">
       {/* Konfigurationshinweis */}
       {!configured && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 space-y-1">
-          <p className="font-medium">Meta-Token nicht konfiguriert</p>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 space-y-2">
+          <p className="font-medium">Facebook &amp; Instagram noch nicht verbunden</p>
           <p>
-            Trage <code className="text-xs bg-amber-100 px-1 py-0.5 rounded">meta_access_token</code>,{" "}
-            <code className="text-xs bg-amber-100 px-1 py-0.5 rounded">instagram_account_id</code> und{" "}
-            <code className="text-xs bg-amber-100 px-1 py-0.5 rounded">facebook_page_id</code> in den Einstellungen ein.
+            Ohne Meta-Verbindung können keine Kommentare geladen oder beantwortet
+            werden. Verbinde einmalig dein Facebook-/Instagram-Konto — Token und
+            IDs werden dann automatisch gespeichert.
+          </p>
+          <a
+            href="/einstellungen"
+            className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 transition-colors"
+          >
+            Zu den Einstellungen → Facebook verbinden
+          </a>
+          <p className="text-xs text-amber-700/80">
+            Voraussetzung: Instagram als Business-/Creator-Konto, das mit der
+            Facebook-Seite verknüpft ist.
           </p>
         </div>
       )}
