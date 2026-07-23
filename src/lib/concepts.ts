@@ -403,10 +403,25 @@ export const BANNED_PHRASES: string[] = [
  * Wählt ein Konzept-Format: Lane vorgeben, kürzlich genutzte Codes meiden,
  * Saison-Fenster bevorzugen. Fällt weich zurück, wenn alles ausgeschlossen wäre.
  */
+/** Gewichtete Zufallswahl aus einer Liste (Gewicht ≥ 0). */
+function weightedPick<T>(items: T[], weightOf: (t: T) => number, rnd: () => number): T {
+  const weights = items.map((it) => Math.max(0, weightOf(it)));
+  const total = weights.reduce((a, b) => a + b, 0);
+  if (total <= 0) return items[Math.floor(rnd() * items.length)];
+  let r = rnd() * total;
+  for (let i = 0; i < items.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return items[i];
+  }
+  return items[items.length - 1];
+}
+
 export function pickConceptFormat(opts: {
   lane: Lane;
   avoidCodes?: string[];
   month?: number; // 1–12 (Berlin)
+  /** Gelernte Performance-Faktoren je Format-Code (>1 = läuft gut). */
+  formatMult?: Record<string, number> | null;
   random?: () => number;
 }): ConceptFormat {
   const rnd = opts.random ?? Math.random;
@@ -421,15 +436,34 @@ export function pickConceptFormat(opts: {
     if (inSeason.length > 0) candidates = inSeason;
   }
 
-  return candidates[Math.floor(rnd() * candidates.length)] ?? pool[0];
+  // Gewichte nach gelernter Performance (Faktor bereits gedeckelt 0,5–2,0);
+  // unbekannte Formate = 1,0. Explorations-Untergrenze 0,4, damit nie ganz raus.
+  const mult = opts.formatMult ?? null;
+  return (
+    weightedPick(candidates, (f) => Math.max(0.4, mult?.[f.code] ?? 1), rnd) ?? pool[0]
+  );
 }
 
 /**
- * Lane-Wahl für den Cron: Ziel-Mix 60 % emotional / 40 % Produkt,
- * aber NIE zwei Produkt-Posts direkt hintereinander (Katalog-Effekt vermeiden).
+ * Lane-Wahl für den Cron: Basis-Mix 60 % emotional / 40 % Produkt, aber NIE
+ * zwei Produkt-Posts direkt hintereinander (Katalog-Effekt vermeiden). Läuft
+ * eine Lane messbar besser, verschiebt sich der Anteil — gedeckelt auf
+ * 25–50 % Produkt, damit emotional die Basis bleibt und Vielfalt erhalten wird.
  */
-export function pickLane(opts: { previousLane?: Lane | null; random?: () => number }): Lane {
+export function pickLane(opts: {
+  previousLane?: Lane | null;
+  /** Gelernte Performance-Faktoren je Lane ("emotional"/"product"). */
+  laneMult?: Record<string, number> | null;
+  random?: () => number;
+}): Lane {
   const rnd = opts.random ?? Math.random;
   if (opts.previousLane === "product") return "emotional";
-  return rnd() < 0.4 ? "product" : "emotional";
+
+  let pProduct = 0.4;
+  const m = opts.laneMult;
+  if (m && m.emotional > 0 && m.product > 0) {
+    const avg = (m.emotional + m.product) / 2;
+    pProduct = Math.max(0.25, Math.min(0.5, 0.4 * (m.product / avg)));
+  }
+  return rnd() < pProduct ? "product" : "emotional";
 }

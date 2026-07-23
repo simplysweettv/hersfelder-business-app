@@ -11,6 +11,7 @@ import {
   generateCompliantCaption,
 } from "@/lib/designed-post";
 import { pickConceptFormat, pickLane, BANNED_PHRASES, type Lane } from "@/lib/concepts";
+import { computeContentPerformance } from "@/lib/learning";
 import { getWeatherForPublishDay } from "@/lib/topical";
 import { qualityStatusFrom } from "@/lib/quality";
 import { parsePostingPlan } from "@/lib/posting-plan";
@@ -127,6 +128,10 @@ export async function GET(req: NextRequest) {
   const created: string[] = [];
   const errors: string[] = [];
 
+  // Selbstlernend: welche Lane/Formate performen am besten? (greift ab ≥8 Posts,
+  // sonst neutrale Faktoren → keine Verzerrung). Einmal pro Lauf.
+  const perf = await computeContentPerformance();
+
   for (const slot of open) {
     try {
       const week = isoWeek(slot.when);
@@ -137,8 +142,15 @@ export async function GET(req: NextRequest) {
       const isCTASlot = postIndex % 5 === 4;
       // Zwei-Säulen-System: 60 % emotional / 40 % Produkt, nie zwei Produkt-
       // Posts in Folge; der 5er-CTA-Slot erzwingt einen Produkt-Post.
-      const lane: Lane = isCTASlot ? "product" : pickLane({ previousLane: prevLane });
-      const format = pickConceptFormat({ lane, avoidCodes: recentFormats, month });
+      const lane: Lane = isCTASlot
+        ? "product"
+        : pickLane({ previousLane: prevLane, laneMult: perf.laneMult });
+      const format = pickConceptFormat({
+        lane,
+        avoidCodes: recentFormats,
+        month,
+        formatMult: perf.formatMult,
+      });
       const pillar = lane === "product" ? "service" : "community";
 
       // Wetter für den KONKRETEN Veröffentlichungstag (Prognose, wenn > 24h weg).

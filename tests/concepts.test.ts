@@ -126,3 +126,40 @@ describe("findBannedPhrase — harte Floskel-Sperre", () => {
     expect(findBannedPhrase("Ein ruhiger Morgen nach dem Fest, die Wimpel eingerollt.")).toBeNull();
   });
 });
+
+describe("pickLane — selbstlernende Gewichtung (mit Explorations-Grenze)", () => {
+  it("verschiebt Richtung Produkt, wenn Produkt besser performt — gedeckelt auf 50%", () => {
+    const m = { emotional: 0.5, product: 2 }; // Produkt läuft stark → pProduct → 0.5 (Deckel)
+    expect(pickLane({ previousLane: null, laneMult: m, random: () => 0.49 })).toBe("product");
+    expect(pickLane({ previousLane: null, laneMult: m, random: () => 0.51 })).toBe("emotional");
+  });
+  it("bleibt bei emotional-Übergewicht min. 25% Produkt (Explorations-Untergrenze)", () => {
+    const m = { emotional: 2, product: 0.5 }; // emotional stark → pProduct → 0.25 (Boden)
+    expect(pickLane({ previousLane: null, laneMult: m, random: () => 0.24 })).toBe("product");
+    expect(pickLane({ previousLane: null, laneMult: m, random: () => 0.26 })).toBe("emotional");
+  });
+  it("nach Produkt-Post immer emotional — Lernen überschreibt das nicht", () => {
+    expect(pickLane({ previousLane: "product", laneMult: { emotional: 0.1, product: 9 } })).toBe("emotional");
+  });
+  it("ohne Lernen-Daten bleibt der 60/40-Basis-Mix", () => {
+    expect(pickLane({ previousLane: null, laneMult: null, random: () => 0.39 })).toBe("product");
+    expect(pickLane({ previousLane: null, laneMult: null, random: () => 0.4 })).toBe("emotional");
+  });
+});
+
+describe("pickConceptFormat — Performance-Gewichtung", () => {
+  it("liefert weiterhin ein Format der richtigen Lane und respektiert Mult", () => {
+    for (let i = 0; i < 20; i++) {
+      const f = pickConceptFormat({
+        lane: "product",
+        formatMult: { P1: 2, P2: 0.5 },
+        random: Math.random,
+      });
+      expect(f.lane).toBe("product");
+    }
+  });
+  it("kein Format fällt ganz raus (Explorations-Untergrenze), auch mit Mult 0", () => {
+    const f = pickConceptFormat({ lane: "emotional", formatMult: { E1: 0, E2: 0, E3: 0 }, random: () => 0.99 });
+    expect(f.lane).toBe("emotional");
+  });
+});

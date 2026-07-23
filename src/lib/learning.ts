@@ -1,4 +1,4 @@
-import type { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { CONTENT_PILLARS, type PillarKey } from "@/types";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
@@ -221,5 +221,111 @@ export async function computeInsights(supabase: AdminClient): Promise<Insights> 
       : null,
     learnedWeights,
     sampleSize,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Selbstlernende Auswahl (Juli 2026)
+// ---------------------------------------------------------------------------
+
+/**
+ * Performance je Content-Dimension → Multiplikatoren für die Generierung.
+ * Aus dem Engagement (über Blotato) wird abgeleitet, welche Lane
+ * (emotional/produkt) und welches Format (E1–P10) am besten läuft; Gewinner
+ * bekommen einen höheren Multiplikator, Verlierer einen niedrigeren — aber
+ * gedeckelt, damit die Vielfalt bleibt (Explorations-Grenze).
+ */
+export type ContentPerformance = {
+  laneMult: Record<string, number> | null; // "emotional" | "product" → Faktor; null = zu wenig Daten
+  formatMult: Record<string, number> | null; // Format-Code → Faktor
+  bestLane: string | null;
+  bestFormat: string | null;
+  sampleSize: number;
+};
+
+const PERF_MIN_SAMPLE = 8; // erst ab so vielen ausgewerteten Posts lenken
+const PERF_CAP = 2.0; // Gewinner max. 2× so wahrscheinlich
+const PERF_FLOOR = 0.5; // Verlierer nie unter 0,5× → nie ganz aus dem Rennen
+
+export async function computeContentPerformance(): Promise<ContentPerformance> {
+  const empty: ContentPerformance = {
+    laneMult: null,
+    formatMult: null,
+    bestLane: null,
+    bestFormat: null,
+    sampleSize: 0,
+  };
+
+  const supabase = createAdminClient();
+  const apiKey = await resolveBlotatoKey(supabase);
+  const metricsByUrl = await fetchMetricsByUrl(apiKey);
+  if (metricsByUrl.size === 0) return empty;
+
+  const { data: pubs } = await supabase
+    .from("post_publications")
+    .select("post_id, public_url")
+    .not("public_url", "is", null);
+  if (!pubs?.length) return empty;
+
+  // Engagement je Post (über alle Plattform-Zeilen mit Metrik summiert).
+  const scoreByPost = new Map<string, number>();
+  for (const p of pubs) {
+    const m = metricsByUrl.get(p.public_url as string);
+    if (!m) continue;
+    const id = p.post_id as string;
+    scoreByPost.set(id, (scoreByPost.get(id) ?? 0) + engagementScore(m));
+  }
+  const postIds = Array.from(scoreByPost.keys());
+  if (postIds.length < PERF_MIN_SAMPLE) return { ...empty, sampleSize: postIds.length };
+
+  const { data: briefs } = await supabase
+    .from("post_briefs")
+    .select("post_id, lane, format_code")
+    .in("post_id", postIds);
+
+  const laneAgg = new Map<string, { sum: number; n: number }>();
+  const fmtAgg = new Map<string, { sum: number; n: number }>();
+  let overallSum = 0;
+  let overallN = 0;
+  for (const b of briefs ?? []) {
+    const s = scoreByPost.get(b.post_id as string);
+    if (s === undefined) continue;
+    overallSum += s;
+    overallN += 1;
+    const lane = b.lane as string | null;
+    const code = b.format_code as string | null;
+    if (lane) {
+      const a = laneAgg.get(lane) ?? { sum: 0, n: 0 };
+      a.sum += s;
+      a.n += 1;
+      laneAgg.set(lane, a);
+    }
+    if (code) {
+      const a = fmtAgg.get(code) ?? { sum: 0, n: 0 };
+      a.sum += s;
+      a.n += 1;
+      fmtAgg.set(code, a);
+    }
+  }
+  if (overallN < PERF_MIN_SAMPLE) return { ...empty, sampleSize: overallN };
+
+  const overallAvg = overallSum / overallN || 1;
+  const clamp = (x: number) => Math.max(PERF_FLOOR, Math.min(PERF_CAP, x));
+  const toMult = (agg: Map<string, { sum: number; n: number }>) => {
+    const out: Record<string, number> = {};
+    Array.from(agg.entries()).forEach(([k, a]) => {
+      out[k] = clamp(a.n ? a.sum / a.n / overallAvg : 1);
+    });
+    return out;
+  };
+  const bestOf = (agg: Map<string, { sum: number; n: number }>) =>
+    Array.from(agg.entries()).sort((x, y) => y[1].sum / y[1].n - x[1].sum / x[1].n)[0]?.[0] ?? null;
+
+  return {
+    laneMult: toMult(laneAgg),
+    formatMult: toMult(fmtAgg),
+    bestLane: bestOf(laneAgg),
+    bestFormat: bestOf(fmtAgg),
+    sampleSize: overallN,
   };
 }

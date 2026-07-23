@@ -9,6 +9,7 @@ import {
   generateCompliantCaption,
 } from "@/lib/designed-post";
 import { conceptByCode, pickConceptFormat, pickLane, BANNED_PHRASES, type Lane } from "@/lib/concepts";
+import { computeContentPerformance } from "@/lib/learning";
 import { getTopicalContext } from "@/lib/topical";
 import { qualityStatusFrom } from "@/lib/quality";
 
@@ -77,10 +78,12 @@ export async function POST(req: NextRequest) {
     const week = isoWeek(refDate);
     const year = isoWeekYear(refDate);
 
-    const lane: Lane = laneParam ?? pickLane({ previousLane: prevLane });
+    // Selbstlernend: Lane/Formate nach Performance gewichten (neutral < 8 Posts).
+    const perf = await computeContentPerformance();
+    const lane: Lane = laneParam ?? pickLane({ previousLane: prevLane, laneMult: perf.laneMult });
     const format =
       (formatCodeParam ? conceptByCode(formatCodeParam) : undefined) ??
-      pickConceptFormat({ lane, avoidCodes: recentFormats, month });
+      pickConceptFormat({ lane, avoidCodes: recentFormats, month, formatMult: perf.formatMult });
 
     const topical = await getTopicalContext();
 
