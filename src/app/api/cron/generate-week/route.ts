@@ -107,7 +107,7 @@ export async function GET(req: NextRequest) {
   // 3) Anti-Wiederholung: zuletzt genutzte Themen/Botschaften + Formate/Lanes laden.
   const { data: recentBriefs } = await supabase
     .from("post_briefs")
-    .select("theme, message, format_code, lane")
+    .select("theme, message, format_code, lane, template")
     .order("created_at", { ascending: false })
     .limit(8);
   const avoid = (recentBriefs ?? [])
@@ -118,6 +118,11 @@ export async function GET(req: NextRequest) {
     .filter((x): x is string => Boolean(x))
     .slice(0, 4);
   let prevLane: Lane | null = ((recentBriefs?.[0]?.lane as Lane | undefined) ?? null) || null;
+  // Zuletzt genutzte Plakat-Layouts meiden → Abwechslung im Feed.
+  const recentLayouts = (recentBriefs ?? [])
+    .map((b) => b.template)
+    .filter((x): x is string => Boolean(x))
+    .slice(0, 3);
 
   // 5er-Zyklus: jeder fünfte Post = garantierter Produkt-Post (mit CTA).
   const { count: totalPostCount } = await supabase
@@ -166,6 +171,7 @@ export async function GET(req: NextRequest) {
           // Wetter-Kontext nur bei echtem reaktivem Aufhänger.
           topical: topical.reactiveHook ? topical.text : null,
           avoid,
+          avoidLayouts: recentLayouts,
           month,
         });
         const captionPrompt = buildCaptionPrompt({
@@ -245,7 +251,7 @@ export async function GET(req: NextRequest) {
           style_type: "designed",
           lane,
           format_code: format.code,
-          template: concept.template,
+          template: concept.posterCode,
         });
       }
     } catch (e) {

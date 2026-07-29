@@ -136,7 +136,7 @@ export async function GET(req: NextRequest) {
       style_type: "designed",
       lane,
       format_code: format.code,
-      template: concept.template,
+      template: concept.posterCode,
     });
 
     return NextResponse.json({
@@ -144,7 +144,7 @@ export async function GET(req: NextRequest) {
       lane,
       format: { code: format.code, name: format.name, template: concept.template },
       image_url: imageUrl,
-      overlay: concept.overlay,
+      poster: concept.poster,
       caption: caption.slice(0, 400),
       review: { score: review.score, pass: review.pass, failArea: review.failArea, issues: review.notes },
     });

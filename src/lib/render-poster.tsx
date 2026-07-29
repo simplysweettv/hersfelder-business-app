@@ -272,6 +272,14 @@ function plakatSplitBand(c: PosterContent, photo?: string): El {
           box({ fontFamily: "Playfair Display", fontWeight: 600, fontSize: size, lineHeight: 1.1, color: BRAND_COLORS.creme, whiteSpace: "nowrap" }, l),
         ),
       ),
+      // Schreibschrift-Akzent: fehlte hier als einziges Plakat-Layout — die
+      // Konzept-KI liefert ihn, und ohne ihn blieb das Band unten leer.
+      c.scriptAccent
+        ? box(
+            { marginTop: 14, fontFamily: "Great Vibes", fontSize: fitSize(86, [c.scriptAccent], 22, 880), color: "rgba(245,240,230,0.95)", whiteSpace: "nowrap" },
+            c.scriptAccent,
+          )
+        : null,
       c.sub
         ? box({ marginTop: 24, fontSize: 27, color: "rgba(245,240,230,0.8)", lineHeight: 1.4, maxWidth: 760 }, c.sub)
         : null,

@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
       style_type: "designed",
       lane,
       format_code: format.code,
-      template: concept.template,
+      template: concept.posterCode,
     });
 
     return NextResponse.json({

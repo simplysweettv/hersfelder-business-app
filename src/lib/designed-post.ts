@@ -1,23 +1,67 @@
 import sharp from "sharp";
 import { getOpenAIClient, generateImage, generateCaption } from "./openai";
 import { recordAiUsage } from "./ai-cost";
-import { BANNED_PHRASES, type ConceptFormat } from "./concepts";
-import { renderPost, type OverlayContent, type PostTemplateKey } from "./render-post";
+import { BANNED_PHRASES, type ConceptFormat, type Lane } from "./concepts";
+import { type PostTemplateKey } from "./render-post";
+import { renderPoster, type PosterContent } from "./render-poster";
 
 /**
  * Designte Posts (Zwei-Säulen-System): Konzept-KI → Foto (ohne Text) →
- * programmatisches Marken-Overlay (render-post.tsx) → JPEG.
+ * programmatisches Marken-Layout (Poster-Engine v2, render-poster.tsx) → JPEG.
  *
  * Der Unterschied zum alten Weg: Erst entsteht die IDEE (Konzept mit Headline
- * nach Format-Formel), daraus werden Foto-Prompt UND Overlay-Text abgeleitet —
+ * nach Format-Formel), daraus werden Foto-Prompt UND Plakat-Text abgeleitet —
  * Bild und Text erzählen garantiert dieselbe Geschichte, und der Text ist
  * pixel-perfekt gerendert statt KI-gemalt.
+ *
+ * Seit Juli 2026 rendert die Poster-Engine v2: echte Plakat-Optik statt
+ * „Foto mit dezenter Textzeile" — drei Plakat-Varianten, reines Foto und
+ * zwei Typo-Poster ohne Foto.
  */
+
+/** Ein Layout der Poster-Engine: Art + Variante, als Code für die Rotation. */
+export type PosterLayout = { kind: PosterContent["kind"]; variant: number; code: string };
+
+const LAYOUTS: Record<Lane, PosterLayout[]> = {
+  // Emotional: Plakat trägt am besten, Typo als Kontrast, reines Foto sparsam.
+  emotional: [
+    { kind: "plakat", variant: 0, code: "plakat-0" },
+    { kind: "plakat", variant: 1, code: "plakat-1" },
+    { kind: "plakat", variant: 2, code: "plakat-2" },
+    { kind: "typo", variant: 0, code: "typo-0" },
+    { kind: "foto", variant: 0, code: "foto-0" },
+  ],
+  // Produkt braucht immer Text (Nutzen + CTA) → kein reines Foto.
+  product: [
+    { kind: "plakat", variant: 2, code: "plakat-2" },
+    { kind: "plakat", variant: 0, code: "plakat-0" },
+    { kind: "typo", variant: 1, code: "typo-1" },
+  ],
+};
+
+/**
+ * Wählt ein Poster-Layout — bevorzugt eines, das zuletzt NICHT dran war,
+ * damit der Feed abwechslungsreich bleibt.
+ */
+export function pickPosterLayout(
+  lane: Lane,
+  avoidCodes: string[] = [],
+  random: () => number = Math.random,
+): PosterLayout {
+  const pool = LAYOUTS[lane];
+  const fresh = pool.filter((l) => !avoidCodes.includes(l.code));
+  const candidates = fresh.length ? fresh : pool;
+  return candidates[Math.floor(random() * candidates.length)];
+}
 
 export type DesignedConcept = {
   formatCode: string;
+  /** Steuert weiterhin die Foto-Regie (Bildsprache je Säule/Formattyp). */
   template: PostTemplateKey;
-  overlay: OverlayContent;
+  /** Der fertige Plakat-Inhalt für die Poster-Engine v2. */
+  poster: PosterContent;
+  /** Layout-Code für die Rotation (z. B. "plakat-1"), landet in post_briefs. */
+  posterCode: string;
   /** Englische Szenen-Beschreibung fürs Foto (ohne Text-Anweisungen) */
   photoIdea: string;
   /** Für post_briefs + Caption-Erzeugung */
@@ -78,21 +122,16 @@ export function buildDesignedPhotoPrompt(
 // Konzept-Generierung (gpt-4o-mini) mit Format-Formel + Zeichenbudgets
 // ---------------------------------------------------------------------------
 
-// Zeichenbudgets je Template (aus dem Layout abgeleitet; fitSize federt Rest ab)
-const BUDGETS = {
-  serifLine: 22,
-  scriptLine: 26,
-  statement: 118,
-  headlineLineA: 17,
-  headlineLinesA: 4,
-  headlineLineC: 18,
-  headlineLinesC: 3,
-  subline: 88,
-  copy: 130,
-  microClaim: 34,
-  featureTitle: 18,
-  featureText: 42,
-  cta: 30,
+/**
+ * Zeichen-Budgets der Poster-Engine v2. Bewusst knapp: ein Plakat lebt von
+ * wenigen, großen Worten — zu lange Zeilen kippen das Layout.
+ */
+const PB = {
+  kicker: 26,
+  headlineLine: 22,
+  headlineLines: 3,
+  scriptAccent: 22,
+  sub: 52,
 } as const;
 
 /** Hartes Zeichenlimit, aber NIE mitten im Wort abschneiden. */
@@ -178,31 +217,36 @@ export async function generateCompliantCaption(opts: {
 
 /** Bester Hook-Text eines Konzepts (für die Caption — damit Bild & Text dieselbe Idee tragen). */
 export function conceptHookText(concept: DesignedConcept): string {
-  const o = concept.overlay;
-  if (o.serifLine || o.scriptLine) return [o.serifLine, o.scriptLine].filter(Boolean).join(" ");
-  if (o.statement) return o.statement;
-  if (o.headline?.length) return o.headline.join(" ");
-  return concept.message;
+  const p = concept.poster;
+  const lines = [p.headline?.join(" "), p.scriptAccent, p.sub].filter(Boolean);
+  return lines.length ? lines.join(" ") : concept.message;
 }
 
-function outputSpecFor(format: ConceptFormat): string {
-  switch (format.template) {
-    case "emotional-minimal":
-      return `"serifLine": "Zeile 1, Serifenschrift, max ${BUDGETS.serifLine} Zeichen, endet mit Punkt",
-"scriptLine": "Zeile 2, elegante Schreibschrift, max ${BUDGETS.scriptLine} Zeichen — das Gefühl hinter Zeile 1"`;
-    case "emotional-statement":
-      return `"statement": "Das Statement, max ${BUDGETS.statement} Zeichen, 1-2 Sätze mit einer konkreten Zahl, einem sinnlichen Detail oder einem Kontrast"`;
-    case "product-feature":
-      return `"headline": ["Serifen-Headline als Array von ${BUDGETS.headlineLinesA} kurzen Zeilen, je max ${BUDGETS.headlineLineA} Zeichen — Umbrüche bewusst setzen"],
-"subline": "1 Satz Nutzen-Subline, max ${BUDGETS.subline} Zeichen",
-"features": [{"title": "Benefit-Titel max ${BUDGETS.featureTitle} Zeichen", "text": "Mini-Zeile max ${BUDGETS.featureText} Zeichen"}, …genau 3 Stück],
-"cta": "CTA-Button-Text max ${BUDGETS.cta} Zeichen"`;
-    case "product-reactive":
-      return `"headline": ["Serifen-Headline als Array von 2-${BUDGETS.headlineLinesC} Zeilen, je max ${BUDGETS.headlineLineC} Zeichen"],
-"copy": "2 Zeilen Fließtext, max ${BUDGETS.copy} Zeichen — Nutzen FÜHLEN lassen, nie technisch behaupten",
-"microClaim": "Versalien-Mikro-Claim max ${BUDGETS.microClaim} Zeichen",
-"cta": "CTA-Button-Text max ${BUDGETS.cta} Zeichen (oder null bei Soft-Post)"`;
+/**
+ * Ausgabe-Spezifikation für die Poster-Engine v2. Anders als früher hängt sie
+ * nicht am Template, sondern am gewählten Plakat-Layout: Ein reines Foto
+ * braucht gar keinen Text, ein Typo-Poster trägt ihn allein.
+ */
+function outputSpecFor(format: ConceptFormat, layout: PosterLayout): string {
+  if (layout.kind === "foto") {
+    // Reines Foto: die Wirkung kommt allein aus dem Bild + Caption.
+    return `"headline": [],
+"kicker": null,
+"scriptAccent": null,
+"sub": null`;
   }
+
+  const isTypo = layout.kind === "typo";
+  const urlLine =
+    format.lane === "product" || isTypo
+      ? `"url": "schuetzen-ausstatter.de"`
+      : `"url": null`;
+
+  return `"kicker": "Kleine Versalien-Zeile ÜBER der Headline, max ${PB.kicker} Zeichen — Einordnung wie „Seit 1897 im Verein" oder „Die Damenweste" (oder null)",
+"headline": ["Die GROSSE Plakat-Headline als Array von 2-3 Zeilen, je max ${PB.headlineLine} Zeichen. Über alle Zeilen gelesen EIN vollständiger, korrekter Satz. Setze die Umbrüche bewusst so, dass jede Zeile für sich gut aussieht. PFLICHT: Die LETZTE Zeile schließt den Satz ab — sie darf NIEMALS mit einer Präposition (auf, in, für, mit, an, zu), einem Artikel (der/die/das/ein) oder einer Konjunktion (und, oder, aber) enden. FALSCH: [„Der erste Auftritt im", „neuen Outfit — und", „alle Blicke sind auf."] — hier fehlt das Satzende. RICHTIG: [„Der erste Auftritt", „im neuen Outfit.", „Alle Blicke da."]. Lies die Headline vor der Ausgabe einmal laut und prüfe, ob der Satz wirklich zu Ende ist."],
+"scriptAccent": "Kurze Schreibschrift-Akzentzeile, max ${PB.scriptAccent} Zeichen — das Gefühl hinter der Headline (oder null)",
+"sub": "Eine ruhige Begleitzeile, max ${PB.sub} Zeichen${format.lane === "product" ? " — konkreter Nutzen oder Größen-USP" : ""} (oder null)",
+${urlLine}`;
 }
 
 /**
@@ -255,9 +299,14 @@ export async function generateDesignedConcept(opts: {
   topical?: string | null;
   avoid?: string[];
   month: number;
+  /** Zuletzt genutzte Poster-Layouts — für Abwechslung im Feed. */
+  avoidLayouts?: string[];
 }): Promise<DesignedConcept> {
   const client = getOpenAIClient(opts.apiKey);
   const f = opts.format;
+  // Plakat-Layout ZUERST wählen: es bestimmt, welche Texte überhaupt gebraucht
+  // werden (reines Foto = gar keine, Typo-Poster = Text trägt allein).
+  const layout = pickPosterLayout(f.lane, opts.avoidLayouts ?? []);
 
   const prompt = `Du bist Kreativ-Direktor für "Hersfelder Schützenbekleidung" (schuetzen-ausstatter.de) — Standardsortiment-Marke für Schützenvereine, Größen 23–70 zum gleichen Preis, KEINE Maßschneiderei.
 
@@ -299,7 +348,7 @@ ${opts.avoid?.length ? `KÜRZLICH VERWENDET (nichts Ähnliches): ${opts.avoid.jo
 
 Antworte NUR als JSON:
 {
-${outputSpecFor(f)},
+${outputSpecFor(f, layout)},
 "photoIdea": "Die konkrete Foto-Szene auf ENGLISCH, 2-3 Sätze, fotografisch präzise (wer/was, wo, Stimmung) — OHNE Text/Schrift im Bild, OHNE Logo",
 "theme": "Thema in 3-6 Worten (deutsch)",
 "product": "${f.lane === "product" ? "Das beworbene Produkt" : "Vereinsleben"}",
@@ -320,8 +369,6 @@ ${outputSpecFor(f)},
 
   const raw = JSON.parse(res.choices?.[0]?.message?.content ?? "{}") as Record<string, unknown>;
 
-  // Overlay aus KI-Output + Format-Defaults zusammensetzen (Budgets hart erzwingen)
-  const overlay: OverlayContent = { template: f.template };
   const finishHeadline = (lines: string[]): string[] => {
     const fixed = fixHeadlineCasing(lines);
     // letzten sinnvollen Satz-Abschluss sicherstellen
@@ -329,63 +376,48 @@ ${outputSpecFor(f)},
     return fixed;
   };
 
-  if (f.template === "emotional-minimal") {
-    overlay.serifLine = ensurePunct(clamp(raw.serifLine as string, BUDGETS.serifLine + 6));
-    overlay.scriptLine = ensurePunct(clamp(raw.scriptLine as string, BUDGETS.scriptLine + 6));
-  } else if (f.template === "emotional-statement") {
-    overlay.statement = ensurePunct(clamp(raw.statement as string, BUDGETS.statement + 20));
-    overlay.url = "www.schuetzen-ausstatter.de";
-  } else if (f.template === "product-feature") {
-    overlay.headline = finishHeadline(
-      (Array.isArray(raw.headline) ? raw.headline : [String(raw.headline ?? "")])
-        .map((l) => clamp(String(l), BUDGETS.headlineLineA + 2))
-        .filter(Boolean)
-        .slice(0, BUDGETS.headlineLinesA),
-    );
-    overlay.subline = clamp(raw.subline as string, BUDGETS.subline + 15);
-    const aiFeatures = Array.isArray(raw.features) ? (raw.features as { title?: string; text?: string }[]) : [];
-    const defaults = f.benefits ?? [];
-    overlay.features = defaults.map((d, i) => ({
-      icon: d.icon,
-      title: clamp(aiFeatures[i]?.title, BUDGETS.featureTitle + 4) || d.title,
-      text: clamp(aiFeatures[i]?.text, BUDGETS.featureText + 8) || d.text,
-    }));
-    overlay.cta = clamp(raw.cta as string, BUDGETS.cta) || f.cta;
-  } else {
-    // Bewusst gesetzte Marken-Tagline der Produkt-Lane (steht so auf den echten
-    // Vorbild-Posts: „TRADITION. VERBUNDEN."). Als Marken-Element whitelisted —
-    // NICHT mit der gesperrten Floskel „Tradition verbindet" verwechseln.
-    overlay.tagline = "Tradition. Verbunden.";
-    overlay.headline = finishHeadline(
-      (Array.isArray(raw.headline) ? raw.headline : [String(raw.headline ?? "")])
-        .map((l) => clamp(String(l), BUDGETS.headlineLineC + 2))
-        .filter(Boolean)
-        .slice(0, BUDGETS.headlineLinesC),
-    );
-    overlay.copy = clamp(raw.copy as string, BUDGETS.copy + 20);
-    overlay.microClaim = clamp(raw.microClaim as string, BUDGETS.microClaim + 6) || undefined;
-    overlay.cta = f.cta ? clamp(raw.cta as string, BUDGETS.cta) || f.cta : undefined;
-    overlay.url = "schuetzen-ausstatter.de";
-    overlay.footerIcons = f.footerIcons;
-    overlay.accentIcon = opts.reactiveHook?.toLowerCase().includes("regen")
-      ? "cloud-rain"
-      : f.code === "P2"
-        ? "sun"
-        : f.code === "P7"
-          ? "gem"
-          : f.code === "P10"
-            ? "package-open"
-            : "sparkles";
+  // Plakat-Inhalt aus KI-Output zusammensetzen (Budgets hart erzwingen).
+  const headline = finishHeadline(
+    (Array.isArray(raw.headline) ? raw.headline : raw.headline ? [String(raw.headline)] : [])
+      .map((l) => clamp(String(l), PB.headlineLine + 3))
+      .filter(Boolean)
+      .slice(0, PB.headlineLines),
+  );
+
+  const poster: PosterContent = {
+    kind: layout.kind,
+    variant: layout.variant,
+    ...(layout.kind === "foto"
+      ? {}
+      : {
+          kicker: clamp(raw.kicker as string, PB.kicker) || undefined,
+          headline: headline.length ? headline : undefined,
+          scriptAccent: ensurePunct(clamp(raw.scriptAccent as string, PB.scriptAccent + 4)) || undefined,
+          // Satzzeichen erzwingen — der QA-Agent wertet eine Zeile ohne
+          // Abschluss zu Recht als unvollständigen Satz.
+          sub: ensurePunct(clamp(raw.sub as string, PB.sub + 8)) || undefined,
+          url: typeof raw.url === "string" && raw.url.trim() ? "schuetzen-ausstatter.de" : undefined,
+        }),
+  };
+
+  // Typo-Poster trägt den Text allein — ohne Headline wäre es leer.
+  if (layout.kind === "typo" && !poster.headline?.length) {
+    poster.headline = [f.name];
   }
 
   return {
     formatCode: f.code,
     template: f.template,
-    overlay,
+    poster,
+    posterCode: layout.code,
     photoIdea: String(raw.photoIdea ?? f.photoDirection),
     theme: clamp(raw.theme as string, 50) || f.name,
     product: clamp(raw.product as string, 60) || (f.lane === "product" ? f.name : "Vereinsleben"),
-    message: clamp(raw.message as string, 100) || overlay.serifLine || overlay.statement || "",
+    message:
+      clamp(raw.message as string, 100) ||
+      poster.headline?.join(" ") ||
+      poster.sub ||
+      f.name,
   };
 }
 
@@ -407,11 +439,16 @@ export async function createDesignedPostImage(opts: {
 }): Promise<DesignedPostResult> {
   const photoPrompt = buildDesignedPhotoPrompt(opts.concept.template, opts.concept.photoIdea, opts.brandStyle);
 
-  const image = await generateImage({ apiKey: opts.apiKey, prompt: photoPrompt, size: "1024x1536" });
-  if (!image.b64) throw new Error("Kein Foto von gpt-image-1 erhalten.");
-  const photoDataUrl = `data:image/jpeg;base64,${image.b64}`;
+  // Typo-Poster kommen ohne Foto aus — dann sparen wir uns den teuersten und
+  // langsamsten Schritt der ganzen Pipeline komplett.
+  let photoDataUrl: string | undefined;
+  if (opts.concept.poster.kind !== "typo") {
+    const image = await generateImage({ apiKey: opts.apiKey, prompt: photoPrompt, size: "1024x1536" });
+    if (!image.b64) throw new Error("Kein Foto von gpt-image-1 erhalten.");
+    photoDataUrl = `data:image/jpeg;base64,${image.b64}`;
+  }
 
-  const png = await renderPost(opts.concept.overlay, photoDataUrl);
+  const png = await renderPoster(opts.concept.poster, photoDataUrl);
   // JPEG für alle Plattformen (TikTok akzeptiert kein PNG)
   const jpeg = await sharp(png).jpeg({ quality: 90 }).toBuffer();
 

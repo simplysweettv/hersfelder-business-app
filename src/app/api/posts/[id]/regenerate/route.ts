@@ -127,7 +127,7 @@ export async function POST(
           style_type: "designed",
           lane,
           format_code: format.code,
-          template: concept.template,
+          template: concept.posterCode,
         })
         .eq("id", brief.id);
     }

@@ -1,5 +1,6 @@
 import { runQaGate, type GateResult } from "./qa-gate";
 import type { DesignedConcept } from "./designed-post";
+import { renderedTextOf } from "./render-poster";
 import type { OverlayContent } from "./render-post";
 import type { QualityStatus } from "./quality";
 
@@ -77,11 +78,12 @@ export async function reviewDesignedPost(opts: {
   const gate = await runQaGate({
     apiKey: opts.apiKey,
     jpeg: opts.jpeg,
-    renderedText: renderedTextOfOverlay(opts.concept.overlay),
+    // Genau die Zeilen, die die Poster-Engine ins Bild gesetzt hat.
+    renderedText: renderedTextOf(opts.concept.poster),
     // Das Motiv ist die Foto-Idee — genau das, was Bild UND Text tragen sollen.
     motif: `${opts.concept.photoIdea} — Kernaussage: ${opts.concept.message}`,
     caption: opts.caption,
-    kind: opts.concept.template,
+    kind: opts.concept.poster.kind,
     lane: laneOf(opts.concept.template),
   });
 

@@ -25,8 +25,14 @@ Interne Business App für **Andreas Hertwig**, Inhaber von **Hersfelder Schütze
 
 - **GitHub:** https://github.com/simplysweettv/hersfelder-business-app (public)
 - **Vercel:** https://hersfelder-business-app.vercel.app
-- **Supabase Projekt:** `tjcpyzzexfulxwhykiap` (Region: eu-central-1)
-- **Lokales Projekt:** `/Users/marcwitzsche/Documents/hersfelder-app`
+- **Supabase Produktion:** `kmkciylrmadkhywlytkf` — **das ist die Quelle der Wahrheit.** Migrationen und Datenprüfungen gehören hierhin.
+- **Supabase alt:** `tjcpyzzexfulxwhykiap` — steht noch in `.env.local`, bekommt aber seit dem 14.07.2026 keinen Cron-Verkehr mehr. Ein Cutover wurde vorbereitet (`.env.local.NEU-fuer-cutover`), aber nie auf Vercel übertragen.
+- **Lokales Projekt:** `/Users/marcwitzsche/Claude/hersfelder-app`
+
+> **Achtung, häufige Falle:** Die beiden Projekte liegen in **verschiedenen Supabase-Konten**. Das MCP `supabase-hersfelder` zeigt auf die Produktion; ein `list_projects` über das andere Konto listet die Produktion gar nicht auf. Welches Projekt live ist, entscheidet der Cron-Verkehr, nicht die Post-Zahl:
+> ```sql
+> select max(started_at) from automation_runs;  -- Produktion hat einen Lauf von heute
+> ```
 
 ---
 
@@ -206,7 +212,7 @@ Die App ist vollständig mobil nutzbar:
 ## Umgebungsvariablen (Vercel)
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=https://tjcpyzzexfulxwhykiap.supabase.co
+NEXT_PUBLIC_SUPABASE_URL=https://kmkciylrmadkhywlytkf.supabase.co   # Produktion (NICHT das Projekt aus .env.local)
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...   # Für Cron-Jobs — niemals im Client verwenden
 OPENAI_API_KEY=...

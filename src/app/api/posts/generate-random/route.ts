@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     // Rotation: letzte Formate/Themen meiden, Lane-Wechsel erzwingen
     const { data: recentBriefs } = await supabase
       .from("post_briefs")
-      .select("format_code, lane, theme")
+      .select("format_code, lane, theme, template")
       .order("created_at", { ascending: false })
       .limit(8);
     const recentFormats = (recentBriefs ?? [])
@@ -74,6 +74,11 @@ export async function POST(req: NextRequest) {
       .map((b) => b.theme)
       .filter((x): x is string => Boolean(x));
     const prevLane = ((recentBriefs?.[0]?.lane as Lane | null) ?? null) || null;
+    // Zuletzt genutzte Plakat-Layouts meiden → Abwechslung im Feed.
+    const recentLayouts = (recentBriefs ?? [])
+      .map((b) => b.template)
+      .filter((x): x is string => Boolean(x))
+      .slice(0, 3);
 
     const refDate = scheduledAt ? new Date(scheduledAt) : new Date();
     const month = refDate.getMonth() + 1;
@@ -97,6 +102,7 @@ export async function POST(req: NextRequest) {
       // Wetter-Kontext nur bei echtem reaktivem Aufhänger (sonst leakt Temperatur in Produkt-Text)
       topical: topical.reactiveHook ? topical.text : null,
       avoid: avoidThemes,
+      avoidLayouts: recentLayouts,
       month,
     });
 
@@ -168,7 +174,7 @@ export async function POST(req: NextRequest) {
       style_type: "designed",
       lane,
       format_code: format.code,
-      template: concept.template,
+      template: concept.posterCode,
     });
 
     return NextResponse.json({
