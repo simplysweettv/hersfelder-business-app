@@ -35,8 +35,10 @@ export async function updateSession(request: NextRequest) {
     isAuthRoute ||
     url.pathname.startsWith("/_next") ||
     url.pathname.startsWith("/api/cron") ||
-    // Render-Vorschau nur lokal (Route liefert in Produktion zusätzlich 404)
-    (process.env.NODE_ENV !== "production" && url.pathname.startsWith("/api/dev")) ||
+    // Render-/Ampel-Vorschau nur lokal (die Routen liefern in Produktion
+    // zusätzlich selbst 404 — doppelt abgesichert).
+    (process.env.NODE_ENV !== "production" &&
+      (url.pathname.startsWith("/api/dev") || url.pathname.startsWith("/dev/"))) ||
     url.pathname === "/favicon.ico";
 
   if (!user && !isPublic) {
