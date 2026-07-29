@@ -121,33 +121,65 @@ export function GeneratorForm() {
   async function fillBuffer() {
     setFilling(true);
     const t = toast.loading("Puffer wird aufgefüllt …", {
-      description: "Bis zu 3 Posts inkl. Bild und Qualitäts-TÜV — das dauert ein paar Minuten.",
+      description: "Pro Post ein Bild und zwei KI-Prüfungen — das dauert einige Minuten.",
     });
-    try {
-      const res = await fetch("/api/posts/fill-buffer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ count: 3 }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Auffüllen fehlgeschlagen");
 
-      if (data.created === 0 && data.openSlots === 0) {
+    // Ein Serverlauf schafft höchstens 3 Posts (Vercel deckelt bei 300 s).
+    // Statt den Nutzer mehrfach klicken zu lassen, rufen wir hier so lange
+    // nach, bis keine freien Termine mehr übrig sind. Die Runden-Obergrenze
+    // ist nur eine Notbremse gegen Endlosschleifen.
+    const MAX_RUNDEN = 4;
+    let gesamt = 0;
+    const fehler: string[] = [];
+
+    try {
+      for (let runde = 1; runde <= MAX_RUNDEN; runde++) {
+        const res = await fetch("/api/posts/fill-buffer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ count: 3 }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Auffüllen fehlgeschlagen");
+
+        gesamt += data.created ?? 0;
+        if (Array.isArray(data.errors)) fehler.push(...data.errors);
+        router.refresh();
+
+        // Keine freien Termine mehr → fertig.
+        if (!data.openSlots) break;
+
+        // Der Lauf hat einen Slot gefunden, aber nichts erzeugt: weiteres
+        // Nachfassen würde nur denselben Fehler wiederholen.
+        if (!data.created) break;
+
+        if (runde < MAX_RUNDEN) {
+          toast.loading(`${gesamt} Posts erstellt — es sind noch Termine frei …`, {
+            id: t,
+            description: "Läuft weiter, du kannst das Fenster offen lassen.",
+          });
+        }
+      }
+
+      if (gesamt === 0 && fehler.length === 0) {
         toast.success("Puffer ist schon voll ✓", {
           id: t,
           description: "Für die nächsten Tage sind alle Termine des Posting-Plans belegt.",
         });
       } else {
-        toast.success(`${data.created} Post(s) erstellt ✓`, {
+        toast.success(`${gesamt} Post(s) erstellt ✓`, {
           id: t,
           description:
-            (data.errors?.length ? `${data.errors.length} Fehlschlag/Fehlschläge. ` : "") +
+            (fehler.length ? `${fehler.length} Fehlschlag/Fehlschläge. ` : "") +
             "Liegen in den Freigaben — prüfen & freigeben.",
         });
       }
-      router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Unbekannter Fehler", { id: t });
+      const msg = e instanceof Error ? e.message : "Unbekannter Fehler";
+      toast.error(msg, {
+        id: t,
+        description: gesamt > 0 ? `${gesamt} Post(s) waren vorher schon fertig.` : undefined,
+      });
     } finally {
       setFilling(false);
     }
@@ -246,9 +278,10 @@ export function GeneratorForm() {
           <div className="space-y-0.5">
             <p className="font-medium">Puffer auffüllen</p>
             <p className="text-sm text-muted-foreground">
-              Belegt die nächsten freien Termine aus deinem Posting-Plan — Thema,
-              Format und Termin wählt die KI selbst, genau wie nachts der
-              Automatik-Lauf. Nützlich, wenn die Freigaben leer sind.
+              Belegt alle freien Termine der nächsten Tage aus deinem
+              Posting-Plan — Thema, Format und Termin wählt die KI selbst, genau
+              wie nachts der Automatik-Lauf. Ein Klick genügt; es läuft durch,
+              bis der Puffer voll ist. Rechne mit ein paar Minuten pro Post.
             </p>
           </div>
         </div>
@@ -259,7 +292,7 @@ export function GeneratorForm() {
           className="w-full"
         >
           <Layers className={`w-4 h-4 mr-2 ${filling ? "animate-pulse" : ""}`} />
-          {filling ? "Erstellt Posts … (kann einige Minuten dauern)" : "Bis zu 3 Posts erstellen"}
+          {filling ? "Erstellt Posts … (bitte offen lassen)" : "Puffer jetzt füllen"}
         </Button>
       </div>
 
