@@ -115,21 +115,24 @@ export async function POST(
       })
       .eq("id", params.id);
 
+    // Briefing schreiben — auch wenn noch keines existiert. Ohne Briefing hat
+    // die Format- und Layout-Rotation keine Datengrundlage und der Feed
+    // wiederholt sich.
+    const briefFields = {
+      theme: concept.theme,
+      product: concept.product,
+      message: concept.message,
+      prompt_used: rendered.photoPrompt,
+      pillar,
+      style_type: "designed",
+      lane,
+      format_code: format.code,
+      template: concept.posterCode,
+    };
     if (brief?.id) {
-      await admin
-        .from("post_briefs")
-        .update({
-          theme: concept.theme,
-          product: concept.product,
-          message: concept.message,
-          prompt_used: rendered.photoPrompt,
-          pillar,
-          style_type: "designed",
-          lane,
-          format_code: format.code,
-          template: concept.posterCode,
-        })
-        .eq("id", brief.id);
+      await admin.from("post_briefs").update(briefFields).eq("id", brief.id);
+    } else {
+      await admin.from("post_briefs").insert({ post_id: params.id, ...briefFields });
     }
 
     return NextResponse.json({
