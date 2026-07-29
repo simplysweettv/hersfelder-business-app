@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { loadSettings } from "@/lib/settings";
-import { buildCaptionPrompt, reviewPost } from "@/lib/openai";
+import { buildCaptionPrompt } from "@/lib/openai";
 import {
   buildManualFormat,
   generateDesignedConcept,
@@ -10,7 +10,7 @@ import {
   generateCompliantCaption,
 } from "@/lib/designed-post";
 import { BANNED_PHRASES, type Lane } from "@/lib/concepts";
-import { qualityStatusFrom } from "@/lib/quality";
+import { reviewDesignedPost } from "@/lib/designed-review";
 import type { GeneratorInput } from "@/types";
 
 export const runtime = "nodejs";
@@ -93,12 +93,12 @@ export async function POST(req: NextRequest) {
     if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
     const imageUrl = supabase.storage.from("post-images").getPublicUrl(filename).data.publicUrl;
 
-    const review = await reviewPost({
+    // Zwei-Agenten-Freigabe auf dem FERTIGEN Composite.
+    const review = await reviewDesignedPost({
       apiKey,
+      jpeg: rendered.jpeg,
+      concept,
       caption,
-      imageUrl,
-      styleType: "hook",
-      pillarLabel: format.name,
     });
 
     const week = isoWeek(now);
@@ -116,8 +116,8 @@ export async function POST(req: NextRequest) {
         week_number: week,
         year,
         quality_score: review.score,
-        quality_notes: review.issues,
-        quality_status: qualityStatusFrom(review),
+        quality_notes: review.notes,
+        quality_status: review.status,
       })
       .select("*")
       .single();
@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
       image_url: imageUrl,
       caption,
       lane,
-      review: { score: review.score, issues: review.issues },
+      review: { score: review.score, issues: review.notes, pass: review.pass },
     });
   } catch (e) {
     return NextResponse.json(

@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { loadSettings } from "@/lib/settings";
-import { buildCaptionPrompt, reviewPost } from "@/lib/openai";
+import { buildCaptionPrompt } from "@/lib/openai";
 import {
   generateDesignedConcept,
   createDesignedPostImage,
@@ -11,7 +11,7 @@ import {
 import { conceptByCode, pickConceptFormat, pickLane, BANNED_PHRASES, type Lane } from "@/lib/concepts";
 import { computeContentPerformance } from "@/lib/learning";
 import { getTopicalContext } from "@/lib/topical";
-import { qualityStatusFrom } from "@/lib/quality";
+import { reviewDesignedPost } from "@/lib/designed-review";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -126,12 +126,13 @@ export async function POST(req: NextRequest) {
 
     // 4) Qualitäts-TÜV auf dem FERTIGEN Composite (Overlay-Text ist gerendert,
     //    der Check greift v. a. für Foto-Realismus + Caption)
-    let review = await reviewPost({ apiKey, caption, imageUrl, styleType: "hook", pillarLabel: format.name });
-    if (!review.captionOk) {
+    let review = await reviewDesignedPost({ apiKey, jpeg: rendered.jpeg, concept, caption });
+    // Textproblem → Caption neu ziehen und noch einmal prüfen.
+    if (!review.pass && (review.failArea === "text" || review.failArea === "both")) {
       const retry = await generateCompliantCaption({ apiKey, captionPrompt, bannedPhrases: BANNED_PHRASES });
       if (retry) {
         caption = retry;
-        review = await reviewPost({ apiKey, caption, imageUrl, styleType: "hook", pillarLabel: format.name });
+        review = await reviewDesignedPost({ apiKey, jpeg: rendered.jpeg, concept, caption });
       }
     }
 
@@ -147,8 +148,8 @@ export async function POST(req: NextRequest) {
         week_number: week,
         year,
         quality_score: review.score,
-        quality_notes: review.issues,
-        quality_status: qualityStatusFrom(review),
+        quality_notes: review.notes,
+        quality_status: review.status,
       })
       .select("*")
       .single();
@@ -178,9 +179,9 @@ export async function POST(req: NextRequest) {
       format: { code: format.code, name: format.name, template: concept.template },
       review: {
         score: review.score,
-        issues: review.issues,
-        imageOk: review.imageOk,
-        captionOk: review.captionOk,
+        issues: review.notes,
+        pass: review.pass,
+        failArea: review.failArea,
       },
       brief: {
         theme: concept.theme,

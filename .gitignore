@@ -37,3 +37,6 @@ next-env.d.ts
 .mcp.json
 .claude/
 .env*
+
+# Codex-Konfiguration — enthält ein Supabase-Token, darf NIE ins (öffentliche) Repo
+.codex/

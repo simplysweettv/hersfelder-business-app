@@ -77,10 +77,10 @@ export type OverlayContent = {
 // Fonts + Wappen (lazy, pro Lambda-Instanz einmal geladen)
 // ---------------------------------------------------------------------------
 
-type FontSpec = { name: string; data: Buffer; weight: 400 | 500 | 600 | 700; style: "normal" };
+export type FontSpec = { name: string; data: Buffer; weight: 400 | 500 | 600 | 700; style: "normal" };
 
 let fontsPromise: Promise<FontSpec[]> | null = null;
-function loadFonts(): Promise<FontSpec[]> {
+export function loadFonts(): Promise<FontSpec[]> {
   if (!fontsPromise) {
     fontsPromise = (async () => {
       const dir = path.join(process.cwd(), "src", "assets", "fonts");
@@ -109,7 +109,7 @@ function loadFonts(): Promise<FontSpec[]> {
 }
 
 let wappenCache: string | null = null;
-function wappenDataUrl(): string {
+export function wappenDataUrl(): string {
   if (!wappenCache) {
     const buf = fs.readFileSync(path.join(process.cwd(), "src", "assets", "brand", "wappen.png"));
     wappenCache = `data:image/png;base64,${buf.toString("base64")}`;
@@ -118,24 +118,24 @@ function wappenDataUrl(): string {
 }
 
 // Wappen-Seitenverhältnis 940:1234 → Höhe = Breite × 1.313
-const wappenH = (w: number) => Math.round(w * 1.313);
+export const wappenH = (w: number) => Math.round(w * 1.313);
 
 // ---------------------------------------------------------------------------
 // Element-Builder (Satori-kompatibel, wie carousel.tsx)
 // ---------------------------------------------------------------------------
 
-type El = { type: string; props: Record<string, unknown> };
+export type El = { type: string; props: Record<string, unknown> };
 
-function el(type: string, props: Record<string, unknown> = {}, children?: unknown): El {
+export function el(type: string, props: Record<string, unknown> = {}, children?: unknown): El {
   return { type, props: children === undefined ? props : { ...props, children } };
 }
-function box(style: Record<string, unknown>, children?: unknown): El {
+export function box(style: Record<string, unknown>, children?: unknown): El {
   return el("div", { style: { display: "flex", ...style } }, children);
 }
-const kids = (arr: (El | null | undefined | false)[]) => arr.filter(Boolean) as El[];
+export const kids = (arr: (El | null | undefined | false)[]) => arr.filter(Boolean) as El[];
 
 /** Lucide-Linien-Icon als Inline-SVG */
-function icon(name: IconKey, size: number, stroke: string, strokeWidth = 2): El {
+export function icon(name: IconKey, size: number, stroke: string, strokeWidth = 2): El {
   const nodes = BRAND_ICONS[name] ?? BRAND_ICONS["sparkles"];
   return el("svg", {
     width: size,

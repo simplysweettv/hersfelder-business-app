@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadSettings } from "@/lib/settings";
-import { buildCaptionPrompt, reviewPost } from "@/lib/openai";
+import { buildCaptionPrompt } from "@/lib/openai";
 import {
   generateDesignedConcept,
   createDesignedPostImage,
@@ -11,7 +11,7 @@ import {
 } from "@/lib/designed-post";
 import { conceptByCode, pickConceptFormat, BANNED_PHRASES, type Lane } from "@/lib/concepts";
 import { getTopicalContext } from "@/lib/topical";
-import { qualityStatusFrom } from "@/lib/quality";
+import { reviewDesignedPost } from "@/lib/designed-review";
 
 /**
  * Dev-only: erzeugt einen kompletten designten Post über die ECHTE Pipeline
@@ -99,12 +99,11 @@ export async function GET(req: NextRequest) {
     if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
     const imageUrl = supabase.storage.from("post-images").getPublicUrl(filename).data.publicUrl;
 
-    const review = await reviewPost({
+    const review = await reviewDesignedPost({
       apiKey,
+      jpeg: rendered.jpeg,
+      concept,
       caption,
-      imageUrl,
-      styleType: "hook",
-      pillarLabel: format.name,
     });
 
     const { data: post, error: insertErr } = await supabase
@@ -119,8 +118,8 @@ export async function GET(req: NextRequest) {
         week_number: null,
         year: now.getFullYear(),
         quality_score: review.score,
-        quality_notes: review.issues,
-        quality_status: qualityStatusFrom(review),
+        quality_notes: review.notes,
+        quality_status: review.status,
       })
       .select("id")
       .single();
@@ -147,7 +146,7 @@ export async function GET(req: NextRequest) {
       image_url: imageUrl,
       overlay: concept.overlay,
       caption: caption.slice(0, 400),
-      review: { score: review.score, imageOk: review.imageOk, captionOk: review.captionOk, issues: review.issues },
+      review: { score: review.score, pass: review.pass, failArea: review.failArea, issues: review.notes },
     });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 });

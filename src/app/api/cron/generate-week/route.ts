@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { loadSettings } from "@/lib/settings";
 import { cronAuthorized } from "@/lib/cron-auth";
 import { startRun, finishRun } from "@/lib/automation";
-import { buildCaptionPrompt, reviewPost } from "@/lib/openai";
+import { buildCaptionPrompt } from "@/lib/openai";
 import {
   generateDesignedConcept,
   createDesignedPostImage,
@@ -13,7 +13,7 @@ import {
 import { pickConceptFormat, pickLane, BANNED_PHRASES, type Lane } from "@/lib/concepts";
 import { computeContentPerformance } from "@/lib/learning";
 import { getWeatherForPublishDay } from "@/lib/topical";
-import { qualityStatusFrom } from "@/lib/quality";
+import { reviewDesignedPost } from "@/lib/designed-review";
 import { parsePostingPlan } from "@/lib/posting-plan";
 import {
   berlinWallToUtc,
@@ -190,25 +190,26 @@ export async function GET(req: NextRequest) {
         if (!upErr) {
           imageUrl = supabase.storage.from("post-images").getPublicUrl(filename).data.publicUrl;
         }
-        const review = await reviewPost({
+        // Zwei-Agenten-Freigabe auf dem FERTIGEN Composite (prüft auch, ob
+        // Bild und Text dasselbe Motiv meinen).
+        const review = await reviewDesignedPost({
           apiKey,
+          jpeg: rendered.jpeg,
+          concept,
           caption,
-          imageUrl,
-          styleType: "hook",
-          pillarLabel: format.name,
         });
         return { concept, photoPrompt: rendered.photoPrompt, caption, imageUrl, review };
       };
 
-      // Generieren + TÜV; bei schlechtem Ergebnis EINMAL komplett neu.
+      // Generieren + Freigabe; wenn ein Agent blockt, EINMAL komplett neu.
       let result = await makePost();
-      if (!result.review.imageOk || (result.review.checked && result.review.score < 5)) {
+      if (!result.review.pass) {
         const retry = await makePost();
         if (retry.review.score >= result.review.score) result = retry;
       }
 
       const { concept, photoPrompt, caption, imageUrl, review } = result;
-      const qualityStatus = qualityStatusFrom(review);
+      const qualityStatus = review.status;
       avoid.unshift(concept.theme, concept.message);
       recentFormats.unshift(format.code);
       prevLane = lane;
@@ -225,7 +226,7 @@ export async function GET(req: NextRequest) {
           week_number: week,
           year,
           quality_score: review.score,
-          quality_notes: review.issues,
+          quality_notes: review.notes,
           quality_status: qualityStatus,
         })
         .select("id")
