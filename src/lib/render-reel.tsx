@@ -36,6 +36,18 @@ const SAFE_BOTTOM = 1400;
 const MARGIN_X = 90;
 const CONTENT_W = 810; // 1080 − 90 links − 180 rechts (Aktions-Buttons)
 
+// Vertikaler Rhythmus, von der unteren Sicherheitsgrenze nach oben gerechnet:
+// Domain-Zeile endet auf SAFE_BOTTOM, darüber der Button, darüber die Headline.
+const CTA_PILL_H = 84;
+const URL_BLOCK_H = 61; // Zeilenhöhe 39 + 22 Abstand
+const CTA_TOP = SAFE_BOTTOM - (CTA_PILL_H + URL_BLOCK_H);
+const HEADLINE_GAP = 72; // Luft zwischen Textblock und Button
+const SCRIPT_RATIO = 0.86; // Schreibschrift relativ zur Headline
+const SCRIPT_GAP = 18;
+const CTA_FONT = 30;
+const CTA_TRACKING = 1.6;
+const CTA_PAD_X = 36;
+
 export type ReelContent = {
   /** Versalien-Zeile neben dem Wappen, z. B. "HERSFELDER SCHÜTZENBEKLEIDUNG" */
   eyebrow?: string;
@@ -138,8 +150,12 @@ function layerHeadline(c: ReelContent): El {
   const lines = c.headline.filter(Boolean);
   const size = Math.round(fitSize(96, lines, 18, CONTENT_W));
   const lineH = Math.round(size * 1.16);
-  const blockH = lines.length * lineH + (c.scriptLine ? Math.round(size * 0.9) : 0);
-  const top = Math.max(700, SAFE_BOTTOM - 190 - blockH);
+  const scriptH = c.scriptLine ? Math.round(size * SCRIPT_RATIO * 1.3) + SCRIPT_GAP : 0;
+  const blockH = lines.length * lineH + scriptH;
+  // Von unten aufgebaut: der Textblock endet mit festem Abstand über dem
+  // CTA-Button. Vorher wurde die Höhe der Schreibschrift-Zeile zu klein
+  // geschätzt — dadurch klebte "Seit Generationen." am Button.
+  const top = Math.max(560, CTA_TOP - HEADLINE_GAP - blockH);
 
   return box({ position: "relative", width: REEL_W, height: REEL_H }, kids([
     box(
@@ -167,9 +183,9 @@ function layerHeadline(c: ReelContent): El {
                 style: {
                   fontFamily: "Great Vibes",
                   fontWeight: 400,
-                  fontSize: Math.round(size * 0.86),
+                  fontSize: Math.round(size * SCRIPT_RATIO),
                   lineHeight: 1.3,
-                  marginTop: 10,
+                  marginTop: SCRIPT_GAP,
                   color: BRAND_COLORS.creme,
                 },
               },
@@ -190,14 +206,28 @@ function layerHeadline(c: ReelContent): El {
 function layerCta(c: ReelContent): El {
   if (!c.cta && !c.url) return box({ width: REEL_W, height: REEL_H });
   const label = (c.cta ?? "").toUpperCase();
-  const pillW = Math.min(CONTENT_W, 72 + label.length * 19);
+
+  // Button-Breite aus der tatsächlichen Textbreite. Montserrat 700 in
+  // Versalien belegt rund 0.70 × Schriftgrad pro Zeichen, dazu die Laufweite.
+  // Passt ein langer CTA ("Musterkollektion anfragen") nicht, wird die Schrift
+  // verkleinert statt umgebrochen — ein zweizeiliger Button sprengt die Pille.
+  const advance = (fs: number) => fs * 0.7 + CTA_TRACKING;
+  const maxLabelW = CONTENT_W - 2 * CTA_PAD_X;
+  let ctaFont = CTA_FONT;
+  if (label.length * advance(ctaFont) > maxLabelW) {
+    ctaFont = Math.max(20, Math.floor((maxLabelW / label.length - CTA_TRACKING) / 0.7));
+  }
+  const pillW = Math.min(
+    CONTENT_W,
+    Math.round(label.length * advance(ctaFont)) + 2 * CTA_PAD_X,
+  );
 
   return box({ position: "relative", width: REEL_W, height: REEL_H }, kids([
     box(
       {
         position: "absolute",
         left: MARGIN_X,
-        top: SAFE_BOTTOM - 128,
+        top: CTA_TOP,
         width: CONTENT_W,
         flexDirection: "column",
       },
@@ -206,8 +236,9 @@ function layerCta(c: ReelContent): El {
           ? box(
               {
                 width: pillW,
-                height: 84,
-                borderRadius: 42,
+                height: CTA_PILL_H,
+                flexShrink: 0,
+                borderRadius: CTA_PILL_H / 2,
                 backgroundColor: BRAND_COLORS.rot,
                 alignItems: "center",
                 justifyContent: "center",
@@ -219,8 +250,9 @@ function layerCta(c: ReelContent): El {
                     style: {
                       fontFamily: "Montserrat",
                       fontWeight: 700,
-                      fontSize: 30,
-                      letterSpacing: 1.6,
+                      fontSize: ctaFont,
+                      letterSpacing: CTA_TRACKING,
+                      whiteSpace: "nowrap",
                       color: BRAND_COLORS.weiss,
                     },
                   },

@@ -37,6 +37,22 @@ export async function GET(req: NextRequest) {
   }
 
   const key = req.nextUrl.searchParams.get("sample") ?? "emotional";
+
+  // ?player=1 → kleine HTML-Seite mit Video-Element. Praktisch zum Ansehen,
+  // weil Browser ein nacktes MP4 nicht immer als Player öffnen.
+  if (req.nextUrl.searchParams.get("player") === "1") {
+    const src = `/api/dev/reel-preview?sample=${encodeURIComponent(key)}`;
+    return new Response(
+      `<!doctype html><meta charset="utf-8"><title>Reel-Vorschau</title>
+<body style="margin:0;background:#142B20;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:system-ui;color:#F5F0E6">
+<video id="v" src="${src}" controls autoplay muted loop playsinline
+       style="height:88vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5)"></video>
+<p style="opacity:.7;font-size:14px">Sample: ${key} — <a style="color:#F5F0E6" href="?sample=emotional&player=1">emotional</a> · <a style="color:#F5F0E6" href="?sample=produkt&player=1">produkt</a></p>
+</body>`,
+      { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } },
+    );
+  }
+
   const content = SAMPLES[key];
   if (!content) {
     return NextResponse.json({ error: "sample=emotional|produkt" }, { status: 400 });

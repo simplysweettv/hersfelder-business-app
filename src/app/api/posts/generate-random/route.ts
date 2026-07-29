@@ -14,7 +14,9 @@ import { getTopicalContext } from "@/lib/topical";
 import { reviewDesignedPost } from "@/lib/designed-review";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// Bildgenerierung + Zwei-Agenten-Freigabe brauchen deutlich mehr als eine
+// Minute — bei 60s lief die Route in einen 504 (Vercel erlaubt bis 300s).
+export const maxDuration = 300;
 
 /**
  * Zufalls-Post im Zwei-Säulen-System (Juli 2026):

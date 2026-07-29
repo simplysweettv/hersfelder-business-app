@@ -6,6 +6,10 @@ const nextConfig = {
     outputFileTracingIncludes: {
       "/api/**": ["./src/assets/**"],
     },
+    // Der WASM-Encoder für Reels (reel.ts) darf nicht durch Webpack laufen —
+    // sonst findet der Emscripten-Loader sein eigenes .wasm zur Laufzeit nicht.
+    // Wie sharp: als echtes Node-Modul laden.
+    serverComponentsExternalPackages: ["h264-mp4-encoder"],
   },
   images: {
     remotePatterns: [

@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import HME from "h264-mp4-encoder";
+import { createH264MP4Encoder } from "h264-mp4-encoder";
 import {
   REEL_H,
   REEL_W,
@@ -152,7 +152,7 @@ export async function createReel(opts: {
     return merged;
   }
 
-  const encoder = await HME.createH264MP4Encoder();
+  const encoder = await createH264MP4Encoder();
   encoder.width = REEL_W;
   encoder.height = REEL_H;
   encoder.frameRate = fps;

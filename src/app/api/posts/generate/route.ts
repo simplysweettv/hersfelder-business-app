@@ -14,7 +14,9 @@ import { reviewDesignedPost } from "@/lib/designed-review";
 import type { GeneratorInput } from "@/types";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// Bildgenerierung + Zwei-Agenten-Freigabe brauchen deutlich mehr als eine
+// Minute — bei 60s lief die Route in einen 504 (Vercel erlaubt bis 300s).
+export const maxDuration = 300;
 
 /**
  * Manueller Generator — jetzt ebenfalls über die designte Zwei-Säulen-Pipeline:
