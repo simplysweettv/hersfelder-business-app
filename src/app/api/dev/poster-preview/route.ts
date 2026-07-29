@@ -1,110 +1,115 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
-import { renderPoster, renderCarousel, type PosterContent, type CarouselContent } from "@/lib/render-poster";
+import { renderPoster, POSTER_LAYOUT_KEYS, type PosterContent, type PosterLayoutKey } from "@/lib/render-poster";
 
 /**
- * Dev-only Look-Vorschau der neuen Poster-Engine (Plakat/Foto/Typo/Karussell)
- * mit fixen Beispiel-Inhalten und Platzhalter-Foto — zum schnellen visuellen
- * Abnehmen des LAYOUTS, ohne KI-Kosten. In Produktion: 404.
+ * Dev-only Look-Vorschau der Poster-Engine v3 mit fixen Beispiel-Inhalten und
+ * Platzhalter-Foto — zum schnellen visuellen Abnehmen des LAYOUTS, ohne
+ * KI-Kosten. In Produktion: 404.
  *
- *   GET /api/dev/poster-preview?kind=plakat&variant=0
- *   GET /api/dev/poster-preview?kind=foto
- *   GET /api/dev/poster-preview?kind=typo&variant=0|1
- *   GET /api/dev/poster-preview?kind=karussell&slide=0..N
+ *   GET /api/dev/poster-preview?layout=panel-links
+ *   GET /api/dev/poster-preview?layout=panel-cta
+ *   GET /api/dev/poster-preview?layout=zentral-minimal
+ *   GET /api/dev/poster-preview?layout=karte-unten
+ *   GET /api/dev/poster-preview?layout=band-unten
+ *
+ * Optional: &photo=<datei.jpg> nutzt ein anderes Bild aus public/brand-guide/.
  */
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-function photo(): string | undefined {
-  const p = path.join(process.cwd(), "public", "brand-guide", "instagram", "post-lifestyle.jpg");
-  if (fs.existsSync(p)) return `data:image/jpeg;base64,${fs.readFileSync(p).toString("base64")}`;
-  return undefined;
+/**
+ * Platzhalter-Foto. Die Engine rendert bewusst nicht ohne Bild — findet sich
+ * keins, sagen wir das klar, statt ein Farbfeld zu zeigen (genau dieser
+ * Fallback war die Ursache der grünen Posts).
+ */
+function photo(name?: string | null): string | null {
+  const dir = path.join(process.cwd(), "public", "brand-guide");
+  const candidates = name
+    ? [path.join(dir, name), path.join(dir, "instagram", name)]
+    : [
+        path.join(dir, "instagram", "post-lifestyle.jpg"),
+        path.join(dir, "instagram", "post-produkt.jpg"),
+      ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return `data:image/jpeg;base64,${fs.readFileSync(p).toString("base64")}`;
+  }
+  return null;
 }
 
-const PLAKAT: PosterContent[] = [
-  {
-    kind: "plakat",
-    variant: 0, // Kino-Plakat (Text unten)
-    kicker: "Seit 1897 im Verein",
-    headline: ["Wenn der Zug", "durchs Dorf zieht,", "geht das Herz mit."],
-    scriptAccent: "Das ist Heimat.",
-    sub: "Dunkelgrün getragen von Generationen.",
-  },
-  {
-    kind: "plakat",
-    variant: 1, // Zentral
-    kicker: "Schützenfest 2026",
-    headline: ["Eingehakt.", "Eingespielt.", "Eingeschworen."],
-    url: "schuetzen-ausstatter.de",
-  },
-  {
-    kind: "plakat",
-    variant: 2, // Split-Band
+const SAMPLES: Record<PosterLayoutKey, PosterContent> = {
+  "panel-links": {
+    layout: "panel-links",
     kicker: "Die Damenweste",
-    headline: ["Für Schützinnen,", "die vorne stehen."],
-    sub: "Moderner Schnitt, Größen 23–70, ein Preis.",
+    headline: ["Die Damenweste", "für alle, die", "Tradition modern", "leben."],
+    sub: "Moderner Schnitt, faire Vereinspreise — für Schützinnen und Damenkompanien.",
+    features: [
+      { icon: "shirt", title: "Moderner Schnitt", text: "Zeitlos, elegant, bequem" },
+      { icon: "ruler", title: "Größen 23–70", text: "Für jedes Mitglied die passende Größe" },
+      { icon: "handshake", title: "Faire Vereinspreise", text: "Top Qualität zu attraktiven Konditionen" },
+    ],
+  },
+  "panel-cta": {
+    layout: "panel-cta",
+    tagline: "Tradition. Verbunden.",
+    accentIcon: "sun",
+    headline: ["Wenn andere ins", "Schwitzen kommen."],
+    copy: "Unsere leichten Stoffqualitäten sorgen auch an heißen Festtagen für angenehmen Tragekomfort.",
+    cta: { title: "Jetzt Musterkollektion anfragen", sub: "Für euren Verein oder Spielmannszug." },
+    footerNotes: [
+      { icon: "shield-check", label: "Konstante Qualität" },
+      { icon: "repeat", label: "Jederzeit nachbestellbar" },
+    ],
     url: "schuetzen-ausstatter.de",
   },
-];
-
-const FOTO: PosterContent = { kind: "foto", variant: 0 };
-
-const TYPO: PosterContent[] = [
-  {
-    kind: "typo",
-    variant: 0, // dunkel, Swiss Heritage
-    kicker: "Hersfelder",
-    headline: ["Tradition trägt man", "nicht. Man lebt sie."],
-    scriptAccent: "Gemeinsam.",
+  "zentral-minimal": {
+    layout: "zentral-minimal",
+    headline: ["Gemeinsam heute."],
+    scriptAccent: "Tradition für morgen.",
+  },
+  "karte-unten": {
+    layout: "karte-unten",
+    kicker: "Der Tag nach dem Fest",
+    headline: ["Die Wimpel sind ab.", "Die Geschichten", "hängen noch."],
+    scriptAccent: "Bis nächstes Jahr.",
+    sub: "Sechs Kilometer marschiert — und keinen Meter davon vergessen.",
+  },
+  "band-unten": {
+    layout: "band-unten",
+    kicker: "Spielmannszug",
+    headline: ["Einer gibt den Takt vor.", "Vierzig halten ihn."],
+    scriptAccent: "Zwei Takte Vorlauf.",
+    sub: "Einheitlich ausgestattet vom ersten Wirbel an — Größen 23 bis 70, ein Preis.",
     url: "schuetzen-ausstatter.de",
   },
-  {
-    kind: "typo",
-    variant: 1, // creme
-    kicker: "Für den ganzen Verein",
-    headline: ["Größe 23 bis 70.", "Ein Preis für alle."],
-    scriptAccent: "Fair.",
-    sub: "Kein Größenaufschlag — einheitlicher Auftritt.",
-  },
-];
-
-const CAROUSEL: CarouselContent = {
-  cover: {
-    kicker: "Warum diese Weste hält",
-    headline: ["3 Dinge, die eine", "gute Vereinsweste", "ausmachen."],
-    scriptAccent: "Wische →",
-  },
-  slides: [
-    { heading: "Der Stoff", body: "Robuste Wollqualität, die den Vereinsalltag jahrelang mitmacht — Fest für Fest." },
-    { heading: "Der Sitz", body: "Fein abgestufte Größen 23–70, damit jede Schützin ihren Auftritt hat." },
-    { heading: "Der Preis", body: "Alle Größen zum gleichen fairen Vereinspreis. Kein Aufschlag, keine Überraschung." },
-  ],
-  outro: { headline: "Rüstet euren Verein aus.", cta: "Musterkollektion anfragen" },
 };
 
 export async function GET(req: NextRequest) {
   if (process.env.NODE_ENV === "production") {
     return NextResponse.json({ error: "Nicht gefunden." }, { status: 404 });
   }
-  const kind = req.nextUrl.searchParams.get("kind") ?? "plakat";
-  const variant = Number(req.nextUrl.searchParams.get("variant") ?? "0");
 
-  let buf: Buffer;
-  if (kind === "karussell") {
-    const slide = Number(req.nextUrl.searchParams.get("slide") ?? "0");
-    const all = await renderCarousel(CAROUSEL, photo());
-    buf = all[Math.max(0, Math.min(slide, all.length - 1))];
-  } else if (kind === "foto") {
-    buf = await renderPoster(FOTO, photo());
-  } else if (kind === "typo") {
-    buf = await renderPoster(TYPO[variant % TYPO.length]);
-  } else {
-    buf = await renderPoster(PLAKAT[variant % PLAKAT.length], photo());
+  const sp = req.nextUrl.searchParams;
+  const layout = (sp.get("layout") ?? "panel-links") as PosterLayoutKey;
+  if (!POSTER_LAYOUT_KEYS.includes(layout)) {
+    return NextResponse.json(
+      { error: `Unbekanntes Layout „${layout}".`, layouts: POSTER_LAYOUT_KEYS },
+      { status: 400 },
+    );
   }
 
-  return new Response(new Uint8Array(buf), {
+  const p = photo(sp.get("photo"));
+  if (!p) {
+    return NextResponse.json(
+      { error: "Kein Platzhalter-Foto gefunden — lege eins unter public/brand-guide/instagram/ ab." },
+      { status: 400 },
+    );
+  }
+
+  const png = await renderPoster(SAMPLES[layout], p);
+  return new NextResponse(new Uint8Array(png), {
     headers: { "Content-Type": "image/png", "Cache-Control": "no-store" },
   });
 }

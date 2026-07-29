@@ -1,7 +1,6 @@
 import { runQaGate, type GateResult } from "./qa-gate";
 import type { DesignedConcept } from "./designed-post";
 import { renderedTextOf } from "./render-poster";
-import type { OverlayContent } from "./render-post";
 import type { QualityStatus } from "./quality";
 
 /**
@@ -28,32 +27,6 @@ export type DesignedReview = {
   /** Wo lag das Problem? Steuert den Neuanlauf. */
   failArea: "image" | "text" | "both" | null;
 };
-
-/** Welche Säule? Aus dem Template abgeleitet (product-* vs. emotional-*). */
-function laneOf(template: string): "emotional" | "product" {
-  return template.startsWith("product") ? "product" : "emotional";
-}
-
-/**
- * Alle Textzeilen, die tatsächlich ins Bild gerendert wurden — damit der
- * QA-Agent nicht per OCR raten muss, was da steht.
- */
-export function renderedTextOfOverlay(overlay: OverlayContent): string {
-  return [
-    ...(overlay.headline ?? []),
-    overlay.serifLine,
-    overlay.scriptLine,
-    overlay.subline,
-    overlay.copy,
-    overlay.microClaim,
-    overlay.tagline,
-    overlay.statement,
-    overlay.cta,
-    ...(overlay.features ?? []).flatMap((f) => [f.title, f.text]),
-  ]
-    .filter(Boolean)
-    .join(" | ");
-}
 
 /** Gate-Ergebnis → Qualitäts-Status für die Freigabe-Regeln. */
 export function qualityStatusFromGate(gate: GateResult): QualityStatus {
@@ -83,8 +56,8 @@ export async function reviewDesignedPost(opts: {
     // Das Motiv ist die Foto-Idee — genau das, was Bild UND Text tragen sollen.
     motif: `${opts.concept.photoIdea} — Kernaussage: ${opts.concept.message}`,
     caption: opts.caption,
-    kind: opts.concept.poster.kind,
-    lane: laneOf(opts.concept.template),
+    kind: opts.concept.posterCode,
+    lane: opts.concept.lane,
   });
 
   return {

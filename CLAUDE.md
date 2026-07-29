@@ -152,26 +152,49 @@ Drei tägliche Vercel-Crons (`vercel.json`), alle **fail-closed** abgesichert (`
 - **Service-Säule NUR im festen 5er-CTA-Slot** (jeder 5. Post) — die gewichtete Zufallsauswahl schließt `service` aus, damit der Werbeanteil ~20 % bleibt
 - Vercel: `maxDuration = 300`
 
-### Zwei-Säulen-System (Juli 2026) — designte Posts
+### Zwei-Säulen-System — designte Posts (Poster-Engine v3, Juli 2026)
 **Alle Einzelposts (Generator + Cron) laufen über das Zwei-Säulen-System:**
-- **Säule EMOTIONAL (60 %)** — Vereinsleben & Gefühl, reduzierte Layouts (Wappen + Serifen-Headline + Schreibschrift-Akzent bzw. dunkles Statement-Feld)
-- **Säule PRODUKT (40 %)** — konkrete Produkte mit Benefits + CTA (Creme-Panel + Benefit-Icon-Leiste bzw. Panel + CTA-Button) — nie zwei Produkt-Posts in Folge, der 5er-Slot erzwingt einen Produkt-Post
+- **Säule EMOTIONAL (60 %)** — Vereinsleben & Gefühl
+- **Säule PRODUKT (40 %)** — konkrete Produkte mit Benefit-Leiste + CTA — nie zwei Produkt-Posts in Folge, der 5er-Slot erzwingt einen Produkt-Post
 
-**Hybrid-Rendering:** gpt-image-1 generiert NUR das Foto (ohne Text, mit „copy space"-Komposition), das Marken-Layout (echtes Wappen-PNG, Playfair Display/Great Vibes/Montserrat/Inter, Icon-Leisten, CTA-Buttons) wird deterministisch mit `next/og`/satori composited → Text immer perfekt, `sharp` konvertiert zu JPEG (TikTok).
+**Hybrid-Rendering:** gpt-image-1 generiert NUR das Foto (ohne Text, mit „copy space"-Komposition), das Marken-Layout (echtes Wappen-PNG, Playfair Display/Great Vibes/Montserrat/Inter, Icon-Leisten, CTA-Feld) wird deterministisch mit `next/og`/satori composited → Text immer perfekt, `sharp` konvertiert zu JPEG (TikTok).
+
+> **Poster-Engine v3 (ersetzt v2):** v2 hatte `plakat`/`foto`/`typo` — darunter zwei Typo-Layouts ganz OHNE Foto (Text auf grünem Verlauf) und ein Plakat mit ganzflächigem grünem Schleier. Im Feed sah das aus wie „zu oft einfach nur grüner Hintergrund" und traf den Look der Vorbild-Posts nicht. v3 baut den Referenz-Aufbau nach.
+
+**Die drei harten Regeln der Engine (`src/lib/render-poster.tsx`):**
+1. **Jeder Post hat ein echtes Foto.** Es gibt keinen Layout-Pfad ohne Bild und keinen Farbverlauf als Ersatz — `renderPoster` wirft, wenn das Foto fehlt. (Der stille Fallback auf einen grünen Verlauf war die eigentliche Fehlerquelle.)
+2. **Text sitzt auf einer HELLEN Marken-Fläche**, nie als helle Schrift auf abgedunkeltem Foto — dadurch auf jedem Motiv gleich lesbar.
+3. **Grün ist Akzent** (Benefit-Leiste, CTA-Feld), nie Bildhintergrund.
+
+**Canvas 1024×1280 = 4:5** — exakt das Format, das Instagram im Feed zeigt. Vorher wurde 2:3 gerendert und von Instagram beschnitten; jetzt sieht das Bild auf Facebook/LinkedIn/TikTok genauso aus wie im Feed. Die Foto-Prompts halten oberes/unteres Zehntel motivfrei (das Foto kommt weiter als 1024×1536 von gpt-image-1 und wird mittig beschnitten).
+
+**Die 5 Layouts:**
+| Layout | Säule | Aufbau (Vorbild) |
+|---|---|---|
+| `panel-links` | Produkt | Creme-Panel links + grüne Benefit-Leiste unten („Die Damenweste") |
+| `panel-cta` | Produkt | Heller Wash + Tagline + CTA-Feld + helle Fußleiste („Ins Schwitzen") |
+| `zentral-minimal` | Emotional | Zentriert: Wappen + Serife + Schreibschrift („Gemeinsam heute") |
+| `karte-unten` | Emotional | Creme-Karte unten links über vollflächigem Foto |
+| `band-unten` | beide | Foto oben, Creme-Band unten |
+
+**Arbeitsteilung KI ↔ Marke:** Die KI liefert NUR die Idee-Texte (Kicker, Headline, Schreibschrift-Akzent, Sub, Copy). Alles, was die Marke wiedererkennbar macht — Benefit-Kacheln, CTA-Feld, Fußleiste, Tagline, Adresse — kommt fest aus dem Konzept-Format. Genau deshalb sehen die Posts konsistent aus und nicht wie 30 verschiedene Absender.
 
 **Bausteine:**
-- `src/lib/concepts.ts` — 20 Konzept-Formate (E1–E10 emotional, P1–P10 produkt) mit Idee-Formeln, Beispiel-Headlines, Saison-Fenstern; `pickConceptFormat` (Rotation) + `pickLane` (60:40)
-- `src/lib/designed-post.ts` — Konzept-KI (`generateDesignedConcept`, gpt-4o-mini) + Foto-Prompt-Bausteine + `createDesignedPostImage` (Foto → Overlay → JPEG)
-- `src/lib/render-post.tsx` — Template-Engine, 4 Layouts nach den Vorbild-Posts (`product-feature`, `emotional-minimal`, `product-reactive`, `emotional-statement`), 1024×1536, Instagram-4:5-Crop-sicher
+- `src/lib/render-kit.tsx` — gemeinsame Satori-Bausteine (Farben, Fonts, Wappen, `el`/`box`/`kids`, `icon`, `fitSize`), genutzt von Poster + Reel. Es gibt bewusst nur EINE Feed-Engine: dass früher zwei nebeneinander standen (`render-post.tsx` + `render-poster.tsx`), war die Ursache dafür, dass monatelang die falsche live war.
+- `src/lib/render-poster.tsx` — die 5 Layouts + `renderedTextOf` fürs QA-Gate
+- `src/lib/concepts.ts` — 32 Konzept-Formate (E1–E17 emotional, P1–P15 produkt) mit Idee-Formeln, Beispiel-Headlines, Saison-Fenstern, Benefit-Trios und CTAs; `pickConceptFormat` (Rotation) + `pickLane` (60:40)
+- `src/lib/designed-post.ts` — Konzept-KI (`generateDesignedConcept`, gpt-4o-mini) + Zeichen-Budgets pro Layout + Foto-Prompt-Bausteine + `createDesignedPostImage`
 - `src/lib/brand-icons.ts` — Lucide-Icon-Pfade für Satori; Fonts in `src/assets/fonts/`, Wappen in `src/assets/brand/` (via `outputFileTracingIncludes` im Bundle)
-- Anti-Generik: `BANNED_PHRASES` (Floskel-Verbot) + Spezifitäts-Pflicht (Zahl/Detail/Kontrast/Wortspiel) im Konzept-Prompt; Ansprache immer „ihr/euch"
-- `post_briefs` speichert `lane`, `format_code`, `template` (`style_type: "designed"`) — Basis für Rotation
-- Dev-Vorschau: `GET /api/dev/render-preview?template=a|b|c|d` (Templates), `GET /api/dev/generate-designed?lane=…&format=…` (echte Pipeline) — beide nur lokal, in Produktion 404
+- Anti-Generik: `BANNED_PHRASES` (Floskel- + Klima-Claim-Verbot) + Spezifitäts-Pflicht + `dropRedundantKicker` (Kicker darf die Headline nicht doppeln)
+- `post_briefs` speichert `lane`, `format_code`, `template` (= Layout-Schlüssel, `style_type: "designed"`) — Basis für Rotation
+- Dev-Vorschau: `GET /api/dev/poster-preview?layout=panel-links|panel-cta|zentral-minimal|karte-unten|band-unten` (Layout ohne KI-Kosten), `GET /api/dev/generate-designed?lane=…&format=…` (echte Pipeline) — beide nur lokal, in Produktion 404
 
-### Alte Post-Typen (nur noch Karussell-Pfad)
-| Typ | Beschreibung |
-|---|---|
-| `photo` / `hook` / `typography` | Alter KI-rendert-alles-Weg — nur noch vom Karussell-Cover + manuellen Formular genutzt |
+**Themen-Abdeckung (v3):** Der Katalog deckt jetzt die VOLLE Zielgruppe des Briefings ab — nicht nur Schützenvereine, sondern auch **Spielmannszüge, Musikzüge, Bruderschaften und Traditionsvereine**, und nicht nur Mitglieder, sondern auch die Menschen, die beschaffen (**Vorstand, Uniformwart, Einkauf**). Neu erzählt wird außerdem die stärkste Sachgeschichte der Marke: **eigene Fertigung entlang der kompletten Wertschöpfungskette** → daraus folgen Verfügbarkeit und Nachkaufgarantie.
+
+**Wetter-Aufhänger nur wo er hingehört:** `weatherReactive: true` steht nur an P2/E3/E9. Vorher bekam JEDES Format den aktuellen Wetter-Hook — so entstand „Bei 35 Grad bewegt ihr euch trotzdem mit." auf einem Post über Spielmannszug-Ausstattung. Die Bremse sitzt in `generateDesignedConcept`, damit Cron, Generator und Zufall sie gemeinsam erben.
+
+### Karussell — entfernt (Juli 2026)
+Der Karussell-Pfad (`/api/posts/generate-carousel`, `src/lib/carousel.tsx`, Cover+Slides+Outro) ist raus. Die Slides waren Typografie auf grünem Verlauf — genau der Look, den v3 abschafft — und er war eine dritte Render-Engine neben Poster und Reel. Der Generator bietet nur noch Einzelposts an.
 
 ### Content-Strategie
 - **Master-Briefing:** `MASTER_BRIEFING` in `src/lib/openai.ts` — bindendes Marken-Briefing von Andreas (Juli 2026), wird JEDEM KI-Prompt (Bild + Text) vorangestellt. Kernpunkte: Standardsortiment-Marke (keine Maßschneiderei!), Größen 23–70 alle zum gleichen Preis, verbotene Claims (maßgeschneidert, handgeschneidert, atmungsaktiv …), realistische Uniformen ohne Goldlitzen/Epauletten/Fantasiedetails

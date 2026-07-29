@@ -21,10 +21,10 @@ import { loadSettings } from "@/lib/settings";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
-function photo(): string | undefined {
+function photo(): string | null {
   const p = path.join(process.cwd(), "public", "brand-guide", "instagram", "post-lifestyle.jpg");
   if (fs.existsSync(p)) return `data:image/jpeg;base64,${fs.readFileSync(p).toString("base64")}`;
-  return undefined;
+  return null;
 }
 
 export async function GET(req: NextRequest) {
@@ -40,15 +40,13 @@ export async function GET(req: NextRequest) {
   const content: PosterContent =
     which === "mismatch"
       ? {
-          kind: "plakat",
-          variant: 0,
+          layout: "karte-unten",
           kicker: "Im Vergleich",
           headline: ["Vergleicht diese", "beiden Westen."],
           sub: "Zwei Westen, ein Unterschied.",
         }
       : {
-          kind: "plakat",
-          variant: 0,
+          layout: "karte-unten",
           kicker: "Seit Generationen",
           headline: ["Gemeinsam lachen,", "gemeinsam feiern."],
           scriptAccent: "Das ist Verein.",
@@ -60,10 +58,15 @@ export async function GET(req: NextRequest) {
       ? "Produktvergleich von genau ZWEI Damenwesten nebeneinander auf Büsten"
       : "Drei lachende Vereinsmitglieder (zwei Männer, eine Frau) in dunkelgrünen Uniformjacken am Festplatz, warmes Abendlicht";
 
-  const jpeg = await renderPoster(content, photo()).then((buf) =>
-    // renderPoster liefert PNG; das Gate akzeptiert jeden Bild-Buffer als Data-URL.
-    buf,
-  );
+  const p = photo();
+  if (!p) {
+    return NextResponse.json(
+      { error: "Kein Platzhalter-Foto gefunden — lege eins unter public/brand-guide/instagram/ ab." },
+      { status: 400 },
+    );
+  }
+  // renderPoster liefert PNG; das Gate akzeptiert jeden Bild-Buffer als Data-URL.
+  const jpeg = await renderPoster(content, p);
 
   const result = await runQaGate({
     apiKey,
@@ -71,7 +74,7 @@ export async function GET(req: NextRequest) {
     renderedText: renderedTextOf(content),
     motif,
     caption: "Test-Caption für die QA-Gate-Prüfung. Ihr gehört zusammen — teilt eure schönsten Momente. #hersfelder",
-    kind: "plakat",
+    kind: content.layout,
     lane: "emotional",
   });
 

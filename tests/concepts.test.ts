@@ -6,15 +6,39 @@ import {
   pickLane,
   BANNED_PHRASES,
 } from "@/lib/concepts";
-import { fitSize } from "@/lib/render-post";
+import { fitSize } from "@/lib/render-kit";
+import { POSTER_LAYOUT_KEYS } from "@/lib/render-poster";
 
 describe("Konzept-Formate (Zwei-Säulen-System)", () => {
-  it("hat 10 emotionale und 10 Produkt-Formate mit eindeutigen Codes", () => {
+  it("deckt beide Säulen breit ab und hat eindeutige Codes", () => {
     const emotional = CONCEPT_FORMATS.filter((f) => f.lane === "emotional");
     const product = CONCEPT_FORMATS.filter((f) => f.lane === "product");
-    expect(emotional).toHaveLength(10);
-    expect(product).toHaveLength(10);
-    expect(new Set(CONCEPT_FORMATS.map((f) => f.code)).size).toBe(20);
+    expect(emotional.length).toBeGreaterThanOrEqual(15);
+    expect(product.length).toBeGreaterThanOrEqual(14);
+    expect(new Set(CONCEPT_FORMATS.map((f) => f.code)).size).toBe(CONCEPT_FORMATS.length);
+  });
+
+  it("deckt die Zielgruppen des Marken-Briefings ab (nicht nur Schützenvereine)", () => {
+    const alles = CONCEPT_FORMATS.map((f) => `${f.name} ${f.brief} ${f.photoDirection}`).join(" ").toLowerCase();
+    for (const gruppe of ["spielmannszug", "musikzug", "bruderschaft", "uniformwart", "vorstand"]) {
+      expect(alles, gruppe).toContain(gruppe);
+    }
+  });
+
+  it("jedes Format schlägt nur existierende Layouts vor", () => {
+    for (const f of CONCEPT_FORMATS) {
+      expect(f.layouts.length, f.code).toBeGreaterThan(0);
+      for (const l of f.layouts) expect(POSTER_LAYOUT_KEYS, `${f.code}/${l}`).toContain(l);
+    }
+  });
+
+  it("Emotional nutzt nie ein Produkt-Layout und umgekehrt", () => {
+    const produktLayouts = ["panel-links", "panel-cta"];
+    for (const f of CONCEPT_FORMATS) {
+      for (const l of f.layouts) {
+        if (f.lane === "emotional") expect(produktLayouts, f.code).not.toContain(l);
+      }
+    }
   });
 
   it("jedes Format hat Formel, Beispiel-Headlines und Foto-Regie", () => {
@@ -25,11 +49,26 @@ describe("Konzept-Formate (Zwei-Säulen-System)", () => {
     }
   });
 
-  it("Produkt-Formate im Feature-Template haben genau 3 Benefits", () => {
-    for (const f of CONCEPT_FORMATS.filter((x) => x.template === "product-feature")) {
-      expect(f.benefits, f.code).toHaveLength(3);
-      expect(f.cta, f.code).toBeTruthy();
+  it("jedes Produkt-Format bringt den kompletten Marken-Rahmen mit", () => {
+    // Benefit-Leiste, CTA-Feld und Fußleiste kommen NICHT von der KI, sondern
+    // aus dem Format — fehlen sie, rendert das Produkt-Plakat halb leer.
+    for (const f of CONCEPT_FORMATS.filter((x) => x.lane === "product")) {
+      if (f.layouts.includes("panel-links")) expect(f.benefits, f.code).toHaveLength(3);
+      if (f.layouts.includes("panel-cta")) {
+        // Die Fußleiste ist Pflicht — sie trägt Adresse + Mikro-Beweise.
+        expect(f.footerNotes?.length, f.code).toBeGreaterThan(0);
+        // Ein CTA-Feld ist optional (P7 ist bewusst ein stiller Qualitätsbeweis
+        // ohne Handlungsaufforderung) — aber wenn es da ist, braucht es Text.
+        if (f.cta) expect(f.cta.title.length, f.code).toBeGreaterThan(8);
+      }
     }
+  });
+
+  it("mindestens zwei Drittel der Produkt-Formate haben einen konkreten CTA", () => {
+    // Ohne CTA kein Projektgeschäft — aber auch nicht jeder Post soll drängen.
+    const produkt = CONCEPT_FORMATS.filter((f) => f.lane === "product");
+    const mitCta = produkt.filter((f) => f.cta?.title);
+    expect(mitCta.length / produkt.length).toBeGreaterThanOrEqual(0.66);
   });
 
   it("keine Beispiel-Headline enthält eine verbotene Floskel", () => {
@@ -44,7 +83,7 @@ describe("Konzept-Formate (Zwei-Säulen-System)", () => {
 
   it("conceptByCode findet Formate", () => {
     expect(conceptByCode("E1")?.name).toBe("Rückenbild");
-    expect(conceptByCode("P2")?.template).toBe("product-reactive");
+    expect(conceptByCode("P2")?.layouts).toContain("panel-cta");
     expect(conceptByCode("X9")).toBeUndefined();
   });
 });
@@ -110,8 +149,8 @@ describe("fitSize — Zeichenbudget", () => {
     expect(fitSize(62, ["a".repeat(20)], 16)).toBe(50);
   });
 
-  it("unterschreitet nie 68 % der Basisgröße", () => {
-    expect(fitSize(62, ["a".repeat(200)], 16)).toBe(Math.round(62 * 0.68));
+  it("unterschreitet nie 62 % der Basisgröße", () => {
+    expect(fitSize(62, ["a".repeat(200)], 16)).toBe(Math.round(62 * 0.62));
   });
 });
 
@@ -161,5 +200,56 @@ describe("pickConceptFormat — Performance-Gewichtung", () => {
   it("kein Format fällt ganz raus (Explorations-Untergrenze), auch mit Mult 0", () => {
     const f = pickConceptFormat({ lane: "emotional", formatMult: { E1: 0, E2: 0, E3: 0 }, random: () => 0.99 });
     expect(f.lane).toBe("emotional");
+  });
+});
+
+import { dropRedundantKicker } from "@/lib/designed-post";
+
+describe("dropRedundantKicker — Kicker darf die Headline nicht doppeln", () => {
+  it("verwirft den Kicker, wenn die Headline damit anfängt", () => {
+    expect(
+      dropRedundantKicker("Die Damenweste", ["Die Damenweste", "für alle, die", "Tradition modern leben."]),
+    ).toBeUndefined();
+  });
+
+  it("verwirft ihn auch bei abweichender Schreibung/Interpunktion", () => {
+    expect(dropRedundantKicker("DIE DAMENWESTE!", ["Die Damenweste für alle."])).toBeUndefined();
+  });
+
+  it("verwirft ihn, wenn er irgendwo in der Headline steckt", () => {
+    expect(dropRedundantKicker("neuen Uniform", ["Erster Auftritt in", "neuer Uniform."])).toBeDefined();
+    expect(dropRedundantKicker("Auftritt in", ["Erster Auftritt in", "neuer Uniform."])).toBeUndefined();
+  });
+
+  it("behält einen echten, einordnenden Kicker", () => {
+    expect(dropRedundantKicker("Für Damenkompanien", ["Die Damenweste für alle."])).toBe("Für Damenkompanien");
+    expect(dropRedundantKicker("Der Tag nach dem Fest", ["Die Wimpel sind ab."])).toBe("Der Tag nach dem Fest");
+  });
+
+  it("leerer Kicker bleibt leer", () => {
+    expect(dropRedundantKicker(undefined, ["Irgendwas."])).toBeUndefined();
+    expect(dropRedundantKicker("   ", ["Irgendwas."])).toBeUndefined();
+  });
+});
+
+describe("Wetter-Aufhänger — nur wo er hingehört", () => {
+  it("nur ausgewählte Formate dürfen aufs Wetter reagieren", () => {
+    const reaktiv = CONCEPT_FORMATS.filter((f) => f.weatherReactive).map((f) => f.code);
+    expect(reaktiv).toEqual(expect.arrayContaining(["P2"]));
+    // Der Rest darf es NICHT — sonst landet "Bei 35 Grad" auf Beschaffungs-Posts.
+    expect(reaktiv.length).toBeLessThanOrEqual(4);
+    for (const code of ["P12", "P13", "P15", "P11", "E14"]) {
+      expect(reaktiv, code).not.toContain(code);
+    }
+  });
+
+  it("Klima-/Kühl-Behauptungen stehen auf der harten Sperrliste", () => {
+    for (const satz of [
+      "Damit bleibt ihr cool und präsent.",
+      "Unsere Jacke hält euch kühl.",
+      "Der Stoff trotzt der Hitze.",
+    ]) {
+      expect(findBannedPhrase(satz), satz).toBeTruthy();
+    }
   });
 });

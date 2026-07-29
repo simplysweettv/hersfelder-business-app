@@ -9,7 +9,7 @@ import {
   wappenDataUrl,
   wappenH,
   type El,
-} from "./render-post";
+} from "./render-kit";
 
 /**
  * Reel-Layer-Engine (9:16, 1080×1920).

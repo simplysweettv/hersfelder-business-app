@@ -1,40 +1,75 @@
 import type { IconKey } from "./brand-icons";
-import type { FeatureTile, PostTemplateKey } from "./render-post";
+import type { FeatureTile, FooterNote, PosterLayoutKey } from "./render-poster";
 
 /**
- * Kreativ-System (Juli 2026): Zwei Säulen, 20 benannte Konzept-Formate.
+ * Kreativ-System (Juli 2026, v3): Zwei Säulen, 32 benannte Konzept-Formate.
  *
- * Jedes Format ist eine ERPROBTE Idee-Formel (nach den vier Vorbild-Posts des
- * echten Accounts) — die Konzept-KI bekommt Formel + Beispiel-Headlines als
- * Qualitätsanker und erfindet daraus einen FRISCHEN, konkreten Post.
- * Die Formate rotieren (nie dasselbe Format zweimal in Folge, Saison-Fenster
- * werden bevorzugt), damit der Feed nie statisch wirkt.
+ * Jedes Format ist eine ERPROBTE Idee-Formel — die Konzept-KI bekommt Formel +
+ * Beispiel-Headlines als Qualitätsanker und erfindet daraus einen FRISCHEN,
+ * konkreten Post. Die Formate rotieren (nie dasselbe zweimal in Folge,
+ * Saison-Fenster werden bevorzugt), damit der Feed nie statisch wirkt.
+ *
+ * v3 deckt bewusst die VOLLE Zielgruppe des Marken-Briefings ab — nicht nur
+ * Schützenvereine, sondern auch Spielmannszüge, Musikzüge, Bruderschaften und
+ * Traditionsvereine; nicht nur Mitglieder, sondern auch die Menschen, die
+ * beschaffen (Vorstand, Uniformwart, Einkauf). Und sie erzählt endlich die
+ * stärkste Sachgeschichte der Marke: Hersfelder produziert selbst, deshalb
+ * ist alles dauerhaft verfügbar und nachbestellbar.
  */
 
 export type Lane = "emotional" | "product";
 
 export type ConceptFormat = {
-  code: string; // E1–E10 / P1–P10
+  code: string; // E… / P…
   lane: Lane;
   name: string;
-  template: PostTemplateKey;
+  /** Plakat-Layouts, die zu dieser Idee passen (Rotation wählt daraus) */
+  layouts: PosterLayoutKey[];
   /** Idee-Formel + Ton für die Konzept-KI (deutsch) */
   brief: string;
   /** Qualitätsanker — so gut müssen Headlines sein */
   exampleHeadlines: string[];
-  /** Foto-Regie (deutsch) — wird in die englische Foto-Idee übersetzt */
+  /** Foto-Regie (deutsch) — Grundlage der englischen Foto-Idee */
   photoDirection: string;
   /** Bevorzugte Monate (1–12); leer = ganzjährig */
   months?: number[];
-  /** Produkt: Default-Benefit-Trio für die Icon-Leiste */
+  /**
+   * Darf dieses Format einen aktuellen WETTER-Aufhänger aufgreifen?
+   * Standard: nein. Ohne diese Bremse landete „Bei 35 Grad" auch auf Posts
+   * über Spielmannszug-Ausstattung — thematisch daneben und gefährlich nah
+   * an den verbotenen Klima-Claims.
+   */
+  weatherReactive?: boolean;
+  /** Produkt: Benefit-Trio für die grüne Leiste (Layout „panel-links") */
   benefits?: FeatureTile[];
-  /** Produkt: Default-CTA (undefined = Soft-Post ohne Button) */
-  cta?: string;
-  footerIcons?: IconKey[];
+  /** Produkt: CTA-Feld (Layout „panel-cta") */
+  cta?: { title: string; sub?: string };
+  /** Produkt: Mikro-Beweise in der hellen Fußleiste (Layout „panel-cta") */
+  footerNotes?: FooterNote[];
+  /** Optionales Akzent-Icon über der Headline */
+  accentIcon?: IconKey;
 };
 
+/** Benefit-Trios, die in mehreren Formaten wiederkehren (Marken-Konstanten). */
+const B_GROESSEN: FeatureTile = { icon: "ruler", title: "Größen 23–70", text: "Für jedes Mitglied die passende Größe" };
+const B_EIN_PREIS: FeatureTile = { icon: "euro", title: "Ein Preis", text: "Kein Größenaufschlag — fair für alle" };
+const B_NACHKAUF: FeatureTile = { icon: "repeat", title: "Nachkaufgarantie", text: "Festes Design, jederzeit nachbestellbar" };
+const B_EIGENE_PROD: FeatureTile = { icon: "badge-check", title: "Eigene Fertigung", text: "Entwickelt und produziert im Haus" };
+const B_VEREINSPREIS: FeatureTile = { icon: "handshake", title: "Faire Vereinspreise", text: "Top Qualität zu attraktiven Konditionen" };
+const B_LIEFERBAR: FeatureTile = { icon: "package", title: "Dauerhaft lieferbar", text: "Standardsortiment statt Wartezeit" };
+const B_EINHEIT: FeatureTile = { icon: "users", title: "Ein Auftritt", text: "Die ganze Kompanie in einem Bild" };
+
+const F_STANDARD: FooterNote[] = [
+  { icon: "shield-check", label: "Konstante Qualität" },
+  { icon: "repeat", label: "Jederzeit nachbestellbar" },
+];
+const F_VEREIN: FooterNote[] = [
+  { icon: "users", label: "Für Vereine & Züge" },
+  { icon: "ruler", label: "Größen 23–70" },
+];
+
 // ---------------------------------------------------------------------------
-// Säule EMOTIONAL
+// Säule EMOTIONAL — Vereinsleben, Menschen, Anlässe
 // ---------------------------------------------------------------------------
 
 const EMOTIONAL: ConceptFormat[] = [
@@ -42,32 +77,32 @@ const EMOTIONAL: ConceptFormat[] = [
     code: "E1",
     lane: "emotional",
     name: "Rückenbild",
-    template: "emotional-minimal",
+    layouts: ["zentral-minimal", "karte-unten"],
     brief:
-      "Menschen von hinten, eingehakt oder Schulter an Schulter, Blick auf das, was sie verbindet — der Betrachter stellt sich dazu. Zeile 1 (Serife): konkretes Jetzt. Zeile 2 (Schreibschrift): das Gefühl dahinter. Beide Zeilen KURZ.",
+      "Menschen von hinten, eingehakt oder Schulter an Schulter, Blick auf das, was sie verbindet — der Betrachter stellt sich dazu. Zeile 1 (Serife): konkretes Jetzt. Zeile 2 (Schreibschrift): das Gefühl dahinter. Beide KURZ.",
     exampleHeadlines: ["Eingehakt. / Mehr Plan braucht der Abend nicht.", "Gemeinsam heute. / Tradition für morgen."],
     photoDirection:
-      "Rückansicht von 2–4 Personen in dunkelgrünen Westen/Jacken, eingehakt, Blick auf Festplatz mit Wimpeln und Kirchturm, goldene Stunde, oberes Bilddrittel heller Himmel mit viel Freiraum.",
+      "Rückansicht von 2–4 Personen in dunkelgrünen Westen/Jacken, eingehakt, Blick auf Festplatz mit Wimpeln und Kirchturm, goldene Stunde.",
   },
   {
     code: "E2",
     lane: "emotional",
     name: "Zwei Uniformen, ein Verein",
-    template: "emotional-statement",
+    layouts: ["karte-unten", "band-unten"],
     brief:
-      "Generationen: Der Altersabstand zwischen zwei Vereinsmitgliedern wird zur Zahl — und die Zahl zur Pointe. Statement mit konkreter Zeitspanne.",
+      "Generationen: Der Altersabstand zwischen zwei Vereinsmitgliedern wird zur Zahl — und die Zahl zur Pointe. Konkrete Zeitspanne, kein Pathos.",
     exampleHeadlines: [
-      "Zwischen diesen beiden Westen liegen 52 Jahre. Und kein einziger Zweifel.",
+      "Zwischen diesen beiden Westen liegen 52 Jahre.",
       "Er stand 1974 zum ersten Mal hier. Sie heute.",
     ],
     photoDirection:
-      "Älterer Mann und junge Frau in Uniform von hinten oder im Anschnitt (Hände, Schultern), vor Vereinsheim oder am Festzaun, warmes Seitenlicht, ruhige Bildsprache; rechte untere Bildecke ruhig und dunkel für das Textfeld.",
+      "Älterer Mann und junge Frau in Uniform von hinten oder im Anschnitt (Hände, Schultern), vor Vereinsheim oder am Festzaun, warmes Seitenlicht, ruhige Bildsprache.",
   },
   {
     code: "E3",
     lane: "emotional",
     name: "Der Moment danach",
-    template: "emotional-statement",
+    layouts: ["karte-unten", "band-unten"],
     brief:
       "Nicht der Umzug ist das Bild, sondern die Sekunde danach — Jacke offen, Beine schwer, Herz voll. Anstrengung vorbei, Gefühl bleibt.",
     exampleHeadlines: [
@@ -75,63 +110,64 @@ const EMOTIONAL: ConceptFormat[] = [
       "Sechs Kilometer marschiert. Und keinen Meter davon vergessen.",
     ],
     photoDirection:
-      "Gruppe von hinten/seitlich auf einer Bierbank, offene Uniformjacken, Abendlicht, fast leerer Festplatz im Hintergrund; untere rechte Bildzone ruhig für das Textfeld.",
+      "Gruppe von hinten/seitlich auf einer Bierbank, offene Uniformjacken, Abendlicht, fast leerer Festplatz im Hintergrund.",
     months: [5, 6, 7, 8, 9],
+    weatherReactive: true,
   },
   {
     code: "E4",
     lane: "emotional",
     name: "Elf Monate Vorfreude",
-    template: "emotional-statement",
+    layouts: ["band-unten", "karte-unten"],
     brief:
       "Sehnsucht außerhalb der Saison — der Verein zählt schon wieder rückwärts. Absurd konkreter Countdown oder Vorfreude-Gedanke mit Augenzwinkern.",
     exampleHeadlines: ["Noch 312-mal schlafen. Aber wer zählt schon.", "Vorfreude kennt keine Nebensaison."],
     photoDirection:
-      "Einzelne Person in dunkelgrünem Sakko vor leerem oder winterlichem Festplatz oder Riesenrad, goldene oder blaue Stunde, viel ruhiger Negativraum unten rechts.",
+      "Einzelne Person in dunkelgrünem Sakko vor leerem oder winterlichem Festplatz oder Riesenrad, goldene oder blaue Stunde.",
     months: [10, 11, 12, 1, 2],
   },
   {
     code: "E5",
     lane: "emotional",
     name: "Kleine Rituale",
-    template: "emotional-minimal",
+    layouts: ["zentral-minimal", "karte-unten"],
     brief:
       "Jeder Verein hat ein Mikro-Ritual — genau das eine Detail wird zum Post. Zeile 1: das Ritual, knapp. Zeile 2 (Schreibschrift): die Bedeutung.",
     exampleHeadlines: ["Erst die Weste, dann der Hut. / Seit 30 Jahren genau so.", "Derselbe Platz im Zelt. / Jedes Jahr."],
     photoDirection:
-      "Detailaufnahme: Hände schließen Westenknöpfe, Hut auf Holztisch oder aufgereihte Jacken an der Garderobe — anonym, nah, warmes Licht, oberes Bilddrittel ruhig.",
+      "Detailaufnahme: Hände schließen Westenknöpfe, Hut auf Holztisch oder aufgereihte Jacken an der Garderobe — anonym, nah, warmes Licht.",
   },
   {
     code: "E6",
     lane: "emotional",
     name: "Die Unsichtbaren",
-    template: "emotional-statement",
+    layouts: ["karte-unten", "band-unten"],
     brief:
       "Applaus für die, die nie auf der Bühne stehen — Aufbau-Trupp, Kassenwart, Jugendwartin. Unsichtbare Leistung sichtbar machen, Dank ohne Pathos.",
     exampleHeadlines: [
-      "Das Festzelt baut sich nicht von allein auf. Nur fast — wenn um sechs Uhr zwanzig Leute da sind.",
+      "Das Festzelt baut sich nicht von allein auf.",
       "Applaus für alle, die nie auf der Bühne stehen.",
     ],
     photoDirection:
-      "Morgenszene Festzelt-Aufbau, Kaffeebecher, Arbeitshandschuhe neben Uniformjacke, Personen anonym oder von hinten, Reportage-Stil; ruhige dunkle Zone unten rechts.",
+      "Morgenszene Festzelt-Aufbau, Kaffeebecher, Arbeitshandschuhe neben Uniformjacke, Personen anonym oder von hinten, Reportage-Stil.",
   },
   {
     code: "E7",
     lane: "emotional",
     name: "Ein Jahr im Mittelpunkt",
-    template: "emotional-minimal",
+    layouts: ["zentral-minimal", "band-unten"],
     brief:
-      "Königswürde menschlich erzählt — ein Jahr im Rampenlicht, und trotzdem eine(r) von uns. Würde und Bodenständigkeit im Kontrast.",
+      "Königswürde menschlich erzählt — ein Jahr im Rampenlicht, und trotzdem eine(r) von uns. Würde und Bodenständigkeit im Kontrast. NIE das Schießen erwähnen, nur das Amt und das Jahr.",
     exampleHeadlines: ["Königin für ein Jahr. / Vereinsmitglied für immer.", "365 Tage vorne. / Und beim Aufbau wieder mittendrin."],
     photoDirection:
-      "Königspaar von hinten Richtung Festzelt gehend, Kette nur angedeutet, Spalier unscharf, würdevoll und warm, realistische Standardsortiment-Uniformen; oberes Drittel heller Himmel.",
+      "Königspaar von hinten Richtung Festzelt gehend, Kette nur angedeutet, Spalier unscharf, würdevoll und warm, realistische Standardsortiment-Uniformen.",
     months: [5, 6, 7, 8],
   },
   {
     code: "E8",
     lane: "emotional",
     name: "Das erste Mal",
-    template: "emotional-statement",
+    layouts: ["karte-unten", "zentral-minimal"],
     brief:
       "Der erste Umzug, das erste Fest, die erste eigene Uniform — Neuanfang als stärkste Emotion des Vereinsjahres. Erstes Mal + Detail + Gefühlsumschwung.",
     exampleHeadlines: [
@@ -139,40 +175,140 @@ const EMOTIONAL: ConceptFormat[] = [
       "Die erste eigene Uniform hängt nie einfach nur im Schrank.",
     ],
     photoDirection:
-      "Junge Person von hinten am Rand einer angetretenen Gruppe oder vor dem Spiegel, sichtbar frische Uniform, Morgensonne; ruhige Zone unten rechts.",
+      "Junge Person von hinten am Rand einer angetretenen Gruppe, sichtbar frische Uniform, Morgensonne.",
     months: [3, 4, 5, 6],
   },
   {
     code: "E9",
     lane: "emotional",
     name: "Wenn das Dorf still wird",
-    template: "emotional-minimal",
+    layouts: ["zentral-minimal", "band-unten"],
     brief:
       "Der Tag nach dem Fest — Abbau, Stille, und trotzdem hallt alles nach. Aufräum-Detail + was bleibt. Melancholisch-warm, nie traurig.",
     exampleHeadlines: ["Die Wimpel sind ab. / Die Geschichten hängen noch.", "Montagmorgen. / Und trotzdem voll."],
     photoDirection:
-      "Fast leerer Festplatz mit letzten Wimpeln, eine einzelne Person in Uniformjacke von hinten, Morgennebel oder weiches Licht, oberes Drittel heller Himmel.",
+      "Fast leerer Festplatz mit letzten Wimpeln, eine einzelne Person in Uniformjacke von hinten, Morgennebel oder weiches Licht.",
     months: [6, 7, 8, 9],
+    weatherReactive: true,
   },
   {
     code: "E10",
     lane: "emotional",
     name: "Der Klang von Zuhause",
-    template: "emotional-statement",
+    layouts: ["band-unten", "zentral-minimal"],
     brief:
       "Ein Sinneseindruck (Blasmusik von weitem, Marschtrommel, Festzelt-Geruch) löst sofort Vereinsgefühl aus. Sinneseindruck + was er auslöst.",
     exampleHeadlines: [
-      "Wenn die Kapelle drei Straßen weiter probt — und du automatisch im Takt gehst.",
       "Manche hören Blasmusik. Wir hören: Bald ist es wieder so weit.",
+      "Drei Straßen weiter probt die Kapelle. Und du gehst automatisch im Takt.",
     ],
     photoDirection:
-      "Marschkapelle unscharf im Hintergrund, Zuhörer von hinten im Vordergrund; oder offenes Fenster mit Abendlicht und Uniformjacke über Stuhllehne; ruhige dunkle Zone unten rechts.",
+      "Marschkapelle unscharf im Hintergrund, Zuhörer von hinten im Vordergrund; oder offenes Fenster mit Abendlicht und Uniformjacke über Stuhllehne.",
     months: [3, 4, 5],
+  },
+  {
+    code: "E11",
+    lane: "emotional",
+    name: "Der Spielmannszug",
+    layouts: ["karte-unten", "band-unten"],
+    brief:
+      "Spielmannszug/Tambourkorps als eigene Welt: Takt, Gleichschritt, Trommelwirbel. Formel: [musikalisches Detail] + [was der Takt mit der Gruppe macht]. Zielgruppe direkt ansprechen — Spielmannszüge und Musikzüge sind eigenständige Vereine, keine Anhängsel.",
+    exampleHeadlines: [
+      "Einer gibt den Takt vor. Vierzig halten ihn.",
+      "Zwei Takte Vorlauf — und das ganze Dorf dreht sich um.",
+    ],
+    photoDirection:
+      "Spielmannszug in dunkelgrünen Uniformjacken von hinten oder seitlich, Marschtrommeln und Querflöten sichtbar, Gleichschritt auf Dorfstraße, Tageslicht, Reportage-Stil.",
+    months: [4, 5, 6, 7, 8, 9],
+  },
+  {
+    code: "E12",
+    lane: "emotional",
+    name: "Die Fahnenabordnung",
+    layouts: ["zentral-minimal", "karte-unten"],
+    brief:
+      "Wer die Fahne trägt, trägt die Geschichte des Vereins. Formel: [das Gewicht/die Verantwortung] + [wer sie weitergibt]. Würdevoll, nie schwülstig. Die Fahne bleibt im Bild ohne lesbare Schrift oder Symbole.",
+    exampleHeadlines: ["Vorneweg. / Seit über hundert Jahren.", "Die Fahne trägt man nicht allein. / Man trägt sie weiter."],
+    photoDirection:
+      "Fahnenträger in dunkelgrüner Uniform von hinten an der Spitze eines Zuges, Fahnentuch unscharf in Bewegung, KEINE lesbaren Symbole oder Schrift auf der Fahne, Morgenlicht.",
+    months: [4, 5, 6, 7, 8, 9],
+  },
+  {
+    code: "E13",
+    lane: "emotional",
+    name: "Jubiläumsjahr",
+    layouts: ["band-unten", "karte-unten"],
+    brief:
+      "Vereinsjubiläum (25/50/75/100/125 Jahre) als Anlass: Was in dieser Zeit alles blieb — und wer alles kam. Formel: [runde Zahl] + [was sich NICHT verändert hat]. Konkrete Jahreszahl gehört dazu.",
+    exampleHeadlines: [
+      "100 Jahre. Und immer noch derselbe Weg durchs Dorf.",
+      "Drei Generationen, ein Vereinsheim, kein einziges verpasstes Fest.",
+    ],
+    photoDirection:
+      "Vereinsheim oder Schützenhalle im Abendlicht, davor eine kleine Gruppe in Uniform von hinten; oder alte Vereinschronik und Uniformjacke nebeneinander auf Holztisch (KEINE lesbare Schrift).",
+  },
+  {
+    code: "E14",
+    lane: "emotional",
+    name: "Der Uniformwart",
+    layouts: ["karte-unten", "band-unten"],
+    brief:
+      "Porträt der Rolle, die alles zusammenhält: Kleiderkammer, Größenlisten, ‚wer wächst bis Mai noch raus‘. Formel: [unsichtbare Fleißarbeit] + [warum am Festtag alles passt]. Brücke zwischen Gefühl und Beschaffung — aber KEIN Verkaufstext.",
+    exampleHeadlines: [
+      "Am Festtag passt alles. Weil im Februar jemand Listen geführt hat.",
+      "Der wichtigste Posten im Verein hat keinen eigenen Orden.",
+    ],
+    photoDirection:
+      "Vereins-Kleiderkammer: dunkelgrüne Uniformjacken ordentlich auf einer Stange, eine Person im Anschnitt (Hände, Schulter) sortiert, warmes Licht, KEINE lesbaren Etiketten oder Zahlen.",
+    months: [1, 2, 3, 10, 11, 12],
+  },
+  {
+    code: "E15",
+    lane: "emotional",
+    name: "Ehrenabend",
+    layouts: ["karte-unten", "zentral-minimal"],
+    brief:
+      "Ordensfest, Ehrungen, Jubilare: 40 Jahre dabei, und noch keinen Abend ausgelassen. Formel: [Zahl an Jahren] + [was das über den Menschen sagt]. Warm, respektvoll, mit Augenzwinkern statt Ehrfurcht.",
+    exampleHeadlines: [
+      "40 Jahre dabei. Und noch keinen Aufbau verpasst.",
+      "Für manche ist es ein Verein. Für ihn ein halbes Leben.",
+    ],
+    photoDirection:
+      "Festlich gedeckter Saal im Vereinsheim, warmes Abendlicht, ältere Person in dunkelgrüner Uniformjacke im Profil oder Anschnitt, Applaus unscharf im Hintergrund.",
+    months: [10, 11, 12, 1, 2],
+  },
+  {
+    code: "E16",
+    lane: "emotional",
+    name: "Neu dabei",
+    layouts: ["zentral-minimal", "karte-unten"],
+    brief:
+      "Mitgliedergewinnung aus Vereinssicht: Wie fühlt sich der erste Abend an, an dem man dazugehört? Formel: [Schwelle] + [wie schnell sie verschwindet]. Einladend, nie werbend.",
+    exampleHeadlines: [
+      "Beim ersten Mal sitzt man am Rand. Beim zweiten hält man Plätze frei.",
+      "Dazugehören dauert genau einen Abend.",
+    ],
+    photoDirection:
+      "Lange Bierzeltbank von schräg hinten, eine Person rückt zur Seite und macht Platz, Gruppe in dunkelgrünen Westen, warmes Licht, Reportage-Stil.",
+  },
+  {
+    code: "E17",
+    lane: "emotional",
+    name: "Bruderschaft",
+    layouts: ["band-unten", "karte-unten"],
+    brief:
+      "Der Bruderschaftsgedanke: Man ist auch dann da, wenn gerade kein Fest ist — Nachbarschaftshilfe, Krankenbesuch, letzte Ehre. Formel: [Alltagssituation ohne Fest] + [dass der Verein trotzdem da ist]. Ernst und warm, nie fromm-belehrend.",
+    exampleHeadlines: [
+      "Zwischen zwei Festen liegen 51 Wochen. Auch die zählen.",
+      "Man erkennt den Verein nicht am Fest. Sondern am Rest des Jahres.",
+    ],
+    photoDirection:
+      "Zwei Personen in dunkelgrünen Uniformjacken von hinten auf einem ruhigen Dorfweg oder vor einer Kirche, gedecktes Tageslicht, zurückhaltende, würdevolle Stimmung, KEINE religiösen Symbole im Fokus.",
   },
 ];
 
 // ---------------------------------------------------------------------------
-// Säule PRODUKT
+// Säule PRODUKT — Sortiment, Verfügbarkeit, Beschaffung
 // ---------------------------------------------------------------------------
 
 const PRODUCT: ConceptFormat[] = [
@@ -180,61 +316,66 @@ const PRODUCT: ConceptFormat[] = [
     code: "P1",
     lane: "product",
     name: "Die Damenweste",
-    template: "product-feature",
+    layouts: ["panel-links", "panel-cta"],
     brief:
       "Damenweste für Schützinnen und Damenkompanien. Headline-Formel: Die [Produkt] für alle, die [Haltung/Situation]. Selbstbewusst, nie anbiedernd.",
     exampleHeadlines: [
       "Die Damenweste für alle, die Tradition modern leben.",
-      "Für Schützinnen, die nicht die ‚Damenversion' wollen — sondern die richtige.",
+      "Für Schützinnen, die nicht die ‚Damenversion‘ wollen — sondern die richtige.",
     ],
     photoDirection:
-      "2–3 lachende Frauen in weißen Blusen und dunkelgrünen Westen beim Fest, halbnah, Tageslicht, Motiv rechts im Bild, linke Bildhälfte ruhiger unscharfer Hintergrund.",
+      "2–3 lachende Frauen in weißen Blusen und dunkelgrünen Westen beim Fest, halbnah, Tageslicht.",
     benefits: [
-      { icon: "shirt", title: "Moderner Schnitt", text: "zeitlos, elegant, bequem" },
-      { icon: "ruler", title: "Perfekter Sitz", text: "Optimal angepasst für einen starken Auftritt" },
-      { icon: "handshake", title: "Faire Vereinspreise", text: "Top Qualität zu attraktiven Konditionen" },
+      { icon: "shirt", title: "Moderner Schnitt", text: "Zeitlos, elegant, bequem" },
+      B_GROESSEN,
+      B_VEREINSPREIS,
     ],
-    cta: "Muster für eure Damenkompanie anfragen",
+    cta: { title: "Muster für eure Damenkompanie anfragen", sub: "Wir schicken euch die Weste zum Anprobieren." },
+    footerNotes: F_VEREIN,
   },
   {
     code: "P2",
     lane: "product",
     name: "Leicht durch den Festsommer",
-    template: "product-reactive",
+    layouts: ["panel-cta", "panel-links"],
     brief:
-      "Sakko/Jacke in leichter Stoffqualität bei Hitze. Formel: Wenn [Wetter-Realität], [gelassene Produkt-Antwort]. NIEMALS Technik-Claims (atmungsaktiv etc.) — nur 'leicht' und 'angenehmer Tragekomfort'.",
+      "Sakko/Jacke in leichter Stoffqualität bei Hitze. Formel: Wenn [Wetter-Realität], [gelassene Produkt-Antwort]. NIEMALS Technik-Claims (atmungsaktiv, kühlend, Funktionsstoff) — nur ‚leicht‘ und ‚angenehm zu tragen‘.",
     exampleHeadlines: ["Wenn andere ins Schwitzen kommen.", "30 Grad im Schatten. Der Umzug geht trotzdem."],
     photoDirection:
-      "Helles Uniform-Sakko mit dunkelgrünem Kragen auf Schneiderbüste im Freien, dahinter unscharf Kirchturm und marschierende Schützen, Sonnenlicht; Büste rechts der Mitte, linke Bildhälfte ruhiges Bokeh.",
+      "Helles Uniform-Sakko mit dunkelgrünem Kragen auf Schneiderbüste im Freien, dahinter unscharf Kirchturm und marschierende Schützen, Sonnenlicht.",
     months: [5, 6, 7, 8],
-    cta: "Jetzt Musterkollektion anfragen",
-    footerIcons: ["shield-check", "sun", "users"],
+    weatherReactive: true,
+    accentIcon: "sun",
+    benefits: [
+      { icon: "shirt", title: "Leichte Qualität", text: "Angenehm an langen Festtagen" },
+      B_GROESSEN,
+      B_NACHKAUF,
+    ],
+    cta: { title: "Jetzt Musterkollektion anfragen", sub: "Für euren Verein oder Spielmannszug." },
+    footerNotes: F_STANDARD,
   },
   {
     code: "P3",
     lane: "product",
     name: "Von 23 bis 70",
-    template: "product-feature",
+    layouts: ["panel-links", "panel-cta"],
     brief:
-      "Größenvielfalt als stärkster USP: Größe 23 bis 70, alle zum gleichen Preis. Die Headline ist EIN klarer, grammatisch einwandfreier deutscher Satz (ggf. in 2-3 kurze Sätze aufgeteilt). Bewährte Struktur: erst die Spanne, dann der eine Preis. Bau die Zeilen an natürlichen Wortgrenzen um, NIE Wörter kürzen (kein 'Schütz' statt 'Schützen', kein 'Veterane' statt 'Veteranen'). Achte auf korrekte Fälle.",
+      "Größenvielfalt als stärkster USP: Größe 23 bis 70, alle zum gleichen Preis, keine Größenaufschläge. Die Headline ist EIN klarer, grammatisch einwandfreier Satz (ggf. in 2–3 kurze Sätze aufgeteilt). Bewährte Struktur: erst die Spanne, dann der eine Preis. NIE Wörter kürzen.",
     exampleHeadlines: [
       "Vom Jungschützen bis zum Ehrenvorstand. Ein Preis für alle.",
       "Größe 23 bis 70. Ein Verein, ein Auftritt, ein Preis.",
     ],
     photoDirection:
-      "Angetretene Reihe quer durchs Bild mit sichtbar verschiedenen Staturen und Generationen, alle identisch uniformiert, von hinten oder halbnah, Tageslicht; Motiv rechts, links ruhig.",
-    benefits: [
-      { icon: "ruler", title: "Größen 23–70", text: "Für jedes Mitglied die richtige Größe" },
-      { icon: "euro", title: "Ein Preis", text: "Kein Größenaufschlag — fair für alle" },
-      { icon: "users", title: "Ein Auftritt", text: "Die ganze Kompanie in einem Bild" },
-    ],
-    cta: "Größenberatung für euren Verein anfragen",
+      "Angetretene Reihe quer durchs Bild mit sichtbar verschiedenen Staturen und Generationen, alle identisch uniformiert, von hinten oder halbnah, Tageslicht.",
+    benefits: [B_GROESSEN, B_EIN_PREIS, B_EINHEIT],
+    cta: { title: "Größenberatung für euren Verein anfragen", sub: "Auch für Rand- und Sondergrößen." },
+    footerNotes: F_STANDARD,
   },
   {
     code: "P4",
     lane: "product",
     name: "Die neue Kompanie",
-    template: "product-feature",
+    layouts: ["panel-links", "panel-cta"],
     brief:
       "Komplette Vereins-/Kompanie-Neuausstattung. Formel: [erster Auftritt in Neu] + [kollektiver Stolz]. Projektgeschäft, würdevoll erzählt.",
     exampleHeadlines: [
@@ -242,110 +383,116 @@ const PRODUCT: ConceptFormat[] = [
       "Eine Kompanie, ein Bild: neu eingekleidet zum Jubiläum.",
     ],
     photoDirection:
-      "Stolze Gruppe von 4–6 Personen in frischen Uniformen vor Vereinsheim, Tageslicht, würdevoll-warm; Gruppe rechts im Bild, linke Bildhälfte ruhig.",
-    benefits: [
-      { icon: "users", title: "Ein Auftritt", text: "Einheitlich vom ersten Tag an" },
-      { icon: "badge-check", title: "Konstante Qualität", text: "Eigene Produktion, bewährte Stoffe" },
-      { icon: "calendar-check", title: "Planbar", text: "Verlässliche Ausstattung zum Termin" },
-    ],
-    cta: "Ausstattung für euren Verein anfragen",
+      "Stolze Gruppe von 4–6 Personen in frischen Uniformen vor Vereinsheim, Tageslicht, würdevoll-warm.",
+    benefits: [B_EINHEIT, B_EIGENE_PROD, { icon: "calendar-check", title: "Planbar", text: "Verlässlich fertig zum Festtermin" }],
+    cta: { title: "Ausstattung für euren Verein anfragen", sub: "Wir planen den Termin rückwärts vom Fest." },
+    footerNotes: F_VEREIN,
   },
   {
     code: "P5",
     lane: "product",
     name: "Nachkaufgarantie",
-    template: "product-reactive",
+    layouts: ["panel-cta", "panel-links"],
     brief:
       "Dauerhafte Verfügbarkeit + festes Design — niemand fällt aus der Reihe. Formel: [Situation Neuzugang/Ersatz] + [sofort lieferbar, gleiches Design].",
     exampleHeadlines: [
-      "Neues Mitglied im Mai? Die passende Uniform ist schon im Regal.",
+      "Neues Mitglied im Mai? Die passende Jacke liegt schon bereit.",
       "Dieselbe Jacke wie vor fünf Jahren. Genau das ist der Punkt.",
     ],
     photoDirection:
-      "Eine einzelne neue Uniformjacke wird zwischen getragene an die Vereins-Garderobe gehängt, fügt sich nahtlos ein, warmes Licht; Motiv rechts der Mitte, links ruhiges Bokeh.",
-    cta: "Nachbestellung unkompliziert anfragen",
-    footerIcons: ["repeat", "shield-check", "users"],
+      "Eine einzelne neue Uniformjacke wird zwischen getragene an die Vereins-Garderobe gehängt, fügt sich nahtlos ein, warmes Licht.",
+    accentIcon: "repeat",
+    benefits: [B_NACHKAUF, B_LIEFERBAR, B_EIGENE_PROD],
+    cta: { title: "Nachbestellung unkompliziert anfragen", sub: "Gleiches Design, gleiche Qualität — auch Jahre später." },
+    footerNotes: F_STANDARD,
   },
   {
     code: "P6",
     lane: "product",
     name: "Jungschützen startklar",
-    template: "product-feature",
+    layouts: ["panel-links", "panel-cta"],
     brief:
-      "Polos, Shirts, Hoodies, Softshell mit Vereinslogo (Stick/Druck) — der niedrigschwellige Einstieg. Formel: Vereinszugehörigkeit beginnt vor der Uniform.",
-    exampleHeadlines: [
-      "Vereinsstolz fängt nicht erst beim Frack an.",
-      "Euer Wappen jetzt auch fürs Training.",
-    ],
+      "Polos, T-Shirts, Hoodies, Softshelljacken mit Vereinslogo (Stick/Druck) — der niedrigschwellige Einstieg. Formel: Vereinszugehörigkeit beginnt vor der Uniform.",
+    exampleHeadlines: ["Vereinsstolz fängt nicht erst beim Frack an.", "Euer Wappen jetzt auch fürs Training."],
     photoDirection:
-      "Jugendgruppe von hinten in dunkelgrünen Hoodies, Sportplatz oder Vereinsheim, lockere Stimmung, Tageslicht; Gruppe rechts, links ruhig.",
+      "Jugendgruppe von hinten in dunkelgrünen Hoodies, Sportplatz oder Vereinsheim, lockere Stimmung, Tageslicht.",
     months: [8, 9, 10],
     benefits: [
       { icon: "sparkles", title: "Euer Logo", text: "Per Stick oder Druck aufs Textil" },
-      { icon: "euro", title: "Faire Preise", text: "Vereinskonditionen für den Nachwuchs" },
+      B_VEREINSPREIS,
       { icon: "package", title: "Unkompliziert", text: "Einfach anfragen, schnell geliefert" },
     ],
-    cta: "Jugend-Ausstattung anfragen",
+    cta: { title: "Jugend-Ausstattung anfragen", sub: "Polos, Shirts, Hoodies und Softshelljacken." },
+    footerNotes: F_VEREIN,
   },
   {
     code: "P7",
     lane: "product",
     name: "Das Detail entscheidet",
-    template: "product-reactive",
+    layouts: ["panel-cta", "band-unten"],
     brief:
-      "Verarbeitung: Naht, Knopf, Kragen — ein Detail groß machen + warum es Jahre hält. Stiller Qualitätsbeweis, KEIN CTA-Button, nur URL. Keine Schneiderei-Romantik.",
+      "Verarbeitung: Naht, Knopf, Kragen — ein Detail groß machen + warum es Jahre hält. Stiller Qualitätsbeweis. KEINE Schneiderei-Romantik, kein ‚handgeschneidert‘ — es geht um konstante Serienqualität aus eigener Fertigung.",
     exampleHeadlines: [
       "Ein Knopf ist nur ein Knopf — bis er beim hundertsten Fest noch sitzt.",
       "Diese Naht soll ein Vereinsleben halten.",
     ],
     photoDirection:
-      "Makroaufnahme von Wollstoff, Naht oder Knopf einer dunkelgrünen Uniformjacke, gerichtetes warmes Licht, edel und ruhig; Detail rechts der Mitte, links ruhiges Bokeh.",
+      "Makroaufnahme von Wollstoff, Naht oder Knopf einer dunkelgrünen Uniformjacke, gerichtetes warmes Licht, edel und ruhig.",
     months: [10, 11, 1, 2],
-    footerIcons: ["gem", "badge-check", "repeat"],
+    accentIcon: "gem",
+    benefits: [B_EIGENE_PROD, { icon: "shield-check", title: "Konstante Qualität", text: "Gleiche Stoffe, gleiche Serie" }, B_NACHKAUF],
+    footerNotes: F_STANDARD,
   },
   {
     code: "P8",
     lane: "product",
     name: "Euer Wappen, unser Stick",
-    template: "product-feature",
+    layouts: ["panel-links", "panel-cta"],
     brief:
-      "Individualisierung im erlaubten Rahmen: Vereinslogo/-name auf Polos, Shirts, Hoodies, Softshell. Formel: [generisches Produkt] wird erst mit [euer Wappen] zum [Vereinsstück].",
+      "Individualisierung im erlaubten Rahmen: Vereinslogo/-name per standardisiertem Stick oder Druck auf Polos, Shirts, Hoodies, Softshelljacken. Formel: [generisches Produkt] wird erst mit [eurem Wappen] zum [Vereinsstück].",
     exampleHeadlines: [
       "Ein Poloshirt ist ein Poloshirt. Bis euer Wappen drauf ist.",
-      "Euer Name auf der Brust — unser Stick macht's offiziell.",
+      "Euer Name auf der Brust — unser Stick macht’s offiziell.",
     ],
     photoDirection:
-      "Nahaufnahme einer Stickerei auf dunkelgrüner Softshelljacke (generisches Vereinswappen-Motiv, KEIN echtes Logo), daneben getragene Variante unscharf; Motiv rechts, links ruhig.",
+      "Nahaufnahme einer Stickerei auf dunkelgrüner Softshelljacke (generisches Wappen-Motiv, KEIN echtes Logo, KEINE lesbare Schrift), daneben getragene Variante unscharf.",
     months: [10, 11, 12],
     benefits: [
       { icon: "sparkles", title: "Stick oder Druck", text: "Euer Logo, sauber umgesetzt" },
       { icon: "shirt", title: "Bewährtes Sortiment", text: "Polos, Shirts, Hoodies, Softshell" },
-      { icon: "handshake", title: "Faire Vereinspreise", text: "Konditionen für Vereine" },
+      B_VEREINSPREIS,
     ],
-    cta: "Logo-Ausstattung anfragen",
+    cta: { title: "Logo-Ausstattung anfragen", sub: "Schickt uns euer Wappen — wir setzen es um." },
+    footerNotes: F_VEREIN,
   },
   {
     code: "P9",
     lane: "product",
     name: "Für die großen Tage",
-    template: "product-reactive",
+    layouts: ["panel-cta", "panel-links"],
     brief:
-      "Schützenfest-Frack für festliche Anlässe. Formel: [Anlass mit Fallhöhe] verdient [das feierlichste Stück]. Schlicht-elegant, keinerlei Fantasie-Verzierung. WICHTIG: Die Headline muss ein vollständiger, klarer Satz sein (kein Fragment). Das Wort 'Frack' darf im Text vorkommen — es ist ein reguläres Produkt.",
+      "Schützenfrack für festliche Anlässe. Formel: [Anlass mit Fallhöhe] verdient [das feierlichste Stück]. Schlicht-elegant, keinerlei Fantasie-Verzierung. Die Headline muss ein vollständiger, klarer Satz sein. Das Wort ‚Frack‘ darf vorkommen — es ist ein reguläres Produkt.",
     exampleHeadlines: [
       "Für die Tage, an denen der ganze Ort zuschaut.",
       "Manche Termine verdienen mehr als eine Jacke.",
     ],
     photoDirection:
-      "Ein eleganter dunkelgrüner Schützenfrack (Fräckchen mit langen Schößen) hängt oder steht auf einer Schneiderbüste, sauber ausgeleuchtet; dahinter stark unscharf ein festlich erleuchteter Vereinssaal mit warmen Lichtpunkten. KEINE Person, nur das Kleidungsstück. Büste rechts der Mitte, linke Bildhälfte ruhiges dunkles Bokeh.",
+      "Ein eleganter dunkelgrüner Schützenfrack auf einer Schneiderbüste, sauber ausgeleuchtet; dahinter stark unscharf ein festlich erleuchteter Vereinssaal. KEINE Person, nur das Kleidungsstück.",
     months: [10, 11, 12, 1],
-    cta: "Frack-Muster anfragen",
-    footerIcons: ["gem", "calendar-check", "users"],
+    accentIcon: "gem",
+    benefits: [
+      { icon: "gem", title: "Festliches Stück", text: "Für Proklamation und Ehrenabend" },
+      B_GROESSEN,
+      B_NACHKAUF,
+    ],
+    cta: { title: "Frack-Muster anfragen", sub: "Rechtzeitig vor eurem Ehrenabend." },
+    footerNotes: F_STANDARD,
   },
   {
     code: "P10",
     lane: "product",
     name: "Eine Kiste, alle Antworten",
-    template: "product-reactive",
+    layouts: ["panel-cta", "panel-links"],
     brief:
       "Musterkollektion + persönliche Beratung — Einstieg ins Projektgeschäft. Formel: [Anfassen vor Entscheiden] + [Vorstand als Held]. Härtester CTA im System.",
     exampleHeadlines: [
@@ -353,10 +500,113 @@ const PRODUCT: ConceptFormat[] = [
       "Die wichtigste Vorstandssitzung des Jahres passt in eine Kiste.",
     ],
     photoDirection:
-      "Geöffnetes Musterpaket mit ordentlich gefalteten dunkelgrünen Uniformteilen auf Holztisch im Vereinsheim, Größenetiketten sichtbar, warmes Licht, KEIN Maßband; Kiste rechts der Mitte, links ruhig.",
+      "Geöffnetes Musterpaket mit ordentlich gefalteten dunkelgrünen Uniformteilen auf Holztisch im Vereinsheim, warmes Licht, KEIN Maßband, KEINE lesbaren Etiketten.",
     months: [10, 11, 12, 1, 2],
-    cta: "Jetzt Musterkollektion anfragen",
-    footerIcons: ["package-open", "handshake", "users"],
+    accentIcon: "package-open",
+    benefits: [
+      { icon: "package-open", title: "Musterkollektion", text: "Zum Anfassen in eurer Sitzung" },
+      B_VEREINSPREIS,
+      B_GROESSEN,
+    ],
+    cta: { title: "Jetzt Musterkollektion anfragen", sub: "Kostenlos zu eurer nächsten Vorstandssitzung." },
+    footerNotes: F_VEREIN,
+  },
+  {
+    code: "P11",
+    lane: "product",
+    name: "Aus eigener Fertigung",
+    layouts: ["panel-cta", "panel-links"],
+    brief:
+      "Die stärkste Sachgeschichte der Marke: Hersfelder entwickelt, beschafft, fertigt und liefert selbst — deshalb ist alles dauerhaft verfügbar und Jahre später nachbestellbar. Formel: [Warum andere ausverkauft sind] + [warum wir es nicht sind]. Sachlich stolz, KEIN Manufaktur-Pathos, KEIN ‚Schneiderhandwerk‘.",
+    exampleHeadlines: [
+      "Wir bestellen unsere Jacken nicht. Wir machen sie.",
+      "‚Leider nicht mehr lieferbar‘ steht bei uns nicht im Sortiment.",
+    ],
+    photoDirection:
+      "Ruhige Aufnahme gestapelter dunkelgrüner Uniformteile in einem hellen Lager- oder Fertigungsraum, ordentliche Reihen auf Regalen, sachliches Tageslicht, KEINE Menschen im Fokus, KEINE lesbaren Etiketten, Kartons und Regale ohne Beschriftung.",
+    benefits: [B_EIGENE_PROD, B_LIEFERBAR, B_NACHKAUF],
+    cta: { title: "Sortiment für euren Verein anfragen", sub: "Dauerhaft verfügbar statt einmalig ausverkauft." },
+    footerNotes: F_STANDARD,
+  },
+  {
+    code: "P12",
+    lane: "product",
+    name: "Spielmannszug & Musikzug",
+    layouts: ["panel-links", "panel-cta"],
+    brief:
+      "Ausstattung für Spielmannszüge, Musikzüge und Tambourkorps — eigene Zielgruppe, nicht Anhängsel des Schützenvereins. Formel: [Anforderung beim Spielen/Marschieren] + [was das Sortiment dafür kann]. Bewegungsfreiheit darf man beschreiben, NIE technische Stoff-Claims aufstellen.",
+    exampleHeadlines: [
+      "Bewegungsfreiheit für alle, die zwei Stunden durchspielen.",
+      "Der Zug spielt einheitlich. Er sollte auch so aussehen.",
+    ],
+    photoDirection:
+      "Spielmannszug in einheitlichen dunkelgrünen Uniformjacken von hinten oder halbnah, Marschtrommeln und Querflöten sichtbar, Dorfstraße, Tageslicht.",
+    months: [3, 4, 5, 6, 7, 8, 9],
+    benefits: [B_EINHEIT, B_GROESSEN, B_NACHKAUF],
+    cta: { title: "Ausstattung für euren Zug anfragen", sub: "Für Spielmannszüge, Musikzüge und Tambourkorps." },
+    footerNotes: F_VEREIN,
+  },
+  {
+    code: "P13",
+    lane: "product",
+    name: "Vereinsprojekt",
+    layouts: ["panel-cta", "panel-links"],
+    brief:
+      "Vereinsprojekte: Ab produktionsfähigen Stückzahlen entwickeln wir eine eigene Vereinsuniform — Stofffarbe, Stoffgewicht, Vereinsfarben, Details. WICHTIG: klar abgrenzen — das ist ein PROJEKT für größere Vereine, keine Einzelanfertigung, keine kleinen Stückzahlen, keine Maßkonfektion. Formel: [was möglich ist] + [ab wann].",
+    exampleHeadlines: [
+      "Eure Vereinsfarben, unsere Fertigung — ab der richtigen Stückzahl.",
+      "Ein eigenes Vereinsgrün ist möglich. Ab einem echten Projekt.",
+    ],
+    photoDirection:
+      "Mehrere Stoffbahnen in verschiedenen Grüntönen ordentlich nebeneinander auf einem hellen Tisch, daneben eine fertige dunkelgrüne Uniformjacke, sachliches Tageslicht, KEINE Schrift, KEIN Maßband.",
+    months: [9, 10, 11, 12, 1, 2],
+    benefits: [
+      { icon: "sparkles", title: "Eigene Vereinsfarbe", text: "Ab produktionsfähiger Stückzahl" },
+      B_EIGENE_PROD,
+      { icon: "handshake", title: "Projektpreis", text: "Individuell kalkuliert für euren Verein" },
+    ],
+    cta: { title: "Vereinsprojekt besprechen", sub: "Ab produktionsfähiger Menge — sagt uns eure Größenordnung." },
+    footerNotes: F_STANDARD,
+  },
+  {
+    code: "P14",
+    lane: "product",
+    name: "Die Hose zählt mit",
+    layouts: ["panel-links", "panel-cta"],
+    brief:
+      "Hosen als unterschätzter Teil des einheitlichen Auftritts: Von vorne sieht man die Jacke, im Zug sieht man alles. Formel: [was im Umzug wirklich auffällt] + [warum die Hose dazugehört].",
+    exampleHeadlines: [
+      "Im Zug sieht man nicht nur Jacken.",
+      "Einheitlich heißt: von oben bis unten.",
+    ],
+    photoDirection:
+      "Halbtotale einer angetretenen Reihe von der Hüfte abwärts, einheitliche Hosen und geputzte Schuhe, Pflasterstraße, Tageslicht, sachlich und ruhig.",
+    benefits: [B_EINHEIT, B_GROESSEN, B_LIEFERBAR],
+    cta: { title: "Komplettausstattung anfragen", sub: "Jacke, Weste, Hose — aus einem Sortiment." },
+    footerNotes: F_VEREIN,
+  },
+  {
+    code: "P15",
+    lane: "product",
+    name: "Jetzt planen, im Mai fertig",
+    layouts: ["panel-cta", "panel-links"],
+    brief:
+      "Der Beschaffungszyklus aus Vorstandssicht: Wer im Winter entscheidet, steht im Frühjahr fertig da. Direkt an Vorstand, Uniformwart und Einkauf gerichtet. Formel: [Winter-Realität] + [Fest-Termin]. Sachlich hilfreich, kein Druck.",
+    exampleHeadlines: [
+      "Im Januar entschieden. Im Mai angetreten.",
+      "Die Uniform für das Fest im Juni beginnt bei der Winterversammlung.",
+    ],
+    photoDirection:
+      "Vereinsheim-Tisch im Winterlicht: Kaffeetassen, Stuhlreihen, eine dunkelgrüne Uniformjacke über einer Stuhllehne, ruhige Abendstimmung, KEINE lesbaren Papiere oder Schrift.",
+    months: [11, 12, 1, 2, 3],
+    accentIcon: "calendar-check",
+    benefits: [
+      { icon: "calendar-check", title: "Planbar", text: "Verlässlich fertig zum Festtermin" },
+      B_LIEFERBAR,
+      B_VEREINSPREIS,
+    ],
+    cta: { title: "Termin für eure Ausstattung sichern", sub: "Sagt uns euer Festdatum — wir planen rückwärts." },
+    footerNotes: F_STANDARD,
   },
 ];
 
@@ -393,16 +643,26 @@ export const BANNED_PHRASES: string[] = [
   "Qualität, die überzeugt",
   "Qualität, die man sieht",
   "für den perfekten Auftritt",
+  // Klima-/Kühl-Behauptungen: laut Marken-Briefing ohne Nachweis verboten.
+  // Die KI umschrieb sie umgangssprachlich („bleibt ihr cool") und rutschte so
+  // an der Claim-Liste im Prompt vorbei — hier greift die harte Sperre.
+  "bleibt ihr cool",
+  "bleibt cool",
+  "bleiben cool",
+  "hält euch kühl",
+  "hält kühl",
+  "kühlt euch",
+  "angenehm kühl",
+  "trotzt der Hitze",
+  "trotzt jeder Hitze",
+  "trotz der Hitze kühl",
+  "hält euch trocken",
 ];
 
 // ---------------------------------------------------------------------------
 // Format-Auswahl mit Rotation + Saison
 // ---------------------------------------------------------------------------
 
-/**
- * Wählt ein Konzept-Format: Lane vorgeben, kürzlich genutzte Codes meiden,
- * Saison-Fenster bevorzugen. Fällt weich zurück, wenn alles ausgeschlossen wäre.
- */
 /** Gewichtete Zufallswahl aus einer Liste (Gewicht ≥ 0). */
 function weightedPick<T>(items: T[], weightOf: (t: T) => number, rnd: () => number): T {
   const weights = items.map((it) => Math.max(0, weightOf(it)));
@@ -416,6 +676,10 @@ function weightedPick<T>(items: T[], weightOf: (t: T) => number, rnd: () => numb
   return items[items.length - 1];
 }
 
+/**
+ * Wählt ein Konzept-Format: Lane vorgeben, kürzlich genutzte Codes meiden,
+ * Saison-Fenster bevorzugen. Fällt weich zurück, wenn alles ausgeschlossen wäre.
+ */
 export function pickConceptFormat(opts: {
   lane: Lane;
   avoidCodes?: string[];
@@ -439,9 +703,7 @@ export function pickConceptFormat(opts: {
   // Gewichte nach gelernter Performance (Faktor bereits gedeckelt 0,5–2,0);
   // unbekannte Formate = 1,0. Explorations-Untergrenze 0,4, damit nie ganz raus.
   const mult = opts.formatMult ?? null;
-  return (
-    weightedPick(candidates, (f) => Math.max(0.4, mult?.[f.code] ?? 1), rnd) ?? pool[0]
-  );
+  return weightedPick(candidates, (f) => Math.max(0.4, mult?.[f.code] ?? 1), rnd) ?? pool[0];
 }
 
 /**

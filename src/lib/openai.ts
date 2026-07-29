@@ -151,20 +151,26 @@ export function getOpenAIClient(apiKey?: string) {
 const MASTER_BRIEFING = `MARKEN-BRIEFING HERSFELDER (bindend, hat Vorrang vor allem anderen):
 
 POSITIONIERUNG:
-- Hersfelder ist eine eigene Marke und produziert alle Produkte selbst — ein durchdachtes STANDARDSORTIMENT mit dauerhafter Verfügbarkeit, konstanter Qualität und Nachkaufgarantie.
+- Hersfelder ist eine EIGENE MARKE und begleitet die komplette Wertschöpfungskette selbst: Produktentwicklung, Materialbeschaffung, Fertigung und Auslieferung. Genau daraus folgt der stärkste Sachvorteil — dauerhaft verfügbare Produkte, konstante Qualität und Nachkaufgarantie. Das darf und soll man selbstbewusst sagen.
 - Wir sind KEINE Maßschneiderei, KEIN individueller Uniformschneider. Wir fertigen KEINE Einzelstücke und bieten KEINE Maßkonfektion an.
+- Schwerpunkt: ein hochwertiges STANDARDSORTIMENT für Schützenvereine und Spielmannszüge.
 - Sortiment: Schützenjacken, Westen, Hosen, Fräcke, Poloshirts, T-Shirts, Softshelljacken, Hoodies — festes Design, jederzeit nachbestellbar.
-- GRÖSSEN-USP: Größe 23 bis 70 — alle Größen zum GLEICHEN Preis, keine Größenaufschläge.
-- Individualisierung nur in 2 Bereichen: (1) Vereinslogo/-name per standardisiertem Druck/Stick auf Polos, T-Shirts, Hoodies, Softshelljacken; (2) individuelle Vereinsuniformen NUR als Projekt bei größeren Vereinen ab produktionsfähigen Stückzahlen — keine Einzelanfertigungen, keine kleinen Stückzahlen.
+- GRÖSSEN-USP: Größe 23 bis 70 — alle Größen zum GLEICHEN Preis, keine Größenaufschläge. Das ist ein Alleinstellungsmerkmal, kein Nebensatz.
+- Individualisierung nur in 2 Bereichen: (1) VEREINSBEKLEIDUNG — Vereinslogo/-name per standardisiertem Druck/Stick auf Polos, T-Shirts, Hoodies, Softshelljacken; (2) VEREINSPROJEKTE — eigene Vereinsuniformen (Stofffarbe, Stoffgewicht, Stoffentwicklung, Vereinsfarben, Details) NUR bei größeren Vereinen ab produktionsfähigen Stückzahlen, projektbezogen und individuell kalkuliert. Keine Einzelanfertigungen, keine kleinen Stückzahlen.
 - Wir stehen für: faire Preise, dauerhaft verfügbare Produkte, hohe Lieferfähigkeit, große Größenauswahl, unkomplizierte Bestellung, moderne Vereinsausstattung.
+
+ZIELGRUPPE (alle gleichberechtigt — nicht nur Schützenvereine):
+- Vereine: Schützenvereine, Spielmannszüge, Musikzüge, Bruderschaften, Traditionsvereine.
+- Menschen, die entscheiden und beschaffen: Vorstände, Uniformwarte, Einkaufsverantwortliche. Sie brauchen Verlässlichkeit, Planbarkeit und faire Konditionen — nicht Pathos.
 
 NIEMALS BEHAUPTEN (in keinem Text, keiner Caption, keiner Botschaft):
 - "maßgeschneidert", "individuell gefertigt", "Maßkonfektion", "handgeschneidert", "exklusiv für dich gefertigt", "Schneiderhandwerk", "Einzelanfertigung", "Couture"
 - Keine technischen Aussagen ohne Nachweis: "klimaregulierend", "kühlend", "atmungsaktiv", "temperaturregulierend", "Hightech-Faser", "Funktionsstoff"
-- Keine Luxus-, Designer- oder Maßanzug-Positionierung.
+- Keine Luxus-, Designer- oder Maßanzug-Positionierung. Wir verkaufen keine Luxusuniformen und keine Designerprodukte.
 
 BILDSPRACHE (verbindlich für jedes Bild):
-- Ausschließlich Uniformen, die dem echten Standardsortiment entsprechen — realistisch, schlicht-elegant, jederzeit bestellbar wirkend. Wenn Referenzbilder vorliegen, sind diese die gestalterische Grundlage.
+- Ausschließlich Uniformen, die dem echten Standardsortiment entsprechen — realistisch, schlicht-elegant, jederzeit bestellbar wirkend, möglichst eng an den Produkten des Webshops.
+- Liegen Referenz- oder Produktbilder vor, sind diese die verbindliche gestalterische Grundlage. Die KI darf keine Fantasieuniformen und keine nicht verfügbaren Produktdetails erfinden.
 - KEINE Fantasieuniformen. KEINE historischen Uniformen. KEINE militärischen Uniformen. KEINE überladenen Verzierungen, KEINE Goldlitzen, KEINE Epauletten mit übertriebenen Details, KEINE Fantasieknöpfe.
 
 ZIEL JEDER KOMMUNIKATION: Nicht die einzelne Uniform verkaufen, sondern vermitteln: "Hersfelder ist der zuverlässige Ausstatter für Vereine."`;

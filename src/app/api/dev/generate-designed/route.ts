@@ -147,7 +147,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       id: post.id,
       lane,
-      format: { code: format.code, name: format.name, template: concept.template },
+      format: { code: format.code, name: format.name, layout: concept.posterCode },
       image_url: imageUrl,
       poster: concept.poster,
       caption: caption.slice(0, 400),

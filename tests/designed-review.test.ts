@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { qualityStatusFromGate, renderedTextOfOverlay } from "@/lib/designed-review";
+import { qualityStatusFromGate } from "@/lib/designed-review";
 import type { GateResult } from "@/lib/qa-gate";
-import type { OverlayContent } from "@/lib/render-post";
+import { renderedTextOf, type PosterContent } from "@/lib/render-poster";
 
 function gate(over: Partial<GateResult> = {}): GateResult {
   return {
@@ -65,36 +65,37 @@ describe("qualityStatusFromGate", () => {
   });
 });
 
-describe("renderedTextOfOverlay", () => {
+describe("renderedTextOf — was der QA-Agent im Bild sieht", () => {
   it("sammelt alle sichtbaren Zeilen ein", () => {
-    const overlay: OverlayContent = {
-      template: "emotional-minimal",
+    const poster: PosterContent = {
+      layout: "zentral-minimal",
       headline: ["Gemeinsam lachen,", "gemeinsam feiern."],
-      scriptLine: "Das ist Verein.",
-      subline: "Drei, die zusammengehören.",
+      scriptAccent: "Das ist Verein.",
+      sub: "Drei, die zusammengehören.",
     };
-    const text = renderedTextOfOverlay(overlay);
+    const text = renderedTextOf(poster);
     expect(text).toContain("Gemeinsam lachen,");
     expect(text).toContain("Das ist Verein.");
     expect(text).toContain("Drei, die zusammengehören.");
   });
 
-  it("nimmt auch Benefit-Kacheln und CTA mit", () => {
-    const overlay: OverlayContent = {
-      template: "product-feature",
+  it("nimmt auch Benefit-Kacheln, CTA und Fußleiste mit", () => {
+    const poster: PosterContent = {
+      layout: "panel-cta",
       headline: ["Die Damenweste"],
-      cta: "Jetzt Muster anfordern",
-      features: [
-        { icon: "ruler", title: "Größen 23–70", text: "alle zum gleichen Preis" },
-      ],
+      cta: { title: "Jetzt Muster anfordern", sub: "Für eure Damenkompanie." },
+      features: [{ icon: "ruler", title: "Größen 23–70", text: "alle zum gleichen Preis" }],
+      footerNotes: [{ icon: "repeat", label: "Jederzeit nachbestellbar" }],
     };
-    const text = renderedTextOfOverlay(overlay);
+    const text = renderedTextOf(poster);
     expect(text).toContain("Jetzt Muster anfordern");
+    expect(text).toContain("Für eure Damenkompanie.");
     expect(text).toContain("Größen 23–70");
     expect(text).toContain("alle zum gleichen Preis");
+    expect(text).toContain("Jederzeit nachbestellbar");
   });
 
-  it("leeres Overlay ergibt leeren String (kein 'undefined')", () => {
-    expect(renderedTextOfOverlay({ template: "emotional-minimal" })).toBe("");
+  it("leeres Plakat ergibt leeren String (kein 'undefined')", () => {
+    expect(renderedTextOf({ layout: "zentral-minimal" })).toBe("");
   });
 });

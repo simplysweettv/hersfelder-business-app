@@ -197,7 +197,7 @@ export async function POST(req: NextRequest) {
       status: "pending",
       scheduled_at: scheduledAt,
       lane,
-      format: { code: format.code, name: format.name, template: concept.template },
+      format: { code: format.code, name: format.name, layout: concept.posterCode },
       review: {
         score: review.score,
         issues: review.notes,
