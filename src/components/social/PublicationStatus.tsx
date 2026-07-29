@@ -7,6 +7,13 @@ export type PublicationRow = {
   public_url: string | null;
   external_id: string | null;
   error: string | null;
+  // Für das Status-Fenster im Kalender (postHealth) — optional, damit
+  // schlanke Abfragen ohne diese Spalten weiter gültig bleiben.
+  error_code?: string | null;
+  attempt_count?: number | null;
+  last_attempt_at?: string | null;
+  next_retry_at?: string | null;
+  published_at?: string | null;
 };
 
 /**

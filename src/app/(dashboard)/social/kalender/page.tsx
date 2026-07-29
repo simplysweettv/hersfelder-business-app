@@ -3,18 +3,28 @@ import { Card } from "@/components/ui/card";
 import { SyncStatusButton } from "@/components/social/SyncStatusButton";
 import { type PublicationRow } from "@/components/social/PublicationStatus";
 import { PostDetailDialog } from "@/components/social/PostDetailDialog";
+import { TrafficLightDot } from "@/components/social/TrafficLight";
+import { postHealth } from "@/lib/post-health";
 import type { Post } from "@/types";
 import { Calendar as CalendarIcon } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
+/** Der Zeitpunkt, unter dem ein Post im Kalender einsortiert wird. */
+function calendarDate(p: Post): number | null {
+  const value = p.published_at ?? p.scheduled_at;
+  return value ? new Date(value).getTime() : null;
+}
+
 export default async function KalenderPage() {
   const supabase = await createClient();
+  // Alles, was einen Platz im Kalender hat: geplante Posts UND bereits
+  // veröffentlichte (die haben nach einer Sofort-Veröffentlichung kein
+  // scheduled_at — sie sollen trotzdem sichtbar bleiben).
   const { data } = await supabase
     .from("posts")
     .select("*")
-    .not("scheduled_at", "is", null)
-    .order("scheduled_at", { ascending: true });
+    .or("scheduled_at.not.is.null,published_at.not.is.null");
 
   const posts = (data ?? []) as Post[];
 
@@ -24,7 +34,9 @@ export default async function KalenderPage() {
   if (ids.length) {
     const { data: pubs } = await supabase
       .from("post_publications")
-      .select("post_id, platform, status, public_url, external_id, error")
+      .select(
+        "post_id, platform, status, public_url, external_id, error, error_code, attempt_count, last_attempt_at, next_retry_at, published_at",
+      )
       .in("post_id", ids);
     for (const row of pubs ?? []) {
       const list = pubsByPost.get(row.post_id) ?? [];
@@ -34,24 +46,45 @@ export default async function KalenderPage() {
   }
 
   const now = Date.now();
-  const upcoming = posts.filter(
-    (p) => p.scheduled_at && new Date(p.scheduled_at).getTime() >= now && p.status !== "published",
-  );
+  // Anstehend = Termin liegt in der Zukunft und der Post ist noch nicht raus.
+  const upcoming = posts
+    .filter((p) => {
+      const t = calendarDate(p);
+      return t != null && t >= now && p.status !== "published";
+    })
+    .sort((a, b) => (calendarDate(a) ?? 0) - (calendarDate(b) ?? 0));
+
   const past = posts
-    .filter(
-      (p) => !(p.scheduled_at && new Date(p.scheduled_at).getTime() >= now) || p.status === "published",
-    )
-    .reverse(); // neueste zuerst
+    .filter((p) => !upcoming.includes(p))
+    .sort((a, b) => (calendarDate(b) ?? 0) - (calendarDate(a) ?? 0)); // neueste zuerst
+
+  // Ampel-Zählung fürs Kopf-Resümee — zeigt sofort, ob etwas hängt.
+  const counts = { green: 0, amber: 0, red: 0 };
+  for (const p of posts) {
+    counts[postHealth(p, pubsByPost.get(p.id) ?? []).light]++;
+  }
 
   return (
     <div className="flex-1 p-3 md:p-5 bg-background space-y-5 pb-24 md:pb-6">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <CalendarIcon className="w-5 h-5" style={{ color: "var(--brand-primary)" }} />
         <h1 className="text-xl font-semibold">Kalender</h1>
         <div className="ml-auto">
           <SyncStatusButton />
         </div>
       </div>
+
+      {/* Ampel-Legende + Zählung: der Blick, der alles beantwortet. */}
+      {posts.length > 0 && (
+        <Card className="p-3 flex items-center gap-4 flex-wrap text-xs">
+          <LegendItem light="green" count={counts.green} text="veröffentlicht" />
+          <LegendItem light="amber" count={counts.amber} text="läuft / wartet" />
+          <LegendItem light="red" count={counts.red} text="nicht veröffentlicht" />
+          <span className="text-muted-foreground ml-auto hidden sm:inline">
+            Auf einen Post klicken zeigt den genauen Status und die Fehlermeldung.
+          </span>
+        </Card>
+      )}
 
       {posts.length === 0 ? (
         <Card className="p-10 text-center text-sm text-muted-foreground">
@@ -78,6 +111,24 @@ export default async function KalenderPage() {
         </>
       )}
     </div>
+  );
+}
+
+function LegendItem({
+  light,
+  count,
+  text,
+}: {
+  light: "green" | "amber" | "red";
+  count: number;
+  text: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <TrafficLightDot light={light} label={text} />
+      <span className="font-semibold">{count}</span>
+      <span className="text-muted-foreground">{text}</span>
+    </span>
   );
 }
 

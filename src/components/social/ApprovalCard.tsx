@@ -9,6 +9,7 @@ import { PlatformPills } from "./PlatformDots";
 import { Pencil, Check, Sparkles, ChevronDown, ChevronUp, RefreshCw, Save, X, Trash2, ShieldCheck, ShieldAlert, Images } from "lucide-react";
 import type { Post } from "@/types";
 import { formatDateTime } from "@/lib/date-utils";
+import { MediaLightbox } from "./MediaLightbox";
 // Zentrale Caption-Logik — eine Quelle der Wahrheit (auch der Cron nutzt diese).
 import { splitCaption, buildCaption } from "@/lib/caption";
 
@@ -29,6 +30,14 @@ export function ApprovalCard({ post }: { post: Post }) {
   const [regenerating, setRegenerating] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Lightbox: null = zu, sonst Index des zuerst gezeigten Bildes.
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const allImages = post.image_urls?.length
+    ? post.image_urls
+    : post.image_url
+      ? [post.image_url]
+      : [];
 
   const [captions, setCaptions] = useState<Partial<Record<PlatformKey, string>>>(
     () => splitCaption(post.caption ?? "")
@@ -130,10 +139,13 @@ export function ApprovalCard({ post }: { post: Post }) {
       <div className="p-3 flex items-start gap-3">
         <button
           type="button"
-          aria-label={expanded ? "Vorschau einklappen" : "Vorschau öffnen"}
-          aria-expanded={expanded}
-          className="w-[52px] h-[52px] rounded-md shrink-0 flex items-center justify-center mt-0.5 focus:outline-none focus:ring-2 focus:ring-ring"
-          onClick={() => setExpanded((v) => !v)}
+          aria-label={allImages.length ? "Groß ansehen" : expanded ? "Vorschau einklappen" : "Vorschau öffnen"}
+          aria-expanded={allImages.length ? undefined : expanded}
+          title={allImages.length ? "Zum Vergrößern klicken" : undefined}
+          className={`w-[52px] h-[52px] rounded-md shrink-0 flex items-center justify-center mt-0.5 focus:outline-none focus:ring-2 focus:ring-ring ${allImages.length ? "cursor-zoom-in" : ""}`}
+          onClick={() =>
+            allImages.length ? setLightboxIndex(0) : setExpanded((v) => !v)
+          }
           style={{
             background: post.image_url
               ? `center / cover no-repeat url(${post.image_url})`
@@ -152,10 +164,16 @@ export function ApprovalCard({ post }: { post: Post }) {
           <div className="mt-1.5 flex items-center gap-2 flex-wrap">
             <PlatformPills platforms={post.platforms} />
             {post.image_urls && post.image_urls.length > 1 && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
+              <button
+                type="button"
+                title="Zum Vergrößern klicken"
+                aria-label={`Karussell mit ${post.image_urls.length} Slides groß ansehen`}
+                onClick={() => setLightboxIndex(0)}
+                className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 cursor-zoom-in hover:bg-indigo-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 <Images className="w-3 h-3" />
-                Karussell · {post.image_urls.length}
-              </span>
+                {post.image_urls.length} Slides — zum Vergrößern klicken
+              </button>
             )}
             <QualityBadge
               status={post.quality_status}
@@ -262,7 +280,13 @@ export function ApprovalCard({ post }: { post: Post }) {
             {post.image_urls && post.image_urls.length > 1 ? (
               <div className="md:w-72 shrink-0 p-3 flex md:flex-col gap-2 overflow-x-auto md:overflow-y-auto md:max-h-96 bg-muted/20">
                 {post.image_urls.map((url, i) => (
-                  <div key={i} className="relative shrink-0">
+                  <button
+                    key={i}
+                    type="button"
+                    aria-label={`Slide ${i + 1} groß ansehen`}
+                    onClick={() => setLightboxIndex(i)}
+                    className="relative shrink-0 cursor-zoom-in rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
                     <img
                       src={url}
                       alt={`Slide ${i + 1}`}
@@ -271,18 +295,24 @@ export function ApprovalCard({ post }: { post: Post }) {
                     <span className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded">
                       {i + 1}/{post.image_urls!.length}
                     </span>
-                  </div>
+                  </button>
                 ))}
               </div>
             ) : (
               post.image_url && (
-                <div className="md:w-72 shrink-0">
+                <button
+                  type="button"
+                  aria-label="Groß ansehen"
+                  title="Zum Vergrößern klicken"
+                  onClick={() => setLightboxIndex(0)}
+                  className="md:w-72 shrink-0 cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
                   <img
                     src={post.image_url}
                     alt={post.title ?? "Post Bild"}
                     className="w-full object-cover max-h-72 md:max-h-none md:h-full"
                   />
-                </div>
+                </button>
               )
             )}
 
@@ -325,6 +355,17 @@ export function ApprovalCard({ post }: { post: Post }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Große Lightbox-Ansicht für alle Bilder des Posts */}
+      {allImages.length > 0 && (
+        <MediaLightbox
+          images={allImages}
+          title={post.title || "Ohne Titel"}
+          open={lightboxIndex !== null}
+          onOpenChange={(o) => setLightboxIndex(o ? (lightboxIndex ?? 0) : null)}
+          startIndex={lightboxIndex ?? 0}
+        />
       )}
     </Card>
   );
