@@ -12,6 +12,8 @@ const SECTION_LABEL: Record<string, string> = {
   generator: "Generator",
   kalender: "Kalender",
   analytics: "Analytics",
+  kommentare: "Kommentare",
+  kosten: "Kosten",
   einstellungen: "Einstellungen",
 };
 

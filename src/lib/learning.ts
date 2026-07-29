@@ -66,6 +66,8 @@ export async function fetchMetricsByUrl(apiKey: string | undefined): Promise<Map
   if (!apiKey) return out;
   try {
     const res = await fetch("https://backend.blotato.com/v2/published-posts?limit=100", {
+      // Ohne Zeitlimit hängt die ganze Seite, wenn Blotato träge antwortet.
+      signal: AbortSignal.timeout(12_000),
       headers: { "blotato-api-key": apiKey },
       cache: "no-store",
     });

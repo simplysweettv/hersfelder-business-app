@@ -33,6 +33,24 @@ export interface FetchedComment {
   comment_timestamp: string;
 }
 
+/**
+ * Graph-Fehler in eine Exception übersetzen. Vorher lieferten diese Aufrufe bei
+ * abgelaufenem Token oder fehlender Berechtigung einfach ein leeres Array —
+ * der Abgleich meldete daraufhin "ok, 0 Kommentare", und niemand erfuhr, dass
+ * die Verbindung tot war.
+ */
+async function assertGraphOk(res: Response, was: string): Promise<void> {
+  if (res.ok) return;
+  let detail = `HTTP ${res.status}`;
+  try {
+    const body = (await res.json()) as { error?: { message?: string; type?: string } };
+    if (body?.error?.message) detail = body.error.message;
+  } catch {
+    // Antwort war kein JSON — dann bleibt der Statuscode die beste Info.
+  }
+  throw new Error(`${was}: ${detail}`);
+}
+
 export async function fetchInstagramComments(
   igAccountId: string,
   accessToken: string
@@ -40,7 +58,7 @@ export async function fetchInstagramComments(
   const mediaRes = await fetch(
     `${META_API}/${igAccountId}/media?fields=id,caption,media_url,thumbnail_url,timestamp,comments_count&limit=20&access_token=${accessToken}`
   );
-  if (!mediaRes.ok) return [];
+  await assertGraphOk(mediaRes, "Instagram-Medien konnten nicht geladen werden");
   const mediaData = await mediaRes.json();
   if (!mediaData.data) return [];
 
@@ -80,7 +98,7 @@ export async function fetchFacebookComments(
   const postsRes = await fetch(
     `${META_API}/${pageId}/posts?fields=id,message,full_picture,created_time&limit=20&access_token=${accessToken}`
   );
-  if (!postsRes.ok) return [];
+  await assertGraphOk(postsRes, "Facebook-Beiträge konnten nicht geladen werden");
   const postsData = await postsRes.json();
   if (!postsData.data) return [];
 

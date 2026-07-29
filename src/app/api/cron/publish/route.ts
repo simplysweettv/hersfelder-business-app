@@ -27,6 +27,8 @@ export async function GET(req: NextRequest) {
   const getConfig = await loadPublishConfig(supabase);
   const runId = await startRun(supabase, "publication", "cron");
 
+  try {
+
   const nowIso = new Date().toISOString();
   const { data: due } = await supabase
     .from("posts")
@@ -93,4 +95,11 @@ export async function GET(req: NextRequest) {
     snapshotted,
     results,
   });
+  } catch (e) {
+    // Ohne dieses catch blieb der Lauf bei einem Absturz für immer auf
+    // "running" — und die Systemampel wertete ihn als unauffällig.
+    const msg = e instanceof Error ? e.message : String(e);
+    await finishRun(supabase, runId, { planned: 0, succeeded: 0, failed: 1, errors: [msg] });
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }

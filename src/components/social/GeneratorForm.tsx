@@ -169,6 +169,12 @@ export function GeneratorForm() {
       toast.error("Produkt und Botschaft sind Pflicht.");
       return;
     }
+    // Ohne Plattform kam vorher erst nach dem Server-Roundtrip die rohe
+    // API-Meldung statt eines sofortigen Hinweises.
+    if (!platforms.length) {
+      toast.error("Wähle mindestens eine Plattform.");
+      return;
+    }
     setGenerating(true);
     const body: GeneratorInput & { occasion?: string; scheduledAt?: string; lane?: string } = {
       theme,

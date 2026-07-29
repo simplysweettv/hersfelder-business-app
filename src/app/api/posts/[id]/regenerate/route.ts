@@ -129,10 +129,11 @@ export async function POST(
       format_code: format.code,
       template: concept.posterCode,
     };
-    if (brief?.id) {
-      await admin.from("post_briefs").update(briefFields).eq("id", brief.id);
-    } else {
-      await admin.from("post_briefs").insert({ post_id: params.id, ...briefFields });
+    const { error: briefErr } = brief?.id
+      ? await admin.from("post_briefs").update(briefFields).eq("id", brief.id)
+      : await admin.from("post_briefs").insert({ post_id: params.id, ...briefFields });
+    if (briefErr) {
+      console.error("post_briefs schreiben fehlgeschlagen:", briefErr.message);
     }
 
     return NextResponse.json({

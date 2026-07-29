@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatDate } from "@/lib/date-utils";
 import { CheckCircle2, AlertTriangle, XCircle, Settings } from "lucide-react";
 
 /**
@@ -72,7 +73,7 @@ export function IntegrationStatus({
         <h2 className="text-sm font-semibold">Verbindungen &amp; Datenquellen</h2>
         {lastSnapshot && (
           <span className="text-[11px] text-muted-foreground">
-            Zahlen zuletzt aktualisiert: {lastSnapshot}
+            Zahlen zuletzt aktualisiert: {formatDate(lastSnapshot)}
           </span>
         )}
       </div>

@@ -59,6 +59,8 @@ export async function GET(req: NextRequest) {
   }
 
   const runId = await startRun(supabase, "content_generation", "cron");
+
+  try {
   const now = new Date();
   const plan = parsePostingPlan(settings["posting_plan"]);
 
@@ -220,7 +222,7 @@ export async function GET(req: NextRequest) {
       recentFormats.unshift(format.code);
       prevLane = lane;
 
-      const { data: post } = await supabase
+      const { data: post, error: postErr } = await supabase
         .from("posts")
         .insert({
           title: `${concept.theme}`.slice(0, 200),
@@ -238,9 +240,17 @@ export async function GET(req: NextRequest) {
         .select("id")
         .single();
 
-      if (post) {
+      // Stille Fehlschläge haben hier monatelang Schaden angerichtet: schlug der
+      // Insert fehl (fehlende Spalte, RLS), war `post` null, das if() sprang
+      // darüber hinweg und der Lauf meldete "0 erstellt, keine Fehler" — obwohl
+      // Bild und KI-Kosten längst bezahlt waren. Jetzt scheitert er sichtbar.
+      if (postErr || !post) {
+        throw new Error(`Post konnte nicht gespeichert werden: ${postErr?.message ?? "kein Datensatz zurückgekommen"}`);
+      }
+
+      {
         created.push(post.id);
-        await supabase.from("post_briefs").insert({
+        const { error: briefErr } = await supabase.from("post_briefs").insert({
           post_id: post.id,
           theme: concept.theme,
           occasion: format.name,
@@ -253,6 +263,12 @@ export async function GET(req: NextRequest) {
           format_code: format.code,
           template: concept.posterCode,
         });
+        if (briefErr) {
+          // Ohne Briefing fehlt die Grundlage für Format- und Layout-Rotation
+          // sowie die selbstlernende Auswahl — das darf nicht stillschweigend
+          // passieren.
+          throw new Error(`Briefing konnte nicht gespeichert werden: ${briefErr.message}`);
+        }
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -276,4 +292,11 @@ export async function GET(req: NextRequest) {
     ids: created,
     errors,
   });
+  } catch (e) {
+    // Ohne dieses catch blieb der Lauf bei einem Absturz für immer auf
+    // "running" — und die Systemampel wertete ihn als unauffällig.
+    const msg = e instanceof Error ? e.message : String(e);
+    await finishRun(supabase, runId, { planned: 0, succeeded: 0, failed: 1, errors: [msg] });
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }

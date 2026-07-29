@@ -56,7 +56,9 @@ async function fetchAnalytics(): Promise<AnalyticsPost[]> {
   try {
     const res = await fetch(
       "https://backend.blotato.com/v2/published-posts?limit=100",
-      { headers, next: { revalidate: 60 } },
+      {
+        // Ohne Zeitlimit hängt die Analytics-Seite, wenn Blotato träge ist.
+        signal: AbortSignal.timeout(12_000), headers, next: { revalidate: 60 } },
     );
     if (res.ok) {
       const json = (await res.json()) as { items?: Record<string, unknown>[] };
@@ -77,6 +79,7 @@ async function fetchAnalytics(): Promise<AnalyticsPost[]> {
   // 2) Fallback: /posts (ohne Metriken) — wenigstens die Liste anzeigen.
   try {
     const res = await fetch("https://backend.blotato.com/v2/posts?limit=100", {
+      signal: AbortSignal.timeout(12_000),
       headers,
       next: { revalidate: 60 },
     });

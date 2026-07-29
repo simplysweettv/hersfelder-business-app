@@ -36,11 +36,20 @@ export default function PostingPlanCard() {
   async function save(next: Exclude<PostingPlanMode, "individuell">) {
     setSaving(next);
     const plan = { mode: next, slots: PLAN_PRESETS[next] };
-    const res = await fetch("/api/settings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "posting_plan", value: JSON.stringify(plan) }),
-    });
+    let res: Response;
+    try {
+      res = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "posting_plan", value: JSON.stringify(plan) }),
+      });
+    } catch (e) {
+      // Ohne dieses catch wurde setSaving(null) nie erreicht — alle drei
+      // Plan-Knöpfe blieben bis zum Neuladen gesperrt.
+      setSaving(null);
+      toast.error(e instanceof Error ? e.message : "Speichern fehlgeschlagen");
+      return;
+    }
     setSaving(null);
     if (!res.ok) {
       toast.error("Speichern fehlgeschlagen");

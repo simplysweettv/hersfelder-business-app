@@ -16,7 +16,7 @@ Interne Business App für **Andreas Hertwig**, Inhaber von **Hersfelder Schütze
 | Frontend | Next.js 14 (App Router) + TypeScript |
 | Styling | Tailwind CSS v4 + shadcn/ui (base-nova Theme) |
 | Datenbank | Supabase (PostgreSQL + Storage + Auth) |
-| Hosting | Vercel (Hobby Plan) |
+| Hosting | Vercel |
 | KI Bilder | OpenAI `gpt-image-1` |
 | KI Text | OpenAI `gpt-4o-mini` |
 | Auth | Supabase SSR Auth (`@supabase/ssr`) |
@@ -227,7 +227,7 @@ FACEBOOK_APP_ID=... FACEBOOK_APP_SECRET=...   # Meta-OAuth
 
 1. **Admin-Client nur in Server-Routen** — `createAdminClient()` niemals in Client-Komponenten
 2. **Bildformate:** gpt-image-1 unterstützt nur `1024x1024`, `1024x1536`, `1536x1024`
-3. **Vercel Hobby Timeout:** 60s max. pro Serverless Function — nie zwei lange OpenAI-Calls sequenziell ohne Idempotenz
+3. **Function-Timeout:** bis 300s möglich (`export const maxDuration = 300`). Alle Routen mit Bildgenerierung ODER mehreren Blotato-Aufrufen brauchen das — bei 60s gab es HTTP 504
 4. **Caption-Parsing:** `splitCaption()`/`buildCaption()` liegen zentral in `src/lib/caption.ts` (eine Quelle der Wahrheit für UI + Cron)
 5. **Woche berechnen:** ISO-Wochen — Helfer in `src/lib/berlin-time.ts` (`isoWeek`, `isoWeekYear`); für Berlin-Zeit `berlinWallToUtc`/`berlinDayKey`
 6. **Next.js 14:** `viewport` als eigenen Export (`export const viewport: Viewport`), nicht in `metadata`

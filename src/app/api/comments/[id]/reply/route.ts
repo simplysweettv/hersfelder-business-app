@@ -19,7 +19,10 @@ export async function POST(
   }
 
   const { id } = await params;
-  const { message } = await req.json();
+  // Ungültiger Body führte vorher zu einer unbehandelten Exception (HTTP 500)
+  // statt einer sauberen 400.
+  const body = (await req.json().catch(() => null)) as { message?: string } | null;
+  const message = body?.message;
   if (!message?.trim()) {
     return NextResponse.json({ error: "Nachricht fehlt" }, { status: 400 });
   }

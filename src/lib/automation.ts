@@ -83,6 +83,19 @@ export type RunSummary = {
   errors: string[] | null;
 };
 
+/**
+ * Ein Lauf gilt als hängengeblieben, wenn er nach dieser Zeit immer noch auf
+ * "running" steht. Die längste Funktion darf 300s laufen — 30 Minuten sind
+ * also großzügig und schlagen trotzdem am selben Tag Alarm.
+ */
+const STALE_RUN_MINUTES = 30;
+
+export function isStale(startedAt: string, now: Date = new Date()): boolean {
+  const started = new Date(startedAt).getTime();
+  if (Number.isNaN(started)) return false;
+  return now.getTime() - started > STALE_RUN_MINUTES * 60_000;
+}
+
 export type SystemHealth = {
   level: HealthLevel;
   /** Kurzer Satz für die Ampel-Zeile. */
@@ -233,6 +246,16 @@ export async function getSystemHealth(supabase: AdminClient): Promise<SystemHeal
       tasks.push({
         level: "error",
         text: `Letzter Lauf „${RUN_TYPE_LABEL[run.run_type]}" ist fehlgeschlagen`,
+        href: "/dashboard",
+      });
+    } else if (run?.status === "running" && isStale(run.started_at)) {
+      // Ein Lauf, der von der Plattform abgebrochen wurde (Timeout, Absturz),
+      // bleibt für immer auf "running" — vorher fiel er durch beide Zweige und
+      // die Ampel blieb grün, obwohl seit Tagen nichts mehr lief.
+      raise("error");
+      tasks.push({
+        level: "error",
+        text: `Lauf „${RUN_TYPE_LABEL[run.run_type]}" wurde abgebrochen und nie beendet`,
         href: "/dashboard",
       });
     } else if (run?.status === "partial") {

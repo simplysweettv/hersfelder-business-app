@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { isoWeek, isoWeekYear } from "@/lib/berlin-time";
 import { createClient } from "@/lib/supabase/server";
 import { loadSettings } from "@/lib/settings";
 import { buildCaptionPrompt } from "@/lib/openai";
@@ -12,6 +13,10 @@ import {
 import { BANNED_PHRASES, type Lane } from "@/lib/concepts";
 import { reviewDesignedPost } from "@/lib/designed-review";
 import type { GeneratorInput } from "@/types";
+
+// Nur bekannte Kanäle zulassen — ein unbekannter Wert landete sonst in der
+// DB und ließ die Freigabe später mit einem TypeError abstürzen.
+const VALID_PLATFORMS = ["instagram", "facebook", "tiktok", "linkedin"] as const;
 
 export const runtime = "nodejs";
 // Bildgenerierung + Zwei-Agenten-Freigabe brauchen deutlich mehr als eine
@@ -38,6 +43,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
+  body.platforms = (body.platforms ?? []).filter((x) =>
+    (VALID_PLATFORMS as readonly string[]).includes(x),
+  );
   if (!body.theme || !body.product || !body.message || !body.platforms?.length) {
     return NextResponse.json(
       { error: "theme, product, message und platforms sind Pflicht." },
@@ -125,7 +133,7 @@ export async function POST(req: NextRequest) {
       .single();
     if (insertErr) throw new Error(insertErr.message);
 
-    await supabase.from("post_briefs").insert({
+    const { error: briefErr } = await supabase.from("post_briefs").insert({
       post_id: post.id,
       theme: concept.theme,
       occasion: body.occasion ?? body.theme,
@@ -139,6 +147,11 @@ export async function POST(req: NextRequest) {
       format_code: format.code,
       template: concept.posterCode,
     });
+    // Nicht den fertigen Post verwerfen, aber den Fehlschlag sichtbar machen —
+    // ohne Briefing fehlt die Grundlage für Rotation und Lern-Auswertung.
+    if (briefErr) {
+      console.error("post_briefs insert fehlgeschlagen:", briefErr.message);
+    }
 
     return NextResponse.json({
       id: post.id,
@@ -155,17 +168,4 @@ export async function POST(req: NextRequest) {
   }
 }
 
-function isoWeek(d: Date) {
-  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const day = t.getUTCDay() || 7;
-  t.setUTCDate(t.getUTCDate() + 4 - day);
-  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
-  return Math.ceil(((t.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
-}
 
-function isoWeekYear(d: Date) {
-  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const day = t.getUTCDay() || 7;
-  t.setUTCDate(t.getUTCDate() + 4 - day);
-  return t.getUTCFullYear();
-}

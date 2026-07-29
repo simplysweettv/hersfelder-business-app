@@ -283,7 +283,7 @@ function InsightsCard({ insights }: { insights: Insights }) {
               const pct = Math.round((p.avgEngagement / max) * 100);
               return (
                 <div key={p.key} className="flex items-center gap-2">
-                  <div className="w-28 text-xs text-muted-foreground truncate">{p.label}</div>
+                  <div className="w-28 shrink-0 text-xs text-muted-foreground leading-tight">{p.label}</div>
                   <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all"
@@ -310,7 +310,7 @@ function MiniStat({ label, value, icon: Icon }: { label: string; value: string; 
   return (
     <div className="rounded-xl border bg-muted/30 p-2.5 text-center">
       <Icon className="w-3.5 h-3.5 mx-auto mb-1 text-muted-foreground" />
-      <div className="text-sm font-bold truncate">{value}</div>
+      <div className="text-sm font-bold leading-tight break-words">{value}</div>
       <div className="text-[10px] text-muted-foreground mt-0.5">{label}</div>
     </div>
   );

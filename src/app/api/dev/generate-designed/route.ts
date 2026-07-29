@@ -125,7 +125,7 @@ export async function GET(req: NextRequest) {
       .single();
     if (insertErr) throw new Error(insertErr.message);
 
-    await supabase.from("post_briefs").insert({
+    const { error: briefErr } = await supabase.from("post_briefs").insert({
       post_id: post.id,
       theme: concept.theme,
       occasion: format.name,
@@ -138,6 +138,11 @@ export async function GET(req: NextRequest) {
       format_code: format.code,
       template: concept.posterCode,
     });
+    // Nicht den fertigen Post verwerfen, aber den Fehlschlag sichtbar machen —
+    // ohne Briefing fehlt die Grundlage für Rotation und Lern-Auswertung.
+    if (briefErr) {
+      console.error("post_briefs insert fehlgeschlagen:", briefErr.message);
+    }
 
     return NextResponse.json({
       id: post.id,

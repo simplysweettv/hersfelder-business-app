@@ -108,6 +108,14 @@ export function CommentInbox({
         setOpenReply(null);
         setReplyText((r) => ({ ...r, [commentId]: "" }));
       }
+    } catch (e) {
+      // Vorher gab es hier gar nichts: Bei Netzwerkfehler stoppte nur der
+      // Spinner, ohne dass der Nutzer erfuhr, dass nichts gesendet wurde.
+      setErrors((err) => ({
+        ...err,
+        [commentId]:
+          e instanceof Error ? e.message : "Antwort konnte nicht gesendet werden.",
+      }));
     } finally {
       setSending(null);
     }
@@ -173,7 +181,13 @@ export function CommentInbox({
           >
             {f.label}
             {f.key === "unanswered" && unansweredCount > 0 && (
-              <span className="ml-1.5 bg-white/20 text-white text-xs px-1.5 py-0.5 rounded-full">
+              <span
+                className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
+                  filter === "unanswered"
+                    ? "bg-white/20 text-white"
+                    : "bg-foreground/10 text-foreground"
+                }`}
+              >
                 {unansweredCount}
               </span>
             )}

@@ -184,43 +184,43 @@ export function ApprovalCard({ post }: { post: Post }) {
           {/* Buttons auf Mobile: kompakt unter dem Titel */}
           <div className="mt-2 flex items-center gap-1.5 flex-wrap md:hidden">
             <Button variant="ghost" size="sm" onClick={() => setExpanded((v) => !v)}
-              className="text-muted-foreground h-7 px-2 text-xs gap-1">
+              className="text-muted-foreground h-9 px-3 text-xs gap-1">
               {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               {expanded ? "Einklappen" : "Vorschau"}
             </Button>
             <Button variant="outline" size="sm" disabled={pending || regenerating || deleting}
               onClick={() => { setExpanded(true); setEditing((v) => !v); }}
-              className="h-7 px-2 text-xs gap-1">
+              className="h-9 px-3 text-xs gap-1">
               <Pencil className="w-3 h-3" />
               {editing ? "Abbrechen" : "Bearbeiten"}
             </Button>
             <Button variant="outline" size="sm" disabled={pending || regenerating || deleting}
-              onClick={regenerate} className="h-7 px-2 text-xs gap-1">
+              onClick={regenerate} className="h-9 px-3 text-xs gap-1">
               <RefreshCw className={`w-3 h-3 ${regenerating ? "animate-spin" : ""}`} />
               {regenerating ? "…" : "Neu"}
             </Button>
             {confirmDelete ? (
               <>
                 <Button size="sm" disabled={deleting} onClick={deletePost}
-                  className="h-7 px-2 text-xs gap-1 bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  className="h-9 px-3 text-xs gap-1 bg-destructive text-destructive-foreground hover:bg-destructive/90">
                   <Trash2 className="w-3 h-3" />
                   {deleting ? "…" : "Ja, löschen"}
                 </Button>
                 <Button variant="outline" size="sm" disabled={deleting}
-                  onClick={() => setConfirmDelete(false)} className="h-7 px-2 text-xs">
+                  onClick={() => setConfirmDelete(false)} className="h-9 px-3 text-xs">
                   Nein
                 </Button>
               </>
             ) : (
               <Button variant="outline" size="sm" disabled={pending || regenerating || deleting}
                 onClick={() => setConfirmDelete(true)}
-                className="h-7 px-2 text-xs gap-1 text-destructive hover:text-destructive hover:border-destructive">
+                className="h-9 px-3 text-xs gap-1 text-destructive hover:text-destructive hover:border-destructive">
                 <Trash2 className="w-3 h-3" />
                 Löschen
               </Button>
             )}
             <Button size="sm" disabled={pending || regenerating || deleting} onClick={() => approve()}
-              className="h-7 px-2 text-xs gap-1"
+              className="h-9 px-3 text-xs gap-1"
               style={{ background: "var(--brand-primary)", color: "white" }}>
               <Check className="w-3 h-3" />
               Freigeben

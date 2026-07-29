@@ -5,6 +5,13 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const supabase = await createClient();
+  // Einzige Route ohne Guard: unangemeldet kam bisher HTTP 200 mit leerer Liste
+  // zurück (RLS greift zwar, aber die Inbox wirkte dadurch leer statt gesperrt).
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
+
   const { searchParams } = new URL(req.url);
   const filter = searchParams.get("filter") ?? "all";
 
