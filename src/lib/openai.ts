@@ -764,10 +764,19 @@ export async function generateCaption(opts: {
       { role: "user", content: opts.prompt },
     ],
     temperature: 0.85,
-    max_tokens: 900,
+    // Eine Caption enthält bis zu 4 Plattform-Abschnitte mit Trennern. Bei 900
+    // Tokens brach der letzte Abschnitt (meist Facebook) mitten im Satz ab und
+    // ging so in die Freigabe. Deutsch ist token-intensiv — großzügig bemessen.
+    max_tokens: 1800,
   });
   await recordAiUsage({ operation: "caption", model: "gpt-4o-mini", usage: res.usage });
-  return res.choices?.[0]?.message?.content?.trim() ?? "";
+  const choice = res.choices?.[0];
+  // Trotzdem abgeschnitten? Dann lieber laut scheitern als einen halben Satz
+  // veröffentlichen — der Aufrufer versucht es erneut.
+  if (choice?.finish_reason === "length") {
+    throw new Error("Caption wurde abgeschnitten (Token-Limit) — bitte erneut erzeugen.");
+  }
+  return choice?.message?.content?.trim() ?? "";
 }
 
 export type PostReview = {

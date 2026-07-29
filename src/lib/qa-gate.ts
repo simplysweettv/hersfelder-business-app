@@ -75,9 +75,12 @@ IM BILD GERENDERTER TEXT: ${opts.renderedText || "(bewusst kein Text im Bild)"}
 CAPTION (gekürzt): ${opts.caption.slice(0, 600)}
 
 PRÜFE (jede Frage einzeln beantworten, bevor du urteilst):
-1. MOTIV-LOGIK: Zeigt das BILD exakt das Motiv, von dem der TEXT spricht? (Beispiel für DURCHFALLEN: Text sagt "diese beiden Westen", Bild zeigt Sakko + Weste. Text nennt eine Zahl von Personen/Objekten, Bild zeigt andere Zahl.)
+1. MOTIV-LOGIK: Zeigt das BILD exakt das Motiv, von dem der TEXT spricht? Es geht NUR um Aussagen ÜBER DAS GEZEIGTE. (DURCHFALLEN: Text sagt "diese beiden Westen", Bild zeigt Sakko + Weste. Text sagt "die drei hier", Bild zeigt fünf.)
+   KEIN Verstoß sind allgemeine Vereins-/Zahlenangaben, die gar nicht das Foto beschreiben — z. B. "20 Helfer stehen dahinter", "seit 1892", "Größen 23–70", "über 40 Vereine". Solche Zahlen MÜSSEN im Bild nicht abzählbar sein. Nur wenn der Text ausdrücklich auf das Bild zeigt ("hier seht ihr …", "diese beiden …"), muss es zusammenpassen.
 2. SPRACHE: Ist JEDER gerenderte Text und die Caption grammatikalisch korrekt, vollständig (kein abgebrochener Satz!), richtig geschrieben, Ansprache "ihr/euch" (nie "Sie")?
 3. COMPLIANCE: Keine Waffen im Bild, niemand zielt/schießt. Keine Goldlitzen/Epauletten/Fantasie-/Militär-Uniformen. Kein "maßgeschneidert/handgeschneidert/atmungsaktiv/klimaregulierend/Funktionsstoff". Kein Schieß-Bezug im Text ("Schuss", "Treffer", "zielen"). Keine nationalistisch klingenden Parolen.
+   WICHTIG — das hier ist das SORTIMENT und AUSDRÜCKLICH ERLAUBT, niemals als Verstoß werten: dunkelgrüne WESTEN, Jacken, Hosen, Fräcke, Polos, Hoodies, Softshelljacken, weiße Blusen/Hemden, Krawatten, schlichte matte Knöpfe. Menschen in Westen oder Uniformjacken sind der Normalfall und der Zweck dieser Marke. Ebenfalls erlaubt: "leichte Stoffqualität", "angenehmer Tragekomfort", "Größen 23–70", "faire Vereinspreise".
+   Ein Verstoß liegt NUR vor bei echter Fantasie-/Militär-Optik (Goldlitzen, Epauletten, Orden, Schärpen, Kordeln) — nicht bei schlichter Vereinskleidung.
 4. HANDWERK: Keine entstellten Gesichter/Hände, keine fremde lesbare Schrift/Etiketten im FOTO (das gerenderte Marken-Overlay ist ok), Text gut lesbar mit genug Kontrast, nichts Wichtiges abgeschnitten.
 
 Antworte NUR als JSON:

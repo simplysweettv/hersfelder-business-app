@@ -155,7 +155,17 @@ export async function generateCompliantCaption(opts: {
   bannedPhrases?: string[];
 }): Promise<string> {
   const banned = opts.bannedPhrases ?? BANNED_PHRASES;
-  const first = await generateCaption({ apiKey: opts.apiKey, prompt: opts.captionPrompt });
+  // Bei Abbruch am Token-Limit wirft generateCaption — dann einmal kürzer
+  // nachfordern, statt den ganzen Post scheitern zu lassen.
+  let first: string;
+  try {
+    first = await generateCaption({ apiKey: opts.apiKey, prompt: opts.captionPrompt });
+  } catch {
+    first = await generateCaption({
+      apiKey: opts.apiKey,
+      prompt: `${opts.captionPrompt}\n\nWICHTIG: Fasse dich deutlich kürzer. Jeder Plattform-Abschnitt maximal 4 Sätze. Jeder Abschnitt MUSS vollständig zu Ende geschrieben sein — niemals mitten im Satz abbrechen.`,
+    });
+  }
   const hit = findBannedPhrase(first, banned);
   if (!hit) return first;
   const retry = await generateCaption({
