@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, CalendarClock, Shuffle } from "lucide-react";
+import { Sparkles, CalendarClock, Shuffle, Layers } from "lucide-react";
 import {
   PLATFORM_COLOR,
   PLATFORM_LABEL,
@@ -89,6 +89,7 @@ export function GeneratorForm() {
   const [randomScheduledAt, setRandomScheduledAt] = useState("");
   const [lane, setLane] = useState<string>("auto");
   const [randomGenerating, setRandomGenerating] = useState(false);
+  const [filling, setFilling] = useState(false);
   const randomDateRef = useRef<HTMLInputElement>(null);
 
   // Manuell
@@ -110,6 +111,46 @@ export function GeneratorForm() {
     setPlatforms((prev) =>
       prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p],
     );
+  }
+
+  /**
+   * Füllt die nächsten freien Termine des Posting-Plans auf — dieselbe Engine,
+   * die auch der nächtliche Cron nutzt. Praktisch, wenn der Puffer leer ist und
+   * man nicht bis zum nächsten Morgen warten will.
+   */
+  async function fillBuffer() {
+    setFilling(true);
+    const t = toast.loading("Puffer wird aufgefüllt …", {
+      description: "Bis zu 3 Posts inkl. Bild und Qualitäts-TÜV — das dauert ein paar Minuten.",
+    });
+    try {
+      const res = await fetch("/api/posts/fill-buffer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ count: 3 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Auffüllen fehlgeschlagen");
+
+      if (data.created === 0 && data.openSlots === 0) {
+        toast.success("Puffer ist schon voll ✓", {
+          id: t,
+          description: "Für die nächsten Tage sind alle Termine des Posting-Plans belegt.",
+        });
+      } else {
+        toast.success(`${data.created} Post(s) erstellt ✓`, {
+          id: t,
+          description:
+            (data.errors?.length ? `${data.errors.length} Fehlschlag/Fehlschläge. ` : "") +
+            "Liegen in den Freigaben — prüfen & freigeben.",
+        });
+      }
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Unbekannter Fehler", { id: t });
+    } finally {
+      setFilling(false);
+    }
   }
 
   async function generateRandom() {
@@ -196,6 +237,32 @@ export function GeneratorForm() {
 
   return (
     <div className="max-w-xl space-y-6">
+      {/* ── Puffer auffüllen ─────────────────────────── */}
+      <div className="rounded-xl border border-border p-4 space-y-3">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+            <Layers className="w-5 h-5 text-muted-foreground" />
+          </div>
+          <div className="space-y-0.5">
+            <p className="font-medium">Puffer auffüllen</p>
+            <p className="text-sm text-muted-foreground">
+              Belegt die nächsten freien Termine aus deinem Posting-Plan — Thema,
+              Format und Termin wählt die KI selbst, genau wie nachts der
+              Automatik-Lauf. Nützlich, wenn die Freigaben leer sind.
+            </p>
+          </div>
+        </div>
+        <Button
+          onClick={fillBuffer}
+          disabled={busy || filling}
+          variant="outline"
+          className="w-full"
+        >
+          <Layers className={`w-4 h-4 mr-2 ${filling ? "animate-pulse" : ""}`} />
+          {filling ? "Erstellt Posts … (kann einige Minuten dauern)" : "Bis zu 3 Posts erstellen"}
+        </Button>
+      </div>
+
       {/* ── Zufalls-Post ─────────────────────────────── */}
       <div className="rounded-xl border border-dashed border-border p-4 space-y-4">
         <div className="flex items-start gap-3">
