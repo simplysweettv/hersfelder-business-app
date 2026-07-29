@@ -22,6 +22,13 @@ export type QaVerdict = {
   problems: string[];
   /** Wo liegt der Fehler? Steuert die Neu-Generierung. */
   failArea: "image" | "text" | "both" | null;
+  /**
+   * true = objektiver, unstrittiger Mangel (Compliance, kaputter Satz,
+   * entstellte Hände) → blockiert die Freigabe.
+   * false = Auslegungssache (Motiv-Interpretation) → nur Warnung. Der
+   * Motiv-Check urteilt zu oft zu streng, um allein zu blockieren.
+   */
+  hardFail: boolean;
 };
 
 export type SocialVerdict = {
@@ -75,8 +82,13 @@ IM BILD GERENDERTER TEXT: ${opts.renderedText || "(bewusst kein Text im Bild)"}
 CAPTION (gekürzt): ${opts.caption.slice(0, 600)}
 
 PRÜFE (jede Frage einzeln beantworten, bevor du urteilst):
-1. MOTIV-LOGIK: Zeigt das BILD exakt das Motiv, von dem der TEXT spricht? Es geht NUR um Aussagen ÜBER DAS GEZEIGTE. (DURCHFALLEN: Text sagt "diese beiden Westen", Bild zeigt Sakko + Weste. Text sagt "die drei hier", Bild zeigt fünf.)
-   KEIN Verstoß sind allgemeine Vereins-/Zahlenangaben, die gar nicht das Foto beschreiben — z. B. "20 Helfer stehen dahinter", "seit 1892", "Größen 23–70", "über 40 Vereine". Solche Zahlen MÜSSEN im Bild nicht abzählbar sein. Nur wenn der Text ausdrücklich auf das Bild zeigt ("hier seht ihr …", "diese beiden …"), muss es zusammenpassen.
+1. MOTIV-LOGIK — NUR harte, nachprüfbare Widersprüche. Es zählt ausschließlich, wenn der Text ZEIGEND auf konkrete abgebildete Dinge verweist und dabei nachweislich etwas anderes behauptet, als zu sehen ist.
+   DURCHFALLEN nur bei so etwas: "diese beiden Westen" → Bild zeigt Sakko + Weste. "Die drei hier" → Bild zeigt fünf. "Unsere neue rote Jacke" → Jacke ist grün.
+   AUSDRÜCKLICH KEIN VERSTOSS — hier NIEMALS meckern:
+   - Slogans, Werte, Gefühle, Haltungen: "Gemeinsam stark", "alle zusammen", "im Verein stark", "Tradition, die verbindet", "Das ist Verein." Solche Aussagen sind NICHT im Bild belegbar und müssen es auch nicht sein — das ist der Zweck einer Headline.
+   - Allgemeine Angaben, die das Foto gar nicht beschreiben: "20 Helfer stehen dahinter", "seit 1892", "Größen 23–70", "über 40 Vereine".
+   - Ein Bildausschnitt, der nur einen Teil einer Gruppe zeigt. Ein Foto zeigt IMMER einen Ausschnitt — das ist kein Widerspruch.
+   Im Zweifel: KEIN Verstoß. Melde hier nur, was ein Mensch als echten Fehler erkennen würde.
 2. SPRACHE: Ist JEDER gerenderte Text und die Caption grammatikalisch korrekt, vollständig (kein abgebrochener Satz!), richtig geschrieben, Ansprache "ihr/euch" (nie "Sie")?
 3. COMPLIANCE: Keine Waffen im Bild, niemand zielt/schießt. Keine Goldlitzen/Epauletten/Fantasie-/Militär-Uniformen. Kein "maßgeschneidert/handgeschneidert/atmungsaktiv/klimaregulierend/Funktionsstoff". Kein Schieß-Bezug im Text ("Schuss", "Treffer", "zielen"). Keine nationalistisch klingenden Parolen.
    WICHTIG — das hier ist das SORTIMENT und AUSDRÜCKLICH ERLAUBT, niemals als Verstoß werten: dunkelgrüne WESTEN, Jacken, Hosen, Fräcke, Polos, Hoodies, Softshelljacken, weiße Blusen/Hemden, Krawatten, schlichte matte Knöpfe. Menschen in Westen oder Uniformjacken sind der Normalfall und der Zweck dieser Marke. Ebenfalls erlaubt: "leichte Stoffqualität", "angenehmer Tragekomfort", "Größen 23–70", "faire Vereinspreise".
@@ -84,8 +96,10 @@ PRÜFE (jede Frage einzeln beantworten, bevor du urteilst):
 4. HANDWERK: Keine entstellten Gesichter/Hände, keine fremde lesbare Schrift/Etiketten im FOTO (das gerenderte Marken-Overlay ist ok), Text gut lesbar mit genug Kontrast, nichts Wichtiges abgeschnitten.
 
 Antworte NUR als JSON:
-{"ok": true/false, "problems": ["konkreter Mangel …"], "failArea": "image"|"text"|"both"|null}
-failArea: "image" wenn das Foto das Problem ist, "text" wenn Text/Caption, "both" bei beidem, null wenn ok.`;
+{"ok": true/false, "problems": ["konkreter Mangel …"], "failArea": "image"|"text"|"both"|null, "hardFail": true/false}
+failArea: "image" wenn das Foto das Problem ist, "text" wenn Text/Caption, "both" bei beidem, null wenn ok.
+hardFail: NUR true bei objektiven, unstrittigen Mängeln, die einen Post unveröffentlichbar machen — Waffen/Zielen, verbotene Claims, nationalistische Parolen, abgebrochener oder unvollständiger Satz, Rechtschreib-/Grammatikfehler, unleserlicher oder abgeschnittener Text, entstellte Gesichter/Hände, Fantasie-/Militäruniform.
+hardFail: false bei allem Geschmacks- oder Auslegungsabhängigen (Motiv-Interpretation, "wirkt beliebig", "passt nicht ganz").`;
 
   const socialPrompt = `Du bist der SOCIAL-MEDIA-AGENT von "Hersfelder Schützenbekleidung" — erfahrener Social-Media-Manager UND Mitglied der Zielgruppe (deutsche Schützenvereine). Du entscheidest, ob dieser Post gut genug ist, um ihn STOLZ zu posten.
 
@@ -138,6 +152,8 @@ Antworte NUR als JSON:
         : qaParsed.ok === true
           ? null
           : "both",
+    // Fehlt das Feld (altes Modellverhalten), NICHT hart blocken.
+    hardFail: qaParsed.ok === true ? false : qaParsed.hardFail === true,
   };
   const social: SocialVerdict = {
     wouldPost: socialParsed.wouldPost === true,
@@ -157,7 +173,13 @@ Antworte NUR als JSON:
     pass,
     qa,
     social,
-    score: qa.ok ? social.score : Math.min(social.score, 4),
+    // Nur objektive Mängel drücken die Note hart nach unten; eine strittige
+    // Motiv-Anmerkung soll einen guten Post nicht auf 4 stempeln.
+    score: qa.ok
+      ? social.score
+      : qa.hardFail
+        ? Math.min(social.score, 4)
+        : Math.min(social.score, 6),
     notes,
     // Social-Durchfall ohne QA-Fehler → kreatives Problem → kompletter Neuanlauf
     failArea: qa.failArea ?? (pass ? null : "both"),

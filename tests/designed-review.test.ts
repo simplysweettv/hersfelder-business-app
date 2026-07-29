@@ -6,7 +6,7 @@ import type { OverlayContent } from "@/lib/render-post";
 function gate(over: Partial<GateResult> = {}): GateResult {
   return {
     pass: true,
-    qa: { ok: true, problems: [], failArea: null },
+    qa: { ok: true, problems: [], failArea: null, hardFail: false },
     social: { wouldPost: true, score: 9, reasons: [] },
     score: 9,
     notes: [],
@@ -23,7 +23,7 @@ describe("qualityStatusFromGate", () => {
   it("QA findet einen echten Mangel → failed (blockiert die Freigabe)", () => {
     const g = gate({
       pass: false,
-      qa: { ok: false, problems: ["Bild zeigt drei Personen, Text spricht von zwei"], failArea: "image" },
+      qa: { ok: false, problems: ["Abgebrochener Satz in der Facebook-Caption"], failArea: "text", hardFail: true },
       score: 4,
     });
     expect(qualityStatusFromGate(g)).toBe("failed");
@@ -32,9 +32,25 @@ describe("qualityStatusFromGate", () => {
   it("nur der Kreativ-Agent ist unzufrieden → warning (postbar, aber schwach)", () => {
     const g = gate({
       pass: false,
-      qa: { ok: true, problems: [], failArea: null },
+      qa: { ok: true, problems: [], failArea: null, hardFail: false },
       social: { wouldPost: false, score: 5, reasons: ["Kein Scroll-Stopp"] },
       score: 5,
+    });
+    expect(qualityStatusFromGate(g)).toBe("warning");
+  });
+
+  it("strittige Motiv-Anmerkung blockiert NICHT — nur Warnung", () => {
+    // Der Motiv-Check urteilte in echten Läufen zu streng ("Slogan nicht im
+    // Bild belegt"). Ohne hardFail darf er die Freigabe nicht blockieren.
+    const g = gate({
+      pass: false,
+      qa: {
+        ok: false,
+        problems: ["Text sagt 'im Verein stark', im Bild nicht dargestellt"],
+        failArea: "image",
+        hardFail: false,
+      },
+      score: 6,
     });
     expect(qualityStatusFromGate(g)).toBe("warning");
   });

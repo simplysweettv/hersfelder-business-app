@@ -226,7 +226,12 @@ FACEBOOK_APP_ID=... FACEBOOK_APP_SECRET=...   # Meta-OAuth
 5. **Woche berechnen:** ISO-Wochen — Helfer in `src/lib/berlin-time.ts` (`isoWeek`, `isoWeekYear`); für Berlin-Zeit `berlinWallToUtc`/`berlinDayKey`
 6. **Next.js 14:** `viewport` als eigenen Export (`export const viewport: Viewport`), nicht in `metadata`
 7. **Publishing IMMER über `publishPost()`** (`src/lib/publishers/publish.ts`) — nie den Post-Status direkt umstellen. Freigabe (einzeln + Sammel) und Cron nutzen dieselbe Pipeline
-8. **Qualitäts-TÜV:** `reviewPost()` liefert `checked`; `qualityStatusFrom()` mappt auf `quality_status`. Freigabe-Regeln in `src/lib/quality.ts` (`approvalGate`) — Blocker verlangen `override:true`
+8. **Qualitäts-TÜV = Zwei-Agenten-Freigabe** (`src/lib/qa-gate.ts`, seit Juli 2026): `runQaGate()` prüft das **fertige Composite als Bild** — QA-Agent (Motiv-Abgleich Bild↔Text, Grammatik, Compliance, Render-Artefakte) und Social-Agent (Scroll-Stopper, Note 1–10, ab 7 frei). Nur wenn beide freigeben, gilt der Post als bestanden.
+   - Aufruf immer über `reviewDesignedPost()` (`src/lib/designed-review.ts`) — die sammelt gerenderten Text, Motiv und Säule aus dem Konzept ein. Alle Wege nutzen sie: Cron, Generator, Zufall, Regenerate.
+   - Mapping: QA-Fehler → `failed` (Freigabe-Blocker), nur kreative Schwäche → `warning`, beide frei → `passed`
+   - Der alte `reviewPost()` in `openai.ts` wird nicht mehr aufgerufen (nur noch Karussell/Legacy)
+   - **Achtung Laufzeit:** Bildgenerierung + zwei Vision-Calls brauchen ~75 s. Alle Generierungs-Routen stehen deshalb auf `maxDuration = 300` — bei 60 s gab es HTTP 504
+   - Freigabe-Regeln weiterhin in `src/lib/quality.ts` (`approvalGate`) — Blocker verlangen `override:true`
 
 ## Zuverlässigkeit & Betrieb (Juli 2026)
 

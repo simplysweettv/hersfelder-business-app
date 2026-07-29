@@ -57,9 +57,10 @@ export function renderedTextOfOverlay(overlay: OverlayContent): string {
 /** Gate-Ergebnis → Qualitäts-Status für die Freigabe-Regeln. */
 export function qualityStatusFromGate(gate: GateResult): QualityStatus {
   if (gate.pass) return "passed";
-  // QA-Fehler = echter Mangel (falsches Motiv, Grammatik, verbotener Claim).
-  if (!gate.qa.ok) return "failed";
-  // Nur der Kreativ-Agent war unzufrieden → postbar, aber schwach.
+  // Nur OBJEKTIVE Mängel blockieren die Freigabe: Compliance, kaputter Satz,
+  // entstellte Hände. Motiv-Auslegung und kreative Schwäche sind Warnungen —
+  // der Motiv-Check urteilt zu oft zu streng, um allein zu blockieren.
+  if (gate.qa.hardFail) return "failed";
   return "warning";
 }
 
