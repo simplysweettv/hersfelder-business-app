@@ -76,7 +76,7 @@ export default async function KalenderPage() {
 
       {/* Ampel-Legende + Zählung: der Blick, der alles beantwortet. */}
       {posts.length > 0 && (
-        <Card className="p-3 flex items-center gap-4 flex-wrap text-xs">
+        <Card className="p-3 flex flex-row items-center gap-4 flex-wrap text-xs">
           <LegendItem light="green" count={counts.green} text="veröffentlicht" />
           <LegendItem light="amber" count={counts.amber} text="läuft / wartet" />
           <LegendItem light="red" count={counts.red} text="nicht veröffentlicht" />

@@ -7,7 +7,10 @@ import { snapshotMetrics } from "@/lib/metrics-snapshot";
 import type { Post } from "@/types";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// Die Schleife läuft über mehrere Posts × Plattformen; pro Plattform gehen bis
+// zu drei Anfragen an Blotato. Bei 60s riss das mitten im Lauf ab (HTTP 504),
+// nachdem ein Teil bereits übergeben war.
+export const maxDuration = 300;
 // Cron MUSS bei jedem Aufruf frisch laufen (DB abfragen + posten) — niemals
 // statisch zur Build-Zeit prerendern/cachen, sonst tut der Cron live nichts.
 export const dynamic = "force-dynamic";

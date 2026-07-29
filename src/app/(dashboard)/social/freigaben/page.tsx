@@ -19,7 +19,7 @@ export default async function FreigabenPage() {
 
   return (
     <div className="flex-1 p-3 md:p-5 bg-background space-y-3 md:space-y-4">
-      <Card className="p-3 md:p-4 flex items-center gap-3 md:gap-4">
+      <Card className="p-3 md:p-4 flex flex-row items-center gap-3 md:gap-4">
         <div
           className="w-10 h-10 md:w-11 md:h-11 rounded-lg flex items-center justify-center text-white shrink-0"
           style={{ background: "var(--brand-primary)" }}

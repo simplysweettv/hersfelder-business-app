@@ -6,7 +6,10 @@ import { approvalGate } from "@/lib/quality";
 import type { Post } from "@/types";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// Die Schleife läuft über mehrere Posts × Plattformen; pro Plattform gehen bis
+// zu drei Anfragen an Blotato. Bei 60s riss das mitten im Lauf ab (HTTP 504),
+// nachdem ein Teil bereits übergeben war.
+export const maxDuration = 300;
 
 /**
  * Sammelfreigabe — nutzt EXAKT dieselbe Publishing-Pipeline wie die
@@ -66,11 +69,13 @@ export async function POST() {
       .update({ approved_at: new Date().toISOString() })
       .eq("id", post.id);
 
-    approved++;
     platformsTotal += result.perPlatform.length;
     platformsOk += result.perPlatform.filter((p) => p.ok).length;
 
     if (result.ok) {
+      // Nur zählen, was wirklich durchging — sonst meldet die Zusammenfassung
+      // mehr Freigaben, als tatsächlich beim Anbieter angekommen sind.
+      approved++;
       scheduledCount++;
     } else {
       const firstErr =

@@ -94,7 +94,7 @@ export default async function DashboardPage() {
       {pendingCount > 0 ? (
         <Link href="/social/freigaben" className="block">
           <Card
-            className="p-4 md:p-5 flex items-center gap-4 transition-shadow hover:shadow-md border-l-4"
+            className="p-4 md:p-5 flex flex-row items-center gap-4 transition-shadow hover:shadow-md border-l-4"
             style={{ borderLeftColor: "var(--brand-primary)" }}
           >
             <div
@@ -116,7 +116,7 @@ export default async function DashboardPage() {
           </Card>
         </Link>
       ) : (
-        <Card className="p-4 md:p-5 flex items-center gap-4">
+        <Card className="p-4 md:p-5 flex flex-row items-center gap-4">
           <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-emerald-100 text-emerald-700 shrink-0">
             <CheckCircle2 className="w-6 h-6" />
           </div>

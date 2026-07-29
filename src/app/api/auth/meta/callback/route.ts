@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
@@ -8,6 +9,17 @@ export async function GET(request: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://hersfelder-business-app.vercel.app";
   const appId = process.env.FACEBOOK_APP_ID!;
   const appSecret = process.env.FACEBOOK_APP_SECRET!;
+
+  // Auch der Callback braucht die Anmeldung: Der state-Cookie schützt nur gegen
+  // CSRF, nicht davor, dass ein Fremder den ganzen Ablauf selbst durchläuft und
+  // damit die gespeicherte Meta-Verbindung überschreibt.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.redirect(`${appUrl}/login?next=/einstellungen`);
+  }
 
   const { searchParams } = request.nextUrl;
   const code = searchParams.get("code");

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { randomBytes } from "crypto";
+import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
@@ -11,6 +12,19 @@ export async function GET() {
   if (!appId) {
     return NextResponse.json({ error: "FACEBOOK_APP_ID nicht konfiguriert" }, { status: 500 });
   }
+
+  // Nur angemeldete Nutzer dürfen die Meta-Verbindung anstoßen. Ohne diese
+  // Prüfung könnte ein Fremder die öffentlich erreichbare URL aufrufen, den
+  // Dialog mit SEINEM Facebook-Konto bestätigen und damit Token, Page-ID und
+  // Instagram-ID in den Einstellungen überschreiben.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.redirect(`${appUrl}/login?next=/einstellungen`);
+  }
+
 
   // CSRF-Schutz: zufälliger state, in einem httpOnly-Cookie gespiegelt und im
   // Callback verglichen. Ersetzt den vorherigen konstanten state.
