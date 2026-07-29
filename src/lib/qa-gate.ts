@@ -79,7 +79,8 @@ export async function runQaGate(opts: {
 POST-TYP: ${opts.kind} (Säule: ${opts.lane})
 GEPLANTES MOTIV (Bild und Text müssen GENAU dazu passen): ${opts.motif}
 IM BILD GERENDERTER TEXT: ${opts.renderedText || "(bewusst kein Text im Bild)"}
-CAPTION (gekürzt): ${opts.caption.slice(0, 600)}
+CAPTION (vollständig, so wie sie veröffentlicht wird):
+${opts.caption}
 
 PRÜFE (jede Frage einzeln beantworten, bevor du urteilst):
 1. MOTIV-LOGIK — NUR harte, nachprüfbare Widersprüche. Es zählt ausschließlich, wenn der Text ZEIGEND auf konkrete abgebildete Dinge verweist und dabei nachweislich etwas anderes behauptet, als zu sehen ist.
@@ -105,7 +106,8 @@ hardFail: false bei allem Geschmacks- oder Auslegungsabhängigen (Motiv-Interpre
 
 POST-TYP: ${opts.kind} (Säule: ${opts.lane})
 IM BILD GERENDERTER TEXT: ${opts.renderedText || "(bewusst kein Text — reines Foto)"}
-CAPTION (gekürzt): ${opts.caption.slice(0, 400)}
+CAPTION (vollständig):
+${opts.caption}
 
 BEWERTE STRENG (Note 1-10):
 - SCROLL-STOPP: Bleibt man beim Scrollen hängen? Wirkt es wie ein hochwertiges Poster/Plakat — oder wie generische KI-Werbung?
@@ -173,13 +175,10 @@ Antworte NUR als JSON:
     pass,
     qa,
     social,
-    // Nur objektive Mängel drücken die Note hart nach unten; eine strittige
-    // Motiv-Anmerkung soll einen guten Post nicht auf 4 stempeln.
-    score: qa.ok
-      ? social.score
-      : qa.hardFail
-        ? Math.min(social.score, 4)
-        : Math.min(social.score, 6),
+    // Die Note kommt vom Kreativ-Agenten. Nur ein objektiver Mangel drückt sie
+    // hart nach unten; eine strittige Motiv-Anmerkung erscheint als Notiz,
+    // stempelt den Post aber nicht ab.
+    score: qa.hardFail ? Math.min(social.score, 4) : social.score,
     notes,
     // Social-Durchfall ohne QA-Fehler → kreatives Problem → kompletter Neuanlauf
     failArea: qa.failArea ?? (pass ? null : "both"),
