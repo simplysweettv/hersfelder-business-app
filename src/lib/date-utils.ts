@@ -29,17 +29,47 @@ export function weekDayLabels(days: Date[]) {
   }));
 }
 
-export function formatDateTime(value: string | Date) {
+/**
+ * Alle Anzeige-Zeiten IMMER in deutscher Zeit — unabhängig davon, wo der Code
+ * läuft. date-fns `format` nimmt die Zeitzone der Laufzeit: Server-Komponenten
+ * rendern auf Vercel in UTC, Client-Komponenten im Browser in Berlin. Dadurch
+ * zeigte der Leitstand 17:00, wo der Kalender für denselben Post 19:00 zeigte.
+ * Intl mit fester timeZone liefert überall dasselbe Ergebnis.
+ */
+const BERLIN = "Europe/Berlin";
+
+function berlinParts(value: string | Date) {
   const d = typeof value === "string" ? parseISO(value) : value;
-  return format(d, "dd.MM.yyyy · HH:mm 'Uhr'", { locale: de });
+  const p = new Intl.DateTimeFormat("de-DE", {
+    timeZone: BERLIN,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(d);
+  const get = (t: string) => p.find((x) => x.type === t)?.value ?? "";
+  return {
+    day: get("day"),
+    month: get("month"),
+    year: get("year"),
+    hour: get("hour"),
+    minute: get("minute"),
+  };
+}
+
+export function formatDateTime(value: string | Date) {
+  const b = berlinParts(value);
+  return `${b.day}.${b.month}.${b.year} · ${b.hour}:${b.minute} Uhr`;
 }
 
 export function formatTime(value: string | Date) {
-  const d = typeof value === "string" ? parseISO(value) : value;
-  return format(d, "HH:mm", { locale: de });
+  const b = berlinParts(value);
+  return `${b.hour}:${b.minute}`;
 }
 
 export function formatDate(value: string | Date) {
-  const d = typeof value === "string" ? parseISO(value) : value;
-  return format(d, "dd.MM.yyyy", { locale: de });
+  const b = berlinParts(value);
+  return `${b.day}.${b.month}.${b.year}`;
 }
