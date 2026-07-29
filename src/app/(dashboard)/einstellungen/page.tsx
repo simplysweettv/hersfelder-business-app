@@ -73,7 +73,7 @@ export default function EinstellungenPage() {
               <h2 className="font-medium">Facebook & Instagram</h2>
             </div>
             <p className="text-sm text-muted-foreground mb-3">
-              Verbinde deine Facebook-Seite und dein Instagram-Business-Profil für automatisches Posten.
+              Wird für die Kommentar-Inbox und die Facebook-/Instagram-Statistiken gebraucht. Das Veröffentlichen selbst läuft über Blotato und funktioniert unabhängig davon.
             </p>
 
             {loading ? (
@@ -109,7 +109,7 @@ export default function EinstellungenPage() {
             ) : (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <AlertCircle className="w-4 h-4 text-amber-500" />
-                Noch nicht verbunden — Posts werden nicht automatisch veröffentlicht.
+                Noch nicht verbunden — Kommentare und Meta-Statistiken bleiben leer. Das Veröffentlichen ist davon NICHT betroffen.
               </div>
             )}
           </div>
@@ -143,7 +143,7 @@ export default function EinstellungenPage() {
       {/* Hinweis */}
       {!isConnected && !loading && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          <strong>Hinweis:</strong> Ohne Verbindung werden generierte Posts gespeichert und können freigegeben werden, aber nicht automatisch veröffentlicht. Du kannst sie später manuell posten.
+          <strong>Hinweis:</strong> Das Veröffentlichen läuft über Blotato und ist unabhängig von dieser Verbindung. Fehlt sie, bleiben nur die Kommentar-Inbox und die Meta-Statistiken leer.
         </div>
       )}
     </div>
