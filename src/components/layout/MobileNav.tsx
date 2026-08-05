@@ -12,6 +12,7 @@ import {
   MessageCircle,
   Wallet,
   Sparkles,
+  Images,
   Settings,
   MoreHorizontal,
   LogOut,
@@ -31,6 +32,7 @@ const MORE_ITEMS = [
   { label: "Analytics", href: "/social/analytics", icon: BarChart3 },
   { label: "Kosten", href: "/kosten", icon: Wallet },
   { label: "Generator", href: "/social/generator", icon: Sparkles },
+  { label: "Bilder", href: "/social/bilder", icon: Images },
   { label: "Einstellungen", href: "/einstellungen", icon: Settings },
 ];
 

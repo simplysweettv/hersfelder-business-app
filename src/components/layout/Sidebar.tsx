@@ -16,6 +16,7 @@ import {
   Sparkles,
   MessageCircle,
   Wallet,
+  Images,
 } from "lucide-react";
 
 type NavItem = {
@@ -38,6 +39,7 @@ const TOP_ITEMS: NavItem[] = [
       { label: "Kalender", href: "/social/kalender", icon: Calendar },
       { label: "Analytics", href: "/social/analytics", icon: BarChart3 },
       { label: "Generator", href: "/social/generator", icon: Sparkles },
+      { label: "Bilder", href: "/social/bilder", icon: Images },
     ],
   },
   { label: "Kosten", href: "/kosten", icon: Wallet },

@@ -1,6 +1,7 @@
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
 import { CONTENT_PILLARS, type PillarKey } from "@/types";
 import { recordAiUsage } from "./ai-cost";
+import { SIZE_BRIEFING } from "./sizes";
 
 /**
  * Server-seitige Säulen-Steuerung: pro Säule passende Post-Stile, Themen,
@@ -64,7 +65,7 @@ const PILLAR_GUIDANCE: Record<
     ],
     cta: "hard",
     briefHint:
-      "Lade Vereine herzlich ein, sich für eine Ausstattung zu melden — warm und konkret (z.B. persönliche Beratung, Muster anfordern, Größen 23–70 alle zum gleichen Preis, jederzeit nachbestellbar). Einladend, nicht aufdringlich.",
+      "Lade Vereine herzlich ein, sich für eine Ausstattung zu melden — warm und konkret (z.B. persönliche Beratung, Muster anfordern, Normal- und Kurzgrößen zum gleichen Preis, jederzeit nachbestellbar). Einladend, nicht aufdringlich.",
   },
 };
 
@@ -155,7 +156,7 @@ POSITIONIERUNG:
 - Wir sind KEINE Maßschneiderei, KEIN individueller Uniformschneider. Wir fertigen KEINE Einzelstücke und bieten KEINE Maßkonfektion an.
 - Schwerpunkt: ein hochwertiges STANDARDSORTIMENT für Schützenvereine und Spielmannszüge.
 - Sortiment: Schützenjacken, Westen, Hosen, Fräcke, Poloshirts, T-Shirts, Softshelljacken, Hoodies — festes Design, jederzeit nachbestellbar.
-- GRÖSSEN-USP: Größe 23 bis 70 — alle Größen zum GLEICHEN Preis, keine Größenaufschläge. Das ist ein Alleinstellungsmerkmal, kein Nebensatz.
+- GRÖSSEN-USP: ein außergewöhnlich breites Größenspektrum — alle Größen zum GLEICHEN Preis, keine Größenaufschläge. Das ist ein Alleinstellungsmerkmal, kein Nebensatz. Die genauen Zahlen stehen unten im Größen-Block und sind bindend.
 - Individualisierung nur in 2 Bereichen: (1) VEREINSBEKLEIDUNG — Vereinslogo/-name per standardisiertem Druck/Stick auf Polos, T-Shirts, Hoodies, Softshelljacken; (2) VEREINSPROJEKTE — eigene Vereinsuniformen (Stofffarbe, Stoffgewicht, Stoffentwicklung, Vereinsfarben, Details) NUR bei größeren Vereinen ab produktionsfähigen Stückzahlen, projektbezogen und individuell kalkuliert. Keine Einzelanfertigungen, keine kleinen Stückzahlen.
 - Wir stehen für: faire Preise, dauerhaft verfügbare Produkte, hohe Lieferfähigkeit, große Größenauswahl, unkomplizierte Bestellung, moderne Vereinsausstattung.
 
@@ -167,6 +168,9 @@ NIEMALS BEHAUPTEN (in keinem Text, keiner Caption, keiner Botschaft):
 - "maßgeschneidert", "individuell gefertigt", "Maßkonfektion", "handgeschneidert", "exklusiv für dich gefertigt", "Schneiderhandwerk", "Einzelanfertigung", "Couture"
 - Keine technischen Aussagen ohne Nachweis: "klimaregulierend", "kühlend", "atmungsaktiv", "temperaturregulierend", "Hightech-Faser", "Funktionsstoff"
 - Keine Luxus-, Designer- oder Maßanzug-Positionierung. Wir verkaufen keine Luxusuniformen und keine Designerprodukte.
+- KEINE Kinder- oder Jugendgrößen, keine Kinderuniformen, keine Ausstattung „für die Kleinsten". Wir statten Erwachsene aus.
+
+${SIZE_BRIEFING}
 
 BILDSPRACHE (verbindlich für jedes Bild):
 - Ausschließlich Uniformen, die dem echten Standardsortiment entsprechen — realistisch, schlicht-elegant, jederzeit bestellbar wirkend, möglichst eng an den Produkten des Webshops.
@@ -214,7 +218,8 @@ const PHOTO_SCENES = [
   // Generationen & Emotion
   "Großvater und Enkel, beide in Uniform, stehen Schulter an Schulter — stolze Blicke in die Kamera, Heimgefühl pur",
   "Siegerehrung: Junge Schützin bekommt ihre erste Medaille, die ganze Gruppe applaudiert mit Tränen vor Stolz",
-  "Kleines Mädchen im Schützenkostüm tanzt mit Opa auf der Wiese, Publikum schaut begeistert zu",
+  // Kein Kind in Uniform: Wir statten Erwachsene aus, Kinderuniformen gibt es nicht.
+  "Junge Frau in Uniform tanzt ausgelassen mit ihrem Opa auf der Wiese, Publikum schaut begeistert zu",
   "Zwei Schützen, ein älterer Herr und eine Jugendliche, stehen nebeneinander und schauen stolz auf ihr Abzeichen",
   // Vorsaison & Vorbereitung (Frühling)
   "Vereinsmitglieder holen im Frühjahr ihre Uniformen aus dem Schrank — erste Anprobe, lächelnde Gesichter, Aufbruchstimmung",
@@ -754,6 +759,51 @@ export async function generateImage(opts: {
   };
 }
 
+/**
+ * Bild MIT echten Referenzfotos erzeugen (gpt-image-1 `images.edit`).
+ *
+ * Anders als der Name der API vermuten lässt, wird hier nichts retuschiert:
+ * Die mitgegebenen Fotos dienen als visuelle Vorlage, aus der das Modell eine
+ * NEUE Szene im selben Look baut. Genau dafür laden Andreas und sein Kollege
+ * echte Vereinsbilder hoch — die KI-Fotos sollen nach echten Schützenvereinen
+ * aussehen und nicht nach Stockfotografie.
+ *
+ * Wichtig: `images.edit` kennt kein `output_compression`; das Ergebnis kommt
+ * als JPEG und wird ohnehin von `renderPoster` neu gerendert.
+ */
+export async function generateImageWithReferences(opts: {
+  apiKey?: string;
+  prompt: string;
+  size?: "1024x1024" | "1024x1536" | "1536x1024";
+  references: Buffer[];
+}) {
+  const client = getOpenAIClient(opts.apiKey);
+  if (!opts.references.length) throw new Error("generateImageWithReferences: keine Referenzbilder.");
+  // Höchstens 3 Vorlagen — mehr kostet spürbar und verwässert die Regie.
+  const files = await Promise.all(
+    opts.references
+      .slice(0, 3)
+      .map((buf, i) => toFile(buf, `referenz-${i + 1}.jpg`, { type: "image/jpeg" })),
+  );
+  const res = await client.images.edit({
+    model: "gpt-image-1",
+    image: files,
+    prompt: opts.prompt,
+    size: opts.size ?? "1024x1536",
+    n: 1,
+    output_format: "jpeg",
+  });
+  const item = res.data?.[0];
+  if (!item) throw new Error("Kein Bild von OpenAI erhalten.");
+  await recordAiUsage({
+    operation: "image",
+    model: "gpt-image-1",
+    usage: (res as { usage?: unknown }).usage,
+    imageCount: 1,
+  });
+  return { b64: item.b64_json ?? null, url: item.url ?? null };
+}
+
 export async function generateCaption(opts: {
   apiKey?: string;
   prompt: string;
@@ -827,7 +877,8 @@ TEXT (Caption):
 - Markenstimmung: warmherzig, authentisch, gemeinschaftlich?
 - KLINGT NICHT wie nationalistische/rechtsextreme Parole (verboten: "In Einheit stark", "Für Heimat und Volk", militärische Slogans)?
 - KEINE verbotenen Marken-Claims: "maßgeschneidert", "handgeschneidert", "Maßkonfektion", "Einzelanfertigung", "Schneiderhandwerk", "exklusiv gefertigt", "Couture" (Hersfelder ist Standardsortiment-Marke, KEINE Maßschneiderei) — und keine unbelegten Technik-Claims ("atmungsaktiv", "klimaregulierend", "Funktionsstoff")?
-- WICHTIG — diese sind ERLAUBT und KEIN Verstoß: Produktnamen aus dem Sortiment (Jacke, Weste, Hose, FRACK/Fräcke, Polo, Hoodie, Softshelljacke), "leichte Stoffqualität", "angenehmer Tragekomfort", Größen 23–70, "faire Vereinspreise". Diese NIEMALS als verbotenen Claim werten.
+- WICHTIG — diese sind ERLAUBT und KEIN Verstoß: Produktnamen aus dem Sortiment (Jacke, Weste, Hose, FRACK/Fräcke, Polo, Hoodie, Softshelljacke), "leichte Stoffqualität", "angenehmer Tragekomfort", "Normalgrößen 46–70", "Kurzgrößen 23–34", "Damengrößen 30–60", "faire Vereinspreise". Diese NIEMALS als verbotenen Claim werten.
+- SEHR WOHL ein Verstoß: eine durchgehende Größenspanne über beide Systeme („Größen 23 bis 70") sowie jede Kinder- oder Jugendgröße.
 - KEIN Bezug zum Schießen/Zielen/Waffen im Text ("Schuss", "Treffer", "schießen", "zielen", "Gewehr")?
 - Sinnvolle Länge, passende Hashtags, kein Kauderwelsch?
 - Stil "${opts.styleType}"${opts.pillarLabel ? `, Content-Säule "${opts.pillarLabel}"` : ""} passend umgesetzt?

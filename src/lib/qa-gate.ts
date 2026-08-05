@@ -87,12 +87,13 @@ PRÜFE (jede Frage einzeln beantworten, bevor du urteilst):
    DURCHFALLEN nur bei so etwas: "diese beiden Westen" → Bild zeigt Sakko + Weste. "Die drei hier" → Bild zeigt fünf. "Unsere neue rote Jacke" → Jacke ist grün.
    AUSDRÜCKLICH KEIN VERSTOSS — hier NIEMALS meckern:
    - Slogans, Werte, Gefühle, Haltungen: "Gemeinsam stark", "alle zusammen", "im Verein stark", "Tradition, die verbindet", "Das ist Verein." Solche Aussagen sind NICHT im Bild belegbar und müssen es auch nicht sein — das ist der Zweck einer Headline.
-   - Allgemeine Angaben, die das Foto gar nicht beschreiben: "20 Helfer stehen dahinter", "seit 1892", "Größen 23–70", "über 40 Vereine".
+   - Allgemeine Angaben, die das Foto gar nicht beschreiben: "20 Helfer stehen dahinter", "seit 1892", "Normal- und Kurzgrößen", "über 40 Vereine".
    - Ein Bildausschnitt, der nur einen Teil einer Gruppe zeigt. Ein Foto zeigt IMMER einen Ausschnitt — das ist kein Widerspruch.
    Im Zweifel: KEIN Verstoß. Melde hier nur, was ein Mensch als echten Fehler erkennen würde.
 2. SPRACHE: Ist JEDER gerenderte Text und die Caption grammatikalisch korrekt, vollständig (kein abgebrochener Satz!), richtig geschrieben, Ansprache "ihr/euch" (nie "Sie")?
 3. COMPLIANCE: Keine Waffen im Bild, niemand zielt/schießt. Keine Goldlitzen/Epauletten/Fantasie-/Militär-Uniformen. Kein "maßgeschneidert/handgeschneidert/atmungsaktiv/klimaregulierend/Funktionsstoff". Kein Schieß-Bezug im Text ("Schuss", "Treffer", "zielen"). Keine nationalistisch klingenden Parolen.
-   WICHTIG — das hier ist das SORTIMENT und AUSDRÜCKLICH ERLAUBT, niemals als Verstoß werten: dunkelgrüne WESTEN, Jacken, Hosen, Fräcke, Polos, Hoodies, Softshelljacken, weiße Blusen/Hemden, Krawatten, schlichte matte Knöpfe. Menschen in Westen oder Uniformjacken sind der Normalfall und der Zweck dieser Marke. Ebenfalls erlaubt: "leichte Stoffqualität", "angenehmer Tragekomfort", "Größen 23–70", "faire Vereinspreise".
+   WICHTIG — das hier ist das SORTIMENT und AUSDRÜCKLICH ERLAUBT, niemals als Verstoß werten: dunkelgrüne WESTEN, Jacken, Hosen, Fräcke, Polos, Hoodies, Softshelljacken, weiße Blusen/Hemden, Krawatten, schlichte matte Knöpfe. Menschen in Westen oder Uniformjacken sind der Normalfall und der Zweck dieser Marke. Ebenfalls erlaubt: "leichte Stoffqualität", "angenehmer Tragekomfort", "Normalgrößen 46–70", "Kurzgrößen 23–34", "Damengrößen 30–60", "faire Vereinspreise".
+   GRÖSSEN — hier IMMER hardFail melden: eine durchgehende Spanne über beide Größensysteme ("Größen 23 bis 70", "23–70") ODER jede Kinder-/Jugendgröße, Kinderuniform oder Ausstattung "für die Kleinsten". Normalgrößen (46–70, Hosen 44–70) und Kurzgrößen (23–34) sind getrennte Systeme; dazwischen gibt es nichts. Kindergrößen existieren nicht. Auch im BILD darf kein Kind in Uniform zu sehen sein.
    Ein Verstoß liegt NUR vor bei echter Fantasie-/Militär-Optik (Goldlitzen, Epauletten, Orden, Schärpen, Kordeln) — nicht bei schlichter Vereinskleidung.
 4. HANDWERK: Keine entstellten Gesichter/Hände, keine fremde lesbare Schrift/Etiketten im FOTO (das gerenderte Marken-Overlay ist ok), Text gut lesbar mit genug Kontrast, nichts Wichtiges abgeschnitten.
 

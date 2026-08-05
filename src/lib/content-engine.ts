@@ -6,6 +6,13 @@ import {
   conceptHookText,
   generateCompliantCaption,
 } from "./designed-post";
+import { PHOTO_SAFE_LAYOUTS } from "./designed-post";
+import {
+  markMediaUsed,
+  parseMediaUsageMode,
+  planPhotoSource,
+  resolvePhotoInput,
+} from "./media-library";
 import { pickConceptFormat, pickLane, BANNED_PHRASES, type Lane } from "./concepts";
 import { computeContentPerformance } from "./learning";
 import { getWeatherForPublishDay } from "./topical";
@@ -155,6 +162,15 @@ export async function fillContentBuffer(opts: {
       // generateDesignedConcept anhand von `weatherReactive`.
       const topical = await getWeatherForPublishDay(slot.when, now);
 
+      // Bildbibliothek: echtes Foto direkt verwenden oder als Referenz an die
+      // Bild-KI geben (Einstellung `media_usage_mode`). Ist die Bibliothek leer,
+      // fällt alles automatisch auf die reine KI-Erzeugung zurück.
+      const mediaPlan = await planPhotoSource(supabase, {
+        lane,
+        mode: parseMediaUsageMode(settings["media_usage_mode"]),
+      });
+      const photo = await resolvePhotoInput(mediaPlan);
+
       const makePost = async () => {
         // 1) Konzept: Idee + Plakat-Text + Foto-Szene nach Format-Formel
         const concept = await generateDesignedConcept({
@@ -165,6 +181,11 @@ export async function fillContentBuffer(opts: {
           avoid,
           avoidLayouts: recentLayouts,
           month,
+          // Steht das Foto schon fest, muss die Idee zum Motiv passen — und das
+          // Layout braucht eine deckende Textfläche.
+          ...(photo.mode === "library"
+            ? { fixedPhoto: photo.description, allowedLayouts: PHOTO_SAFE_LAYOUTS }
+            : {}),
         });
         const captionPrompt = buildCaptionPrompt({
           theme: concept.theme,
@@ -177,7 +198,12 @@ export async function fillContentBuffer(opts: {
         });
         // 2) Foto ohne Text + Marken-Overlay (parallel zur Caption)
         const [rendered, caption] = await Promise.all([
-          createDesignedPostImage({ apiKey, concept, brandStyle: settings["brand_style_prompt"] }),
+          createDesignedPostImage({
+            apiKey,
+            concept,
+            brandStyle: settings["brand_style_prompt"],
+            photo,
+          }),
           generateCompliantCaption({ apiKey, captionPrompt, bannedPhrases: BANNED_PHRASES }),
         ]);
         let imageUrl: string | null = null;
@@ -191,7 +217,14 @@ export async function fillContentBuffer(opts: {
         // Zwei-Agenten-Freigabe auf dem FERTIGEN Composite (prüft auch, ob
         // Bild und Text dasselbe Motiv meinen).
         const review = await reviewDesignedPost({ apiKey, jpeg: rendered.jpeg, concept, caption });
-        return { concept, photoPrompt: rendered.photoPrompt, caption, imageUrl, review };
+        return {
+          concept,
+          photoPrompt: rendered.photoPrompt,
+          photoSource: rendered.photoSource,
+          caption,
+          imageUrl,
+          review,
+        };
       };
 
       // Generieren + Freigabe; wenn ein Agent blockt, EINMAL komplett neu.
@@ -201,7 +234,7 @@ export async function fillContentBuffer(opts: {
         if (retry.review.score >= result.review.score) result = retry;
       }
 
-      const { concept, photoPrompt, caption, imageUrl, review } = result;
+      const { concept, photoPrompt, photoSource, caption, imageUrl, review } = result;
       avoid.unshift(concept.theme, concept.message);
       recentFormats.unshift(format.code);
       recentLayouts.unshift(concept.posterCode);
@@ -248,7 +281,11 @@ export async function fillContentBuffer(opts: {
         lane,
         format_code: format.code,
         template: concept.posterCode,
+        photo_source: photoSource,
+        media_asset_ids: mediaPlan.assets.length ? mediaPlan.assets.map((a) => a.id) : null,
       });
+      // Rotation der Bibliothek: erst jetzt, wenn der Post wirklich steht.
+      if (photoSource !== "ai") await markMediaUsed(supabase, mediaPlan.assets);
       if (briefErr) {
         // Ohne Briefing fehlt die Grundlage für Format- und Layout-Rotation
         // sowie die selbstlernende Auswahl — das darf nicht stillschweigend

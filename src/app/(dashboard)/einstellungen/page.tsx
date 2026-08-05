@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import CostSettingsCard from "@/components/settings/CostSettingsCard";
 import PostingPlanCard from "@/components/settings/PostingPlanCard";
+import MediaUsageCard from "@/components/settings/MediaUsageCard";
 
 interface MetaStatus {
   page_name: string | null;
@@ -133,6 +134,11 @@ export default function EinstellungenPage() {
       {/* Posting-Plan (Frequenz) */}
       <div className="mb-4">
         <PostingPlanCard />
+      </div>
+
+      {/* Eigene Bilder */}
+      <div className="mb-4">
+        <MediaUsageCard />
       </div>
 
       {/* Kosten & Abrechnung */}

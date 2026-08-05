@@ -193,13 +193,60 @@ Drei tägliche Vercel-Crons (`vercel.json`), alle **fail-closed** abgesichert (`
 
 **Wetter-Aufhänger nur wo er hingehört:** `weatherReactive: true` steht nur an P2/E3/E9. Vorher bekam JEDES Format den aktuellen Wetter-Hook — so entstand „Bei 35 Grad bewegt ihr euch trotzdem mit." auf einem Post über Spielmannszug-Ausstattung. Die Bremse sitzt in `generateDesignedConcept`, damit Cron, Generator und Zufall sie gemeinsam erben.
 
-### Karussell — entfernt (Juli 2026)
-Der Karussell-Pfad (`/api/posts/generate-carousel`, `src/lib/carousel.tsx`, Cover+Slides+Outro) ist raus. Die Slides waren Typografie auf grünem Verlauf — genau der Look, den v3 abschafft — und er war eine dritte Render-Engine neben Poster und Reel. Der Generator bietet nur noch Einzelposts an.
+### Karussell (neu aufgebaut, August 2026)
+Das alte Karussell (`src/lib/carousel.tsx`) war raus, weil seine Slides Typografie auf grünem Verlauf waren — genau der Look, den v3 abschafft — und weil es eine dritte Render-Engine neben Poster und Reel war. Der neue Pfad vermeidet beides:
+
+- **Slide 1 = Cover = ein vollwertiger designter Post.** Gerendert von der Poster-Engine (`renderPoster`) mit echtem Foto, starker Aussage und Wisch-Pille (`swipeHint`). Es bleibt bei **einer** Feed-Engine. Nur die drei Statement-Layouts sind als Cover erlaubt (`CAROUSEL_COVER_LAYOUTS`) — Benefit-Leiste und CTA gehören ans Ende, nicht auf Slide 1.
+- **Slides 2…n = `src/lib/render-carousel.tsx`** (`punkt` + `abschluss`): helle Marken-Fläche, Ordnungszahl, Serifen-Headline, ruhiger Fließtext; die letzte Slide schließt mit Fazit, grünem CTA-Feld und Beweis-Trio. Grün bleibt Akzent, nie Flächen-Hintergrund. Diese Slides sieht man erst NACH dem Wischen — sie brauchen kein Scroll-Stopper-Foto, sondern Lesbarkeit und Rhythmus.
+- **`src/lib/carousel-post.ts`** — Story-KI (`generateCarouselStory`, faltet die Cover-Aussage in 3–5 Inhalts-Slides auf, kein neues Thema), deterministischer Slide-Bau (`buildCarouselSlides`, testbar) und Rendering (`createCarouselImages`). CTA und Beweis-Trio kommen fest aus dem Konzept-Format — dieselbe Arbeitsteilung KI ↔ Marke wie beim Plakat.
+- **Route:** `POST /api/posts/generate-carousel` (`maxDuration = 300`) — Rotation wie beim Zufalls-Post, `image_url` = Cover, `image_urls` = alle Slides (so erwarten es Freigaben-UI und `mediaUrls` in Blotato). Qualitäts-TÜV läuft auf dem Cover; der Text der Folge-Slides geht als Kontext mit in die Prüfung. `post_briefs.style_type = "carousel"`.
+- **UI:** eigener Block „Karussell" im Generator (Säule, Anzahl Inhalts-Slides, Termin, Plattformen).
+- **Dev-Vorschau:** `GET /api/dev/carousel-preview?slide=punkt|abschluss`, Cover über `GET /api/dev/poster-preview?layout=karte-unten&swipe=1` (nur lokal).
+- Offen: Karussell-Cover nutzt immer ein KI-Foto (keine Bildbibliothek), und der Cron erzeugt weiterhin nur Einzelposts — Karussells entstehen bewusst auf Knopfdruck.
+
+### Bildbibliothek — echte Schützenbilder (August 2026)
+Andreas' Kollege lädt echte Fotos hoch (`/social/bilder`), und die Pipeline verwendet sie auf **zwei** Wegen:
+
+| Verwendung (`media_assets.usage`) | Was passiert |
+|---|---|
+| `photo` | Das echte Foto trägt den Post — **kein** gpt-image-1-Aufruf, `renderPoster` bekommt das Originalbild (via `prepareLibraryPhoto`: EXIF-Drehung, 4:5-Zuschnitt) |
+| `reference` | Das Foto geht als Vorlage an `images.edit` (`generateImageWithReferences`), die KI baut daraus eine **neue** Szene im selben Look |
+| `both` | beides (Standard) |
+
+- **Tabelle `media_assets`** + Bucket `media-library` (Migration `20260805000000_media_library.sql`): Beschreibung, Säule, Verwendung, `active`, `times_used`/`last_used_at`. Die Beschreibung ist kein Beiwerk — sie geht in den Foto-Prompt (Referenz) bzw. steuert als `fixedPhoto` die Konzept-KI, damit Headline und Caption zum tatsächlichen Motiv passen.
+- **`src/lib/media-library.ts`** — `planPhotoSource` (Rotation: am längsten nicht genutzt zuerst; `photoShare` = Anteil echter Fotos), `resolvePhotoInput` (lädt die Dateien; bei Fehler Rückfall auf reine KI — ein Post ohne Bild gibt es nicht), `markMediaUsed`.
+- **Layout-Bremse:** Bei einem echten Foto lässt sich die Bildkomposition nicht mitbestellen. Deshalb sind dann nur `PHOTO_SAFE_LAYOUTS` (`panel-links`, `karte-unten`, `band-unten`) erlaubt — dort sitzt der Text auf einer DECKENDEN Creme-Fläche. `panel-cta`/`zentral-minimal` setzen ruhige, helle Copy-Space-Bereiche im Foto voraus und würden auf beliebigen Motiven unlesbar.
+- **Alle Wege nutzen die Bibliothek:** Cron/Puffer (`content-engine.ts`), Zufalls-Post, manueller Generator (Bildquelle wählbar, inkl. konkreter Bildauswahl) und „Neu generieren". Steuerung über Einstellungen → „Eigene Bilder in den Posts" (`media_usage_mode`: `photo+reference` (Standard) · `reference` · `off`). Leere Bibliothek = exakt das Verhalten von vorher.
+- **KI-Kennzeichnung:** Bei echtem Foto schreibt `createDesignedPostImage` `AI_COMPOSITE_PROVENANCE_XMP` (IPTC `compositeWithTrainedAlgorithmicMedia`) statt `trainedAlgorithmicMedia` — das Motiv ist echt, Layout und Texte sind KI. Der Text-Hinweis (`AI_DISCLOSURE`) und das TikTok-Flag bleiben unverändert für alle Posts.
+- **Herkunft am Post:** `post_briefs.photo_source` (`ai` | `ai-reference` | `library`) + `media_asset_ids`.
+- **API:** `GET/POST /api/media` (Upload normalisiert auf JPEG ≤ 2048 px), `PATCH/DELETE /api/media/[id]`.
 
 ### Content-Strategie
-- **Master-Briefing:** `MASTER_BRIEFING` in `src/lib/openai.ts` — bindendes Marken-Briefing von Andreas (Juli 2026), wird JEDEM KI-Prompt (Bild + Text) vorangestellt. Kernpunkte: Standardsortiment-Marke (keine Maßschneiderei!), Größen 23–70 alle zum gleichen Preis, verbotene Claims (maßgeschneidert, handgeschneidert, atmungsaktiv …), realistische Uniformen ohne Goldlitzen/Epauletten/Fantasiedetails
+- **Master-Briefing:** `MASTER_BRIEFING` in `src/lib/openai.ts` — bindendes Marken-Briefing von Andreas (Juli 2026), wird JEDEM KI-Prompt (Bild + Text) vorangestellt. Kernpunkte: Standardsortiment-Marke (keine Maßschneiderei!), jede Größe zum gleichen Preis, verbotene Claims (maßgeschneidert, handgeschneidert, atmungsaktiv …), realistische Uniformen ohne Goldlitzen/Epauletten/Fantasiedetails
+### Größen — harte Marken-Fakten (`src/lib/sizes.ts`, August 2026)
+Die Posts behaupteten lange „Größen 23–70" als durchgehende Spanne. Das ist FALSCH und war der Anlass für diese Datei. Es sind **zwei getrennte Größensysteme** (nachgezählt an den Shopify-Varianten von schuetzen-ausstatter.de, 05.08.2026):
+
+| System | Bereich | Gilt für |
+|---|---|---|
+| Normalgrößen | 46–70 | Sakkos, Schützenjacken, Herrenwesten |
+| Normalgrößen | 44–70 | Herrenhosen (beginnen eine Nummer tiefer) |
+| **Kurzgrößen** („untersetzte Größen") | 23–34 | dieselben Teile — **kürzer** in der Länge, **weiter** in der Weite |
+| Damengrößen | 30–60 | Damenwesten „Concordia"/„Teutonia" |
+
+Zwischen 35 und 43 gibt es **nichts**. „23 bis 70" behauptet also eine Spanne, die es nicht gibt — und suggeriert obendrein Kindergrößen.
+
+**KINDERGRÖSSEN GIBT ES NICHT.** Die 23er-Größen sind Erwachsenen-Kurzgrößen für kräftigere/kleinere Staturen, keine Kinderkonfektion. Kein Post darf Kinder- oder Jugendgrößen, Kinderuniformen oder Ausstattung „für die Kleinsten" anbieten oder andeuten — auch nicht im Bild (kein Kind in Uniform). Jungschützen sind junge Erwachsene und tragen normale Erwachsenengrößen.
+
+Verankert an vier Stellen, damit kein Weg daran vorbeiführt:
+1. `SIZE_BRIEFING` steckt im `MASTER_BRIEFING` (openai.ts) **und** im Prompt der Konzept-KI (`generateDesignedConcept`)
+2. Benefit-Kacheln/Fußleisten in `concepts.ts` nennen keine falsche Spanne mehr: `B_GROESSEN` (generisch), `B_GROESSEN_HERREN` (46–70 + Kurz), `B_GROESSEN_DAMEN` (30–60)
+3. `findSizeViolation()` sperrt deterministisch — in `generateCompliantCaption` (löst EINEN gezielten Neutext aus) und in `reviewDesignedPost` (setzt `quality_status: failed` → Freigabe-Blocker, unabhängig vom Vision-Urteil)
+4. Der QA-Agent (`qa-gate.ts`) meldet falsche Spannen und Kindergrößen als `hardFail`
+
+Wer eine neue Prompt-, Render- oder Publish-Route baut, muss `SIZE_BRIEFING` mitnehmen und `findSizeViolation` durchlaufen lassen. Tests: `tests/sizes.test.ts` (prüft u. a. jedes Konzept-Format gegen die Sperre).
+
 - Emotionale Themen: Zusammenhalt, Generationen, Rituale, Vorfreude, Ehrenamt — immer mit konkreter Idee (siehe Format-Formeln)
-- Produkt-Themen: Damenweste, leichte Sommerqualität, Größen-USP 23–70, Neuausstattung, Nachkaufgarantie, Jungschützen, Stick/Druck, Frack, Musterkollektion
+- Produkt-Themen: Damenweste, leichte Sommerqualität, Größen-USP (Normal- + Kurzgrößen), Neuausstattung, Nachkaufgarantie, Jungschützen, Stick/Druck, Frack, Musterkollektion
 - Stil: Wie Reportagefotografie — authentisch, nicht gestellt; Menschen bevorzugt von hinten/Profil/Detail (Uncanny-Valley-Schutz)
 
 ### Caption-Format
@@ -277,7 +324,7 @@ FACEBOOK_APP_ID=... FACEBOOK_APP_SECRET=...   # Meta-OAuth
 ## Noch nicht implementiert / bewusst verschoben
 
 - **Next.js 15/16-Upgrade** — bewusst NACH der Vorstellung als eigenes Arbeitspaket (die 2 verbleibenden `npm audit`-Findings sind Next-14-transitiv). Nicht `npm audit fix --force`
-- **Medienbibliothek / echte Produktreferenz-Bilder** (Review Abschnitt 10) — nächste Phase
+- ~~Medienbibliothek / echte Produktreferenz-Bilder~~ — erledigt, siehe „Bildbibliothek" oben
 - **Plattformnative Formate + TikTok-Video** (Review Abschnitt 11) — nächste Phase
 - **E-Mail-Benachrichtigungen** bei Publish-Fehler / leerem Puffer — Systemampel zeigt es bereits in der App
 - **TikTok + LinkedIn Direct-API** — laufen aktuell über Blotato

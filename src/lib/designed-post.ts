@@ -1,7 +1,15 @@
 import sharp from "sharp";
-import { getOpenAIClient, generateImage, generateCaption } from "./openai";
+import { AI_PROVENANCE_XMP, AI_COMPOSITE_PROVENANCE_XMP } from "./ai-provenance";
+import {
+  getOpenAIClient,
+  generateImage,
+  generateImageWithReferences,
+  generateCaption,
+} from "./openai";
+import type { PhotoSourceMode } from "./media-library";
 import { recordAiUsage } from "./ai-cost";
 import { BANNED_PHRASES, type ConceptFormat, type Lane } from "./concepts";
+import { SIZE_BRIEFING, findSizeViolation } from "./sizes";
 import { renderPoster, type PosterContent, type PosterLayoutKey } from "./render-poster";
 
 /**
@@ -33,12 +41,32 @@ export function pickPosterLayout(
   format: ConceptFormat,
   avoidCodes: string[] = [],
   random: () => number = Math.random,
+  allowed?: readonly PosterLayoutKey[],
 ): PosterLayoutKey {
-  const pool = format.layouts;
+  const restricted = allowed?.length ? format.layouts.filter((l) => allowed.includes(l)) : [];
+  // Passt kein Format-Layout in die Auswahl, gilt die Auswahl selbst — sonst
+  // käme ein Layout heraus, das mit dem vorgegebenen Foto nicht funktioniert.
+  const pool = restricted.length ? restricted : allowed?.length ? [...allowed] : format.layouts;
   const fresh = pool.filter((l) => !avoidCodes.includes(l));
   const candidates = fresh.length ? fresh : pool;
   return candidates[Math.floor(random() * candidates.length)];
 }
+
+/**
+ * Layouts, die mit JEDEM Foto funktionieren.
+ *
+ * Der Unterschied ist die Textfläche: Hier sitzt der Text auf einer DECKENDEN
+ * Creme-Fläche (Panel, Karte, Band). Bei `panel-cta` und `zentral-minimal`
+ * liegt er dagegen auf einem Verlauf über dem Foto — das setzt voraus, dass
+ * die Bildkomposition dort ruhig und hell ist. Bei KI-Fotos bestellen wir
+ * genau diese Komposition mit (`COMPOSITION_BY_LAYOUT`); ein echtes Foto aus
+ * der Bibliothek können wir nicht nachbestellen. Also: nur deckende Layouts.
+ */
+export const PHOTO_SAFE_LAYOUTS: readonly PosterLayoutKey[] = [
+  "panel-links",
+  "karte-unten",
+  "band-unten",
+];
 
 export type DesignedConcept = {
   formatCode: string;
@@ -231,14 +259,23 @@ export async function generateCompliantCaption(opts: {
       prompt: `${opts.captionPrompt}\n\nWICHTIG: Fasse dich deutlich kürzer. Jeder Plattform-Abschnitt maximal 4 Sätze. Jeder Abschnitt MUSS vollständig zu Ende geschrieben sein — niemals mitten im Satz abbrechen.`,
     });
   }
-  const hit = findBannedPhrase(first, banned);
+  // Neben den Floskeln greift hier die harte Größen-Sperre: falsche Spanne
+  // („23 bis 70") oder Kindergrößen sind Sachfehler, keine Geschmacksfrage.
+  const problemOf = (t: string): string | null => {
+    const phrase = findBannedPhrase(t, banned);
+    if (phrase) return `die verbotene Floskel „${phrase}"`;
+    const size = findSizeViolation(t);
+    return size ? `einen Größenfehler: ${size}` : null;
+  };
+
+  const hit = problemOf(first);
   if (!hit) return first;
   const retry = await generateCaption({
     apiKey: opts.apiKey,
-    prompt: `${opts.captionPrompt}\n\nACHTUNG: Dein vorheriger Entwurf enthielt die VERBOTENE Floskel „${hit}". Schreibe die Texte komplett neu und verwende diese Floskel (und alle anderen von der Verbotsliste) unter keinen Umständen — auch nicht als Teilsatz oder Variation.`,
+    prompt: `${opts.captionPrompt}\n\nACHTUNG: Dein vorheriger Entwurf enthielt ${hit} Schreibe die Texte komplett neu und vermeide das unter allen Umständen — auch nicht als Teilsatz oder Variation.\n\n${SIZE_BRIEFING}`,
   });
   // Zweiter Versuch bevorzugt, falls er sauber ist; sonst der weniger schlechte.
-  return findBannedPhrase(retry, banned) ? first : retry;
+  return problemOf(retry) ? first : retry;
 }
 
 /** Bester Hook-Text eines Konzepts (für die Caption — damit Bild & Text dieselbe Idee tragen). */
@@ -274,7 +311,7 @@ function outputSpecFor(format: ConceptFormat, layout: PosterLayoutKey): string {
 
   if (b.sub > 0) {
     parts.push(
-      `"sub": "Eine ruhige Begleitzeile, max ${b.sub} Zeichen${format.lane === "product" ? " — konkreter Nutzen oder der Größen-USP (23–70, ein Preis)" : ""} (oder null)"`,
+      `"sub": "Eine ruhige Begleitzeile, max ${b.sub} Zeichen${format.lane === "product" ? " — konkreter Nutzen oder der Größen-USP (Normal- und Kurzgrößen, ein Preis; NIEMALS die Spanne „23 bis 70“)" : ""} (oder null)"`,
     );
   } else {
     parts.push(`"sub": null`);
@@ -316,7 +353,7 @@ export function buildManualFormat(
       photoDirection: `Ein markttreues, authentisches Foto passend zu „${input.product}" und „${input.theme}" — dunkelgrüne Schützenkleidung, schlicht-elegant.`,
       benefits: [
         { icon: "badge-check", title: "Eigene Fertigung", text: "Entwickelt und produziert im Haus" },
-        { icon: "ruler", title: "Größen 23–70", text: "Für jedes Mitglied die passende Größe" },
+        { icon: "ruler", title: "Normal- & Kurzgrößen", text: "Für jede Statur die passende Größe" },
         { icon: "handshake", title: "Faire Vereinspreise", text: "Top Qualität zu attraktiven Konditionen" },
       ],
       cta: { title: "Muster & Beratung anfragen", sub: "Für euren Verein oder Zug." },
@@ -346,11 +383,18 @@ export async function generateDesignedConcept(opts: {
   month: number;
   /** Zuletzt genutzte Layouts — für Abwechslung im Feed. */
   avoidLayouts?: string[];
+  /** Erlaubte Layouts (z. B. nur foto-sichere, wenn ein echtes Foto gesetzt ist). */
+  allowedLayouts?: readonly PosterLayoutKey[];
+  /**
+   * Beschreibung eines bereits FESTSTEHENDEN Fotos aus der Bibliothek. Dann
+   * richtet sich die Idee nach dem Bild — nicht umgekehrt.
+   */
+  fixedPhoto?: string | null;
 }): Promise<DesignedConcept> {
   const client = getOpenAIClient(opts.apiKey);
   const f = opts.format;
   // Layout ZUERST wählen: es bestimmt, welche Texte in welcher Länge gebraucht werden.
-  const layout = pickPosterLayout(f, opts.avoidLayouts ?? []);
+  const layout = pickPosterLayout(f, opts.avoidLayouts ?? [], Math.random, opts.allowedLayouts);
   const b = BUDGETS[layout];
 
   // Wetter-Aufhänger nur für Formate, die ihn inhaltlich tragen. Vorher bekam
@@ -360,7 +404,9 @@ export async function generateDesignedConcept(opts: {
   const reactiveHook = f.weatherReactive ? (opts.reactiveHook ?? null) : null;
   const topical = reactiveHook ? (opts.topical ?? null) : null;
 
-  const prompt = `Du bist Kreativ-Direktor für "Hersfelder Schützenbekleidung" (schuetzen-ausstatter.de) — Standardsortiment-Marke für Schützenvereine, Spielmannszüge, Musikzüge und Bruderschaften. Eigene Marke, eigene Fertigung, Größen 23–70 zum gleichen Preis, KEINE Maßschneiderei.
+  const prompt = `Du bist Kreativ-Direktor für "Hersfelder Schützenbekleidung" (schuetzen-ausstatter.de) — Standardsortiment-Marke für Schützenvereine, Spielmannszüge, Musikzüge und Bruderschaften. Eigene Marke, eigene Fertigung, jede Größe zum gleichen Preis, KEINE Maßschneiderei.
+
+${SIZE_BRIEFING}
 
 DEINE AUFGABE: Entwickle EINEN konkreten Post nach diesem erprobten Konzept-Format:
 
@@ -370,8 +416,14 @@ ${f.brief}
 SO GUT MÜSSEN DEINE HEADLINES SEIN (Qualitätsanker — NICHT kopieren, genauso stark NEU erfinden):
 ${f.exampleHeadlines.map((h) => `- "${h}"`).join("\n")}
 
-FOTO-REGIE (als Basis für deine Szene):
-${f.photoDirection}
+${
+    opts.fixedPhoto
+      ? `DAS FOTO STEHT SCHON FEST — es ist ein ECHTES Vereinsfoto und zeigt:
+„${opts.fixedPhoto}"
+PFLICHT: Deine Idee muss zu GENAU diesem Motiv passen. Behaupte nichts, was auf dem Bild nicht zu sehen ist, und beschreibe im Feld "photoIdea" schlicht dieses Motiv (es wird nicht neu erzeugt).`
+      : `FOTO-REGIE (als Basis für deine Szene):
+${f.photoDirection}`
+  }
 
 ${reactiveHook ? `AKTUELLER AUFHÄNGER (MUSS die Idee tragen, im Text UND im Bild spürbar): ${reactiveHook}` : ""}
 ${topical ? `KONTEXT: ${topical}` : ""}
@@ -485,28 +537,103 @@ export type DesignedPostResult = {
   /** Fertiges Marken-Composite als JPEG (1024×1280, 4:5) */
   jpeg: Buffer;
   photoPrompt: string;
+  /** Woher das Foto kam — landet in post_briefs.photo_source. */
+  photoSource: PhotoSourceMode;
 };
+
+/**
+ * Woher das Foto für diesen Post kommt.
+ *  - `ai`           : gpt-image-1 erzeugt die Szene frei (Standard)
+ *  - `ai-reference` : gpt-image-1 erzeugt eine NEUE Szene im Look echter Fotos
+ *  - `library`      : ein echtes Foto aus der Bibliothek wird direkt verwendet
+ */
+export type PhotoInput =
+  | { mode: "ai" }
+  | { mode: "ai-reference"; references: Buffer[]; referenceNotes?: string }
+  | { mode: "library"; buffer: Buffer; description?: string | null };
+
+/**
+ * Regie-Text für die Referenz-Variante. Ohne diesen Block kopiert das Modell
+ * gern eine Vorlage samt Gesichtern — gewollt ist aber ein NEUES Motiv, das
+ * nur den Look (Kleidung, Menschen, Umgebung, Lichtstimmung) übernimmt.
+ */
+export function buildReferencePhotoPrompt(basePrompt: string, referenceNotes?: string): string {
+  return [
+    `Use the attached photographs ONLY as a visual reference for the authentic look of a real German Schützenverein: the cut and colour of the real off-the-shelf attire, the type of people, the setting and the atmosphere.`,
+    referenceNotes ? `What the reference photos show:\n${referenceNotes}` : null,
+    `Do NOT copy or reproduce any recognisable face, person or the reference composition. Create a COMPLETELY NEW scene as described below, matching the reference look:`,
+    "",
+    basePrompt,
+  ]
+    .filter((x) => x !== null)
+    .join("\n\n");
+}
+
+/**
+ * Echtes Foto auf das Post-Format bringen: 1024×1280 (4:5), mittig beschnitten.
+ * `.rotate()` ohne Argument wertet die EXIF-Orientierung aus — ohne das lägen
+ * Handyfotos im Post auf der Seite.
+ */
+export async function prepareLibraryPhoto(buffer: Buffer): Promise<string> {
+  const jpeg = await sharp(buffer)
+    .rotate()
+    .resize(1024, 1280, { fit: "cover", position: "attention" })
+    .jpeg({ quality: 92 })
+    .toBuffer();
+  return `data:image/jpeg;base64,${jpeg.toString("base64")}`;
+}
 
 export async function createDesignedPostImage(opts: {
   apiKey?: string;
   concept: DesignedConcept;
   brandStyle?: string | null;
+  /** Foto-Quelle; ohne Angabe erzeugt die KI das Foto wie bisher. */
+  photo?: PhotoInput;
 }): Promise<DesignedPostResult> {
-  const photoPrompt = buildDesignedPhotoPrompt(
+  const photo: PhotoInput = opts.photo ?? { mode: "ai" };
+  const basePrompt = buildDesignedPhotoPrompt(
     opts.concept.posterCode,
     opts.concept.lane,
     opts.concept.photoIdea,
     opts.brandStyle,
   );
 
-  // Jeder Post bekommt ein echtes Foto — es gibt keinen Pfad ohne Bild mehr.
-  const image = await generateImage({ apiKey: opts.apiKey, prompt: photoPrompt, size: "1024x1536" });
-  if (!image.b64) throw new Error("Kein Foto von gpt-image-1 erhalten.");
-  const photoDataUrl = `data:image/jpeg;base64,${image.b64}`;
+  let photoDataUrl: string;
+  let photoPrompt = basePrompt;
+
+  if (photo.mode === "library") {
+    // Kein KI-Bild: Das echte Foto trägt den Post.
+    photoDataUrl = await prepareLibraryPhoto(photo.buffer);
+    photoPrompt = `Echtes Foto aus der Bildbibliothek${photo.description ? `: ${photo.description}` : ""}`;
+  } else if (photo.mode === "ai-reference" && photo.references.length) {
+    photoPrompt = buildReferencePhotoPrompt(basePrompt, photo.referenceNotes);
+    const image = await generateImageWithReferences({
+      apiKey: opts.apiKey,
+      prompt: photoPrompt,
+      size: "1024x1536",
+      references: photo.references,
+    });
+    if (!image.b64) throw new Error("Kein Foto von gpt-image-1 erhalten.");
+    photoDataUrl = `data:image/jpeg;base64,${image.b64}`;
+  } else {
+    // Jeder Post bekommt ein echtes Foto — es gibt keinen Pfad ohne Bild mehr.
+    const image = await generateImage({ apiKey: opts.apiKey, prompt: basePrompt, size: "1024x1536" });
+    if (!image.b64) throw new Error("Kein Foto von gpt-image-1 erhalten.");
+    photoDataUrl = `data:image/jpeg;base64,${image.b64}`;
+  }
 
   const png = await renderPoster(opts.concept.poster, photoDataUrl);
-  // JPEG für alle Plattformen (TikTok akzeptiert kein PNG)
-  const jpeg = await sharp(png).jpeg({ quality: 90 }).toBuffer();
+  // JPEG für alle Plattformen (TikTok akzeptiert kein PNG).
+  // withXmp: Herkunft im Bild — Meta/LinkedIn setzen daraus ihr KI-Label.
+  // Bei einem echten Foto ist das Bild KEINE KI-Erfindung, aber der gerenderte
+  // Text stammt aus der KI → „composite", nicht „trainedAlgorithmicMedia".
+  const jpeg = await sharp(png)
+    .withXmp(photo.mode === "library" ? AI_COMPOSITE_PROVENANCE_XMP : AI_PROVENANCE_XMP)
+    .jpeg({ quality: 90 })
+    .toBuffer();
 
-  return { concept: opts.concept, jpeg, photoPrompt };
+  const photoSource: PhotoSourceMode =
+    photo.mode === "library" ? "library" : photo.mode === "ai-reference" ? "ai-reference" : "ai";
+
+  return { concept: opts.concept, jpeg, photoPrompt, photoSource };
 }

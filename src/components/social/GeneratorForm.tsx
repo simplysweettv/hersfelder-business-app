@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, CalendarClock, Shuffle, Layers } from "lucide-react";
+import { Sparkles, CalendarClock, Shuffle, Layers, GalleryHorizontalEnd } from "lucide-react";
 import {
   PLATFORM_COLOR,
   PLATFORM_LABEL,
@@ -23,6 +23,8 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { PostPreview } from "./PostPreview";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import type { MediaAsset } from "@/lib/media-library";
 
 const THEMES = [
   "Neue Kollektion",
@@ -92,8 +94,19 @@ export function GeneratorForm() {
   const [filling, setFilling] = useState(false);
   const randomDateRef = useRef<HTMLInputElement>(null);
 
+  // Karussell
+  const [carouselLane, setCarouselLane] = useState<string>("auto");
+  const [carouselPoints, setCarouselPoints] = useState<string>("4");
+  const [carouselScheduledAt, setCarouselScheduledAt] = useState("");
+  const [carouselGenerating, setCarouselGenerating] = useState(false);
+
   // Manuell
   const [manualLane, setManualLane] = useState<string>("emotional");
+  // Bildquelle: auto = Bibliothek wie in den Einstellungen, library = eigenes
+  // Foto, ai = ohne Bibliothek.
+  const [imageSource, setImageSource] = useState<string>("auto");
+  const [mediaAssetId, setMediaAssetId] = useState<string>("");
+  const [mediaPhotos, setMediaPhotos] = useState<MediaAsset[] | null>(null);
   const [theme, setTheme] = useState(THEMES[0]);
   const [product, setProduct] = useState("");
   const [message, setMessage] = useState("");
@@ -106,6 +119,25 @@ export function GeneratorForm() {
     imageUrl: string | null;
     caption: string | null;
   }>({ imageUrl: null, caption: null });
+
+  /**
+   * Die eigenen Fotos erst laden, wenn sie gebraucht werden — der Generator
+   * soll nicht bei jedem Aufruf die halbe Bibliothek ziehen.
+   */
+  async function loadMediaPhotos() {
+    if (mediaPhotos) return;
+    try {
+      const res = await fetch("/api/media");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Bibliothek nicht ladbar");
+      setMediaPhotos(
+        (data.assets as MediaAsset[]).filter((a) => a.active && a.usage !== "reference"),
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Bibliothek nicht ladbar");
+      setMediaPhotos([]);
+    }
+  }
 
   function togglePlatform(p: Platform) {
     setPlatforms((prev) =>
@@ -224,6 +256,46 @@ export function GeneratorForm() {
     }
   }
 
+  /**
+   * Karussell: Cover (Foto + Aussage) + Inhalts-Slides + Abschluss-Slide.
+   * Dauert länger als ein Einzelpost — Foto, mehrere Renders und der
+   * Qualitäts-TÜV laufen nacheinander.
+   */
+  async function generateCarousel() {
+    if (platforms.length === 0) {
+      toast.error("Bitte mindestens eine Plattform wählen.");
+      return;
+    }
+    setCarouselGenerating(true);
+    const t = toast.loading("Karussell wird gebaut …", {
+      description: "Cover mit Foto, Inhalts-Slides und Abschluss — das dauert 1–2 Minuten.",
+    });
+    try {
+      const res = await fetch("/api/posts/generate-carousel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          platforms,
+          points: Number(carouselPoints),
+          ...(carouselScheduledAt ? { scheduledAt: localToIso(carouselScheduledAt) } : {}),
+          ...(carouselLane !== "auto" ? { lane: carouselLane } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Generierung fehlgeschlagen");
+      setPreview({ imageUrl: data.image_url, caption: data.caption });
+      toast.success(`Karussell mit ${data.slides} Slides erstellt ✓`, {
+        id: t,
+        description: "Liegt in den Freigaben — dort siehst du alle Slides.",
+      });
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Unbekannter Fehler", { id: t });
+    } finally {
+      setCarouselGenerating(false);
+    }
+  }
+
   async function generate() {
     if (!product.trim() || !message.trim()) {
       toast.error("Produkt und Botschaft sind Pflicht.");
@@ -236,7 +308,13 @@ export function GeneratorForm() {
       return;
     }
     setGenerating(true);
-    const body: GeneratorInput & { occasion?: string; scheduledAt?: string; lane?: string } = {
+    const body: GeneratorInput & {
+      occasion?: string;
+      scheduledAt?: string;
+      lane?: string;
+      imageSource?: string;
+      mediaAssetId?: string;
+    } = {
       theme,
       occasion: theme,
       product,
@@ -244,6 +322,8 @@ export function GeneratorForm() {
       season,
       platforms,
       lane: manualLane,
+      imageSource,
+      ...(imageSource === "library" && mediaAssetId ? { mediaAssetId } : {}),
       ...(scheduledAt ? { scheduledAt: localToIso(scheduledAt) } : {}),
     };
     try {
@@ -264,7 +344,7 @@ export function GeneratorForm() {
     }
   }
 
-  const busy = generating || randomGenerating;
+  const busy = generating || randomGenerating || carouselGenerating;
   const hasPreview = !!(preview.imageUrl || preview.caption);
 
   return (
@@ -365,6 +445,82 @@ export function GeneratorForm() {
         </Button>
       </div>
 
+      {/* ── Karussell ────────────────────────────────── */}
+      <div className="rounded-xl border border-dashed border-border p-4 space-y-4">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+            <GalleryHorizontalEnd className="w-5 h-5 text-muted-foreground" />
+          </div>
+          <div className="space-y-0.5">
+            <p className="font-medium">Karussell</p>
+            <p className="text-sm text-muted-foreground">
+              Mehrere Bilder zum Durchwischen. Slide 1 ist ein vollwertiger Post
+              mit echtem Foto und einer starken Aussage — nur die entscheidet, ob
+              jemand weiterwischt. Danach faltet das Karussell dieselbe Idee in
+              ruhige Text-Slides auf und endet mit Fazit und Einladung.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>Säule</Label>
+            <Select value={carouselLane} onValueChange={(v) => v && setCarouselLane(v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">🎲 Automatisch</SelectItem>
+                <SelectItem value="emotional">💚 Emotional</SelectItem>
+                <SelectItem value="product">🛍️ Produkt</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Inhalts-Slides</Label>
+            <Select value={carouselPoints} onValueChange={(v) => v && setCarouselPoints(v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {["3", "4", "5"].map((n) => (
+                  <SelectItem key={n} value={n}>
+                    {n} (= {Number(n) + 2} Slides gesamt)
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="carousel-date" className="flex items-center gap-1.5">
+            <CalendarClock className="w-3.5 h-3.5" />
+            Datum &amp; Uhrzeit
+          </Label>
+          <Input
+            id="carousel-date"
+            type="datetime-local"
+            min={isoMinDefault()}
+            value={carouselScheduledAt}
+            onChange={(e) => setCarouselScheduledAt(e.target.value)}
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Leer lassen = kein fester Termin (landet in Freigaben)
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Plattformen</Label>
+          <PlatformPicker platforms={platforms} toggle={togglePlatform} />
+        </div>
+
+        <Button onClick={generateCarousel} disabled={busy} variant="outline" className="w-full" size="lg">
+          <GalleryHorizontalEnd className={`w-4 h-4 mr-2 ${carouselGenerating ? "animate-pulse" : ""}`} />
+          {carouselGenerating ? "Baut Slides … (bitte offen lassen)" : "Karussell erstellen"}
+        </Button>
+      </div>
+
       {/* Divider */}
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
         <div className="flex-1 border-t border-border" />
@@ -388,6 +544,79 @@ export function GeneratorForm() {
           <p className="text-[11px] text-muted-foreground">
             Bestimmt das Layout: emotional (Wappen + Serifen-/Schreibschrift) oder Produkt (Benefit-Leiste + CTA).
           </p>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Bildquelle</Label>
+          <Select
+            value={imageSource}
+            onValueChange={(v) => {
+              if (!v) return;
+              setImageSource(v);
+              if (v === "library") void loadMediaPhotos();
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="auto">🤖 Automatisch — KI-Foto, eure Bilder als Referenz</SelectItem>
+              <SelectItem value="library">📷 Eigenes Foto aus der Bildbibliothek</SelectItem>
+              <SelectItem value="ai">✨ Nur KI — Bibliothek ignorieren</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-[11px] text-muted-foreground">
+            {imageSource === "library"
+              ? "Ein echtes Foto trägt den Post. Layout und Texte richten sich nach dem Motiv."
+              : imageSource === "ai"
+                ? "Die KI erfindet die Szene komplett selbst — ohne eure hochgeladenen Bilder."
+                : "Die KI erzeugt das Foto und orientiert sich dabei am Look eurer hochgeladenen Bilder."}
+          </p>
+
+          {imageSource === "library" && (
+            <div className="pt-1.5">
+              {mediaPhotos === null ? (
+                <p className="text-xs text-muted-foreground">Bibliothek wird geladen …</p>
+              ) : mediaPhotos.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Noch keine eigenen Fotos.{" "}
+                  <Link href="/social/bilder" className="underline">
+                    Jetzt hochladen
+                  </Link>
+                  .
+                </p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-4 gap-2">
+                    {mediaPhotos.slice(0, 12).map((a) => (
+                      <button
+                        type="button"
+                        key={a.id}
+                        onClick={() => setMediaAssetId(mediaAssetId === a.id ? "" : a.id)}
+                        title={a.title ?? undefined}
+                        className={cn(
+                          "relative aspect-[4/5] rounded-md overflow-hidden border-2 transition-colors",
+                          mediaAssetId === a.id ? "border-foreground" : "border-transparent",
+                        )}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={a.public_url}
+                          alt={a.title ?? "Bild"}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1.5">
+                    {mediaAssetId
+                      ? "Dieses Foto wird verwendet."
+                      : "Kein Bild gewählt = die Bibliothek nimmt das am längsten nicht genutzte passende Foto."}
+                  </p>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="space-y-1.5">

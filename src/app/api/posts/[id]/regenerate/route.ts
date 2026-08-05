@@ -8,7 +8,14 @@ import {
   createDesignedPostImage,
   conceptHookText,
   generateCompliantCaption,
+  PHOTO_SAFE_LAYOUTS,
 } from "@/lib/designed-post";
+import {
+  markMediaUsed,
+  parseMediaUsageMode,
+  planPhotoSource,
+  resolvePhotoInput,
+} from "@/lib/media-library";
 import { pickConceptFormat, BANNED_PHRASES, type Lane } from "@/lib/concepts";
 import { reviewDesignedPost } from "@/lib/designed-review";
 
@@ -58,6 +65,14 @@ export async function POST(
     });
     const pillar = lane === "product" ? "service" : "community";
 
+    // Bildbibliothek wie in den übrigen Wegen (Admin-Client: die Route arbeitet
+    // ohnehin an fremden Datensätzen vorbei an der RLS).
+    const mediaPlan = await planPhotoSource(admin, {
+      lane,
+      mode: parseMediaUsageMode(settings["media_usage_mode"]),
+    });
+    const photo = await resolvePhotoInput(mediaPlan);
+
     const concept = await generateDesignedConcept({
       apiKey,
       format,
@@ -66,6 +81,9 @@ export async function POST(
       // Das bisherige Thema meiden, sonst kommt dasselbe wieder heraus.
       avoid: [brief?.theme, brief?.message].filter((x): x is string => Boolean(x)),
       month: new Date().getMonth() + 1,
+      ...(photo.mode === "library"
+        ? { fixedPhoto: photo.description, allowedLayouts: PHOTO_SAFE_LAYOUTS }
+        : {}),
     });
 
     const captionPrompt = buildCaptionPrompt({
@@ -79,7 +97,12 @@ export async function POST(
     });
 
     const [rendered, caption] = await Promise.all([
-      createDesignedPostImage({ apiKey, concept, brandStyle: settings["brand_style_prompt"] }),
+      createDesignedPostImage({
+        apiKey,
+        concept,
+        brandStyle: settings["brand_style_prompt"],
+        photo,
+      }),
       generateCompliantCaption({ apiKey, captionPrompt, bannedPhrases: BANNED_PHRASES }),
     ]);
 
@@ -128,6 +151,8 @@ export async function POST(
       lane,
       format_code: format.code,
       template: concept.posterCode,
+      photo_source: rendered.photoSource,
+      media_asset_ids: mediaPlan.assets.length ? mediaPlan.assets.map((a) => a.id) : null,
     };
     const { error: briefErr } = brief?.id
       ? await admin.from("post_briefs").update(briefFields).eq("id", brief.id)
@@ -135,6 +160,7 @@ export async function POST(
     if (briefErr) {
       console.error("post_briefs schreiben fehlgeschlagen:", briefErr.message);
     }
+    if (rendered.photoSource !== "ai") await markMediaUsed(admin, mediaPlan.assets);
 
     return NextResponse.json({
       ok: true,

@@ -25,7 +25,7 @@ const SAMPLES: Record<string, ReelContent> = {
   },
   produkt: {
     eyebrow: "Hersfelder Schützenbekleidung",
-    headline: ["Größe 23 bis 70.", "Alle zum", "gleichen Preis."],
+    headline: ["Normal- und", "Kurzgrößen. Alle zum", "gleichen Preis."],
     cta: "Musterkollektion anfragen",
     url: "schuetzen-ausstatter.de",
   },

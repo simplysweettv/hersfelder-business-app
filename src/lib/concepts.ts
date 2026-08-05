@@ -51,7 +51,25 @@ export type ConceptFormat = {
 };
 
 /** Benefit-Trios, die in mehreren Formaten wiederkehren (Marken-Konstanten). */
-const B_GROESSEN: FeatureTile = { icon: "ruler", title: "Größen 23–70", text: "Für jedes Mitglied die passende Größe" };
+// Größen-Kacheln: NIE die durchgehende Spanne „23–70" behaupten — Normal- und
+// Kurzgrößen sind zwei getrennte Systeme (siehe src/lib/sizes.ts).
+const B_GROESSEN: FeatureTile = {
+  icon: "ruler",
+  title: "Normal- & Kurzgrößen",
+  text: "Für jede Statur die passende Größe",
+};
+/** Nur dort einsetzen, wo es wirklich um Herren-Oberteile geht. */
+const B_GROESSEN_HERREN: FeatureTile = {
+  icon: "ruler",
+  title: "46–70 plus Kurzgrößen",
+  text: "Kurzgrößen 23–34 für kräftigere Staturen",
+};
+/** Nur für Damenwesten — die haben ihre eigene, durchgehende Größenreihe. */
+const B_GROESSEN_DAMEN: FeatureTile = {
+  icon: "ruler",
+  title: "Damengrößen 30–60",
+  text: "Für jede Statur die passende Weste",
+};
 const B_EIN_PREIS: FeatureTile = { icon: "euro", title: "Ein Preis", text: "Kein Größenaufschlag — fair für alle" };
 const B_NACHKAUF: FeatureTile = { icon: "repeat", title: "Nachkaufgarantie", text: "Festes Design, jederzeit nachbestellbar" };
 const B_EIGENE_PROD: FeatureTile = { icon: "badge-check", title: "Eigene Fertigung", text: "Entwickelt und produziert im Haus" };
@@ -65,7 +83,7 @@ const F_STANDARD: FooterNote[] = [
 ];
 const F_VEREIN: FooterNote[] = [
   { icon: "users", label: "Für Vereine & Züge" },
-  { icon: "ruler", label: "Größen 23–70" },
+  { icon: "ruler", label: "Normal- & Kurzgrößen" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -318,7 +336,7 @@ const PRODUCT: ConceptFormat[] = [
     name: "Die Damenweste",
     layouts: ["panel-links", "panel-cta"],
     brief:
-      "Damenweste für Schützinnen und Damenkompanien. Headline-Formel: Die [Produkt] für alle, die [Haltung/Situation]. Selbstbewusst, nie anbiedernd.",
+      "Damenweste für Schützinnen und Damenkompanien. Headline-Formel: Die [Produkt] für alle, die [Haltung/Situation]. Selbstbewusst, nie anbiedernd. Größenangabe hier NUR als Damengrößen 30–60 — nie die Herren-Zahlen mischen.",
     exampleHeadlines: [
       "Die Damenweste für alle, die Tradition modern leben.",
       "Für Schützinnen, die nicht die ‚Damenversion‘ wollen — sondern die richtige.",
@@ -327,7 +345,7 @@ const PRODUCT: ConceptFormat[] = [
       "2–3 lachende Frauen in weißen Blusen und dunkelgrünen Westen beim Fest, halbnah, Tageslicht.",
     benefits: [
       { icon: "shirt", title: "Moderner Schnitt", text: "Zeitlos, elegant, bequem" },
-      B_GROESSEN,
+      B_GROESSEN_DAMEN,
       B_VEREINSPREIS,
     ],
     cta: { title: "Muster für eure Damenkompanie anfragen", sub: "Wir schicken euch die Weste zum Anprobieren." },
@@ -357,18 +375,18 @@ const PRODUCT: ConceptFormat[] = [
   {
     code: "P3",
     lane: "product",
-    name: "Von 23 bis 70",
+    name: "Normal- und Kurzgrößen",
     layouts: ["panel-links", "panel-cta"],
     brief:
-      "Größenvielfalt als stärkster USP: Größe 23 bis 70, alle zum gleichen Preis, keine Größenaufschläge. Die Headline ist EIN klarer, grammatisch einwandfreier Satz (ggf. in 2–3 kurze Sätze aufgeteilt). Bewährte Struktur: erst die Spanne, dann der eine Preis. NIE Wörter kürzen.",
+      "Größenvielfalt als stärkster USP: Normalgrößen 46–70 (Hosen 44–70) PLUS Kurzgrößen 23–34 für kräftigere und kleinere Staturen, alle zum gleichen Preis, keine Größenaufschläge. WICHTIG: Das sind zwei getrennte Größensysteme — NIEMALS als durchgehende Spanne ‚23 bis 70‘ schreiben. Auch keine Kindergrößen (die gibt es nicht). Die Headline ist EIN klarer, grammatisch einwandfreier Satz (ggf. in 2–3 kurze Sätze aufgeteilt). Bewährte Struktur: erst die Vielfalt, dann der eine Preis. NIE Wörter kürzen.",
     exampleHeadlines: [
       "Vom Jungschützen bis zum Ehrenvorstand. Ein Preis für alle.",
-      "Größe 23 bis 70. Ein Verein, ein Auftritt, ein Preis.",
+      "Normalgrößen und Kurzgrößen. Ein Verein, ein Auftritt, ein Preis.",
     ],
     photoDirection:
-      "Angetretene Reihe quer durchs Bild mit sichtbar verschiedenen Staturen und Generationen, alle identisch uniformiert, von hinten oder halbnah, Tageslicht.",
-    benefits: [B_GROESSEN, B_EIN_PREIS, B_EINHEIT],
-    cta: { title: "Größenberatung für euren Verein anfragen", sub: "Auch für Rand- und Sondergrößen." },
+      "Angetretene Reihe quer durchs Bild mit sichtbar verschiedenen Staturen und Generationen (alle erwachsen), alle identisch uniformiert, von hinten oder halbnah, Tageslicht.",
+    benefits: [B_GROESSEN_HERREN, B_EIN_PREIS, B_EINHEIT],
+    cta: { title: "Größenberatung für euren Verein anfragen", sub: "Normalgrößen 46–70 und Kurzgrößen 23–34." },
     footerNotes: F_STANDARD,
   },
   {
@@ -412,10 +430,10 @@ const PRODUCT: ConceptFormat[] = [
     name: "Jungschützen startklar",
     layouts: ["panel-links", "panel-cta"],
     brief:
-      "Polos, T-Shirts, Hoodies, Softshelljacken mit Vereinslogo (Stick/Druck) — der niedrigschwellige Einstieg. Formel: Vereinszugehörigkeit beginnt vor der Uniform.",
+      "Polos, T-Shirts, Hoodies, Softshelljacken mit Vereinslogo (Stick/Druck) — der niedrigschwellige Einstieg. Formel: Vereinszugehörigkeit beginnt vor der Uniform. HARTE GRENZE: Jungschützen sind JUNGE ERWACHSENE und tragen normale Erwachsenengrößen. NIEMALS Kindergrößen, Kinderuniformen oder Ausstattung ‚für die Kleinsten‘ anbieten oder andeuten — die gibt es nicht.",
     exampleHeadlines: ["Vereinsstolz fängt nicht erst beim Frack an.", "Euer Wappen jetzt auch fürs Training."],
     photoDirection:
-      "Jugendgruppe von hinten in dunkelgrünen Hoodies, Sportplatz oder Vereinsheim, lockere Stimmung, Tageslicht.",
+      "Gruppe junger Erwachsener von hinten in dunkelgrünen Hoodies, Sportplatz oder Vereinsheim, lockere Stimmung, Tageslicht. KEINE Kinder.",
     months: [8, 9, 10],
     benefits: [
       { icon: "sparkles", title: "Euer Logo", text: "Per Stick oder Druck aufs Textil" },

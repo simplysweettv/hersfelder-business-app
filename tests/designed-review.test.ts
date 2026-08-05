@@ -84,13 +84,13 @@ describe("renderedTextOf — was der QA-Agent im Bild sieht", () => {
       layout: "panel-cta",
       headline: ["Die Damenweste"],
       cta: { title: "Jetzt Muster anfordern", sub: "Für eure Damenkompanie." },
-      features: [{ icon: "ruler", title: "Größen 23–70", text: "alle zum gleichen Preis" }],
+      features: [{ icon: "ruler", title: "Damengrößen 30–60", text: "alle zum gleichen Preis" }],
       footerNotes: [{ icon: "repeat", label: "Jederzeit nachbestellbar" }],
     };
     const text = renderedTextOf(poster);
     expect(text).toContain("Jetzt Muster anfordern");
     expect(text).toContain("Für eure Damenkompanie.");
-    expect(text).toContain("Größen 23–70");
+    expect(text).toContain("Damengrößen 30–60");
     expect(text).toContain("alle zum gleichen Preis");
     expect(text).toContain("Jederzeit nachbestellbar");
   });

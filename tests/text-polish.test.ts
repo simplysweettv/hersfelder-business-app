@@ -25,8 +25,8 @@ describe("fixHeadlineCasing — Groß-/Kleinschreibung an Zeilenfortsetzung", ()
     expect(fixHeadlineCasing(["Alle feiern mit."])).toEqual(["Alle feiern mit."]);
   });
   it("respektiert Satzende in der Vorzeile (dann bleibt groß)", () => {
-    expect(fixHeadlineCasing(["Von 23 bis 70.", "Ein Preis für alle."])).toEqual([
-      "Von 23 bis 70.",
+    expect(fixHeadlineCasing(["Normal- und Kurzgrößen.", "Ein Preis für alle."])).toEqual([
+      "Normal- und Kurzgrößen.",
       "Ein Preis für alle.",
     ]);
   });

@@ -47,7 +47,7 @@ const SAMPLES: Record<PosterLayoutKey, PosterContent> = {
     sub: "Moderner Schnitt, faire Vereinspreise — für Schützinnen und Damenkompanien.",
     features: [
       { icon: "shirt", title: "Moderner Schnitt", text: "Zeitlos, elegant, bequem" },
-      { icon: "ruler", title: "Größen 23–70", text: "Für jedes Mitglied die passende Größe" },
+      { icon: "ruler", title: "Normal- & Kurzgrößen", text: "Für jede Statur die passende Größe" },
       { icon: "handshake", title: "Faire Vereinspreise", text: "Top Qualität zu attraktiven Konditionen" },
     ],
   },
@@ -81,7 +81,7 @@ const SAMPLES: Record<PosterLayoutKey, PosterContent> = {
     kicker: "Spielmannszug",
     headline: ["Einer gibt den Takt vor.", "Vierzig halten ihn."],
     scriptAccent: "Zwei Takte Vorlauf.",
-    sub: "Einheitlich ausgestattet vom ersten Wirbel an — Größen 23 bis 70, ein Preis.",
+    sub: "Einheitlich ausgestattet vom ersten Wirbel an — Normal- und Kurzgrößen, ein Preis.",
     url: "schuetzen-ausstatter.de",
   },
 };
@@ -108,7 +108,11 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const png = await renderPoster(SAMPLES[layout], p);
+  // &swipe=1 zeigt das Layout als Karussell-Cover (mit Wisch-Hinweis).
+  const swipe = sp.get("swipe");
+  const content = swipe && swipe !== "0" ? { ...SAMPLES[layout], swipeHint: "Wischen" } : SAMPLES[layout];
+
+  const png = await renderPoster(content, p);
   return new NextResponse(new Uint8Array(png), {
     headers: { "Content-Type": "image/png", "Cache-Control": "no-store" },
   });

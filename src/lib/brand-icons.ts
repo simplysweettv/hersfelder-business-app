@@ -22,6 +22,11 @@ export const BRAND_ICONS: Record<string, IconNode> = {
   "cloud-rain": [["path", { "d": "M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" }], ["path", { "d": "M16 14v6" }], ["path", { "d": "M8 14v6" }], ["path", { "d": "M12 16v6" }]],
   "gem": [["path", { "d": "M10.5 3 8 9l4 13 4-13-2.5-6" }], ["path", { "d": "M17 3a2 2 0 0 1 1.6.8l3 4a2 2 0 0 1 .013 2.382l-7.99 10.986a2 2 0 0 1-3.247 0l-7.99-10.986A2 2 0 0 1 2.4 7.8l2.998-3.997A2 2 0 0 1 7 3z" }], ["path", { "d": "M2 9h20" }]],
   "calendar-check": [["path", { "d": "M8 2v4" }], ["path", { "d": "M16 2v4" }], ["rect", { "width": "18", "height": "18", "x": "3", "y": "4", "rx": "2" }], ["path", { "d": "M3 10h18" }], ["path", { "d": "m9 16 2 2 4-4" }]],
+  // Wisch-Hinweis auf dem Karussell-Cover. Bewusst als Icon und nicht als
+  // Pfeil-Zeichen im Text: Satori rendert nur Glyphen, die die geladene Schrift
+  // wirklich mitbringt — ein fehlendes „→" wäre im Bild ein leeres Kästchen.
+  "arrow-right": [["path", { "d": "M5 12h14" }], ["path", { "d": "m12 5 7 7-7 7" }]],
+  "hand-pointer": [["path", { "d": "M22 14a8 8 0 0 1-8 8" }], ["path", { "d": "M18 11v-1a2 2 0 0 0-2-2a2 2 0 0 0-2 2" }], ["path", { "d": "M14 10V9a2 2 0 0 0-2-2a2 2 0 0 0-2 2v1" }], ["path", { "d": "M10 9.5V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v10" }], ["path", { "d": "M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" }]],
 };
 
 export type IconKey = keyof typeof BRAND_ICONS;

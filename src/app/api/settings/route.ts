@@ -11,6 +11,7 @@ const ALLOWED_KEYS = new Set([
   "usd_eur_rate",
   "posting_plan",
   "brand_style_prompt",
+  "media_usage_mode",
 ]);
 
 export async function POST(req: NextRequest) {

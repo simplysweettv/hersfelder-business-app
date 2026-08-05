@@ -75,6 +75,12 @@ export type PosterContent = {
   /** Icon über der Headline (z. B. "sun" beim Hitze-Aufhänger) */
   accentIcon?: IconKey;
   url?: string;
+  /**
+   * Wisch-Hinweis am rechten Bildrand — nur für Karussell-Cover.
+   * Sitzt bewusst mittig rechts: dort liegt in JEDEM Layout Foto und nie eine
+   * Leiste, ein CTA-Feld oder die Adresse.
+   */
+  swipeHint?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -524,6 +530,43 @@ function bandUnten(c: PosterContent, photo: string): El {
 // Einstieg
 // ---------------------------------------------------------------------------
 
+/**
+ * Wisch-Pille für Karussell-Cover: helle Marken-Fläche mit grünem Pfeil, mittig
+ * am rechten Rand. Ohne diesen Hinweis wischt kaum jemand weiter — der Rest des
+ * Karussells bliebe ungesehen.
+ */
+function swipePill(text: string): El {
+  return box(
+    {
+      position: "absolute",
+      right: 40,
+      top: Math.round(H / 2) - 32,
+      alignItems: "center",
+      backgroundColor: BRAND_COLORS.cremeHell,
+      paddingTop: 14,
+      paddingBottom: 14,
+      paddingLeft: 24,
+      paddingRight: 22,
+      borderRadius: 999,
+      boxShadow: "0 6px 20px rgba(20,43,32,0.28)",
+    },
+    kids([
+      box(
+        {
+          fontFamily: "Montserrat",
+          fontWeight: 700,
+          fontSize: 18,
+          letterSpacing: 2.6,
+          textTransform: "uppercase",
+          color: BRAND_COLORS.gruen500,
+        },
+        text,
+      ),
+      box({ marginLeft: 12 }, icon("arrow-right", 26, BRAND_COLORS.rot, 2.4)),
+    ]),
+  );
+}
+
 const LAYOUTS: Record<PosterLayoutKey, (c: PosterContent, photo: string) => El> = {
   "panel-links": panelLinks,
   "panel-cta": panelCta,
@@ -546,7 +589,13 @@ export async function renderPoster(content: PosterContent, photoDataUrl: string)
   if (!build) throw new Error(`renderPoster: unbekanntes Layout „${content.layout}".`);
 
   const fonts = await loadFonts();
-  const res = new ImageResponse(build(content, photoDataUrl) as unknown as React.ReactElement, {
+  const layout = build(content, photoDataUrl);
+  // Der Wisch-Hinweis liegt bewusst ÜBER dem fertigen Layout, statt in jedem
+  // der fünf Layouts einzeln eingebaut zu werden.
+  const element = content.swipeHint
+    ? box({ position: "relative", width: W, height: H }, kids([layout, swipePill(content.swipeHint)]))
+    : layout;
+  const res = new ImageResponse(element as unknown as React.ReactElement, {
     width: W,
     height: H,
     fonts: fonts.map((f) => ({ name: f.name, data: f.data, weight: f.weight, style: f.style })),
@@ -568,6 +617,7 @@ export function renderedTextOf(content: PosterContent): string {
     ...(content.features ?? []).flatMap((f) => [f.title, f.text]),
     ...(content.footerNotes ?? []).map((n) => n.label),
     content.url,
+    content.swipeHint,
   ]
     .filter(Boolean)
     .join(" | ");

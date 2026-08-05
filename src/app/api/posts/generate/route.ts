@@ -9,7 +9,17 @@ import {
   createDesignedPostImage,
   conceptHookText,
   generateCompliantCaption,
+  PHOTO_SAFE_LAYOUTS,
 } from "@/lib/designed-post";
+import {
+  getMediaAsset,
+  markMediaUsed,
+  parseMediaUsageMode,
+  planPhotoSource,
+  resolvePhotoInput,
+  type MediaAsset,
+  type MediaPlan,
+} from "@/lib/media-library";
 import { BANNED_PHRASES, type Lane } from "@/lib/concepts";
 import { reviewDesignedPost } from "@/lib/designed-review";
 import type { GeneratorInput } from "@/types";
@@ -36,7 +46,14 @@ export async function POST(req: NextRequest) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  let body: GeneratorInput & { occasion?: string; scheduledAt?: string; lane?: string };
+  let body: GeneratorInput & {
+    occasion?: string;
+    scheduledAt?: string;
+    lane?: string;
+    /** "auto" = wie die Automatik, "library" = eigenes Foto, "ai" = ohne Bibliothek */
+    imageSource?: string;
+    mediaAssetId?: string;
+  };
   try {
     body = await req.json();
   } catch {
@@ -70,6 +87,35 @@ export async function POST(req: NextRequest) {
       message: body.message,
     });
 
+    // ── Bildquelle bestimmen ───────────────────────────────────────────────
+    // "library" mit konkreter Bild-ID = der Kollege hat ein echtes Foto gewählt.
+    // Ohne ID nimmt die Bibliothek das am längsten nicht genutzte passende Bild.
+    let mediaPlan: MediaPlan = { mode: "ai", assets: [] };
+    if (body.imageSource === "library" && body.mediaAssetId) {
+      const asset = await getMediaAsset(supabase, body.mediaAssetId);
+      if (!asset) {
+        return NextResponse.json({ error: "Das gewählte Bild gibt es nicht mehr." }, { status: 400 });
+      }
+      if (asset.usage === "reference") {
+        return NextResponse.json(
+          { error: "Dieses Bild ist nur als Stil-Referenz freigegeben, nicht als Post-Foto." },
+          { status: 400 },
+        );
+      }
+      mediaPlan = { mode: "library", asset: asset as MediaAsset, assets: [asset as MediaAsset] };
+    } else if (body.imageSource !== "ai") {
+      mediaPlan = await planPhotoSource(supabase, {
+        lane,
+        mode:
+          body.imageSource === "library"
+            ? "photo+reference"
+            : parseMediaUsageMode(settings["media_usage_mode"]),
+        // Ausdrücklich "eigenes Foto" gewählt → dann auch wirklich eines nehmen.
+        photoShare: body.imageSource === "library" ? 1 : undefined,
+      });
+    }
+    const photo = await resolvePhotoInput(mediaPlan);
+
     const now = new Date();
     const concept = await generateDesignedConcept({
       apiKey,
@@ -78,6 +124,9 @@ export async function POST(req: NextRequest) {
       topical: null,
       avoid: [],
       month: now.getMonth() + 1,
+      ...(photo.mode === "library"
+        ? { fixedPhoto: photo.description, allowedLayouts: PHOTO_SAFE_LAYOUTS }
+        : {}),
     });
 
     const pillar = lane === "product" ? "service" : "community";
@@ -92,7 +141,12 @@ export async function POST(req: NextRequest) {
     });
 
     const [rendered, caption] = await Promise.all([
-      createDesignedPostImage({ apiKey, concept, brandStyle: settings["brand_style_prompt"] }),
+      createDesignedPostImage({
+        apiKey,
+        concept,
+        brandStyle: settings["brand_style_prompt"],
+        photo,
+      }),
       generateCompliantCaption({ apiKey, captionPrompt, bannedPhrases: BANNED_PHRASES }),
     ]);
 
@@ -146,7 +200,11 @@ export async function POST(req: NextRequest) {
       lane,
       format_code: format.code,
       template: concept.posterCode,
+      photo_source: rendered.photoSource,
+      media_asset_ids: mediaPlan.assets.length ? mediaPlan.assets.map((a) => a.id) : null,
     });
+    // Rotation der Bibliothek erst protokollieren, wenn der Post steht.
+    if (rendered.photoSource !== "ai") await markMediaUsed(supabase, mediaPlan.assets);
     // Nicht den fertigen Post verwerfen, aber den Fehlschlag sichtbar machen —
     // ohne Briefing fehlt die Grundlage für Rotation und Lern-Auswertung.
     if (briefErr) {
@@ -158,6 +216,7 @@ export async function POST(req: NextRequest) {
       image_url: imageUrl,
       caption,
       lane,
+      photo_source: rendered.photoSource,
       review: { score: review.score, issues: review.notes, pass: review.pass },
     });
   } catch (e) {

@@ -9,6 +9,13 @@ import {
   conceptHookText,
   generateCompliantCaption,
 } from "@/lib/designed-post";
+import { PHOTO_SAFE_LAYOUTS } from "@/lib/designed-post";
+import {
+  markMediaUsed,
+  parseMediaUsageMode,
+  planPhotoSource,
+  resolvePhotoInput,
+} from "@/lib/media-library";
 import { conceptByCode, pickConceptFormat, pickLane, BANNED_PHRASES, type Lane } from "@/lib/concepts";
 import { computeContentPerformance } from "@/lib/learning";
 import { getTopicalContext } from "@/lib/topical";
@@ -102,6 +109,14 @@ export async function POST(req: NextRequest) {
 
     const topical = await getTopicalContext();
 
+    // Bildbibliothek: echtes Foto direkt nutzen oder als Referenz mitgeben
+    // (Einstellung `media_usage_mode`); leere Bibliothek → reine KI.
+    const mediaPlan = await planPhotoSource(supabase, {
+      lane,
+      mode: parseMediaUsageMode(settings["media_usage_mode"]),
+    });
+    const photo = await resolvePhotoInput(mediaPlan);
+
     // 1) Konzept: Idee + Overlay-Text + Foto-Szene aus einer Hand
     const concept = await generateDesignedConcept({
       apiKey,
@@ -112,6 +127,11 @@ export async function POST(req: NextRequest) {
       avoid: avoidThemes,
       avoidLayouts: recentLayouts,
       month,
+      // Steht das Foto schon fest, richtet sich die Idee nach dem Motiv und das
+      // Layout braucht eine deckende Textfläche.
+      ...(photo.mode === "library"
+        ? { fixedPhoto: photo.description, allowedLayouts: PHOTO_SAFE_LAYOUTS }
+        : {}),
     });
 
     // 2) Foto + Marken-Composite (parallel zur Caption)
@@ -126,7 +146,12 @@ export async function POST(req: NextRequest) {
       bannedPhrases: BANNED_PHRASES,
     });
     const [rendered, captionInitial] = await Promise.all([
-      createDesignedPostImage({ apiKey, concept, brandStyle: settings["brand_style_prompt"] }),
+      createDesignedPostImage({
+        apiKey,
+        concept,
+        brandStyle: settings["brand_style_prompt"],
+        photo,
+      }),
       generateCompliantCaption({ apiKey, captionPrompt, bannedPhrases: BANNED_PHRASES }),
     ]);
     let caption = captionInitial;
@@ -183,7 +208,11 @@ export async function POST(req: NextRequest) {
       lane,
       format_code: format.code,
       template: concept.posterCode,
+      photo_source: rendered.photoSource,
+      media_asset_ids: mediaPlan.assets.length ? mediaPlan.assets.map((a) => a.id) : null,
     });
+    // Rotation der Bibliothek erst protokollieren, wenn der Post steht.
+    if (rendered.photoSource !== "ai") await markMediaUsed(supabase, mediaPlan.assets);
     // Nicht den fertigen Post verwerfen, aber den Fehlschlag sichtbar machen —
     // ohne Briefing fehlt die Grundlage für Rotation und Lern-Auswertung.
     if (briefErr) {

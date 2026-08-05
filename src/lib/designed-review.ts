@@ -2,6 +2,7 @@ import { runQaGate, type GateResult } from "./qa-gate";
 import type { DesignedConcept } from "./designed-post";
 import { renderedTextOf } from "./render-poster";
 import type { QualityStatus } from "./quality";
+import { findSizeViolation } from "./sizes";
 
 /**
  * Brücke zwischen der designten Pipeline und der Zwei-Agenten-Freigabe.
@@ -48,17 +49,37 @@ export async function reviewDesignedPost(opts: {
   concept: DesignedConcept;
   caption: string;
 }): Promise<DesignedReview> {
+  const rendered = renderedTextOf(opts.concept.poster);
+
+  // Größen sind Sachfakten, keine Geschmacksfrage — deshalb VOR dem KI-Urteil
+  // deterministisch prüfen. Ein Vision-Modell würde „Größen 23 bis 70" sonst
+  // durchwinken, weil es plausibel klingt.
+  const sizeProblem =
+    findSizeViolation(rendered) ??
+    findSizeViolation(opts.caption) ??
+    findSizeViolation(opts.concept.message);
+
   const gate = await runQaGate({
     apiKey: opts.apiKey,
     jpeg: opts.jpeg,
     // Genau die Zeilen, die die Poster-Engine ins Bild gesetzt hat.
-    renderedText: renderedTextOf(opts.concept.poster),
+    renderedText: rendered,
     // Das Motiv ist die Foto-Idee — genau das, was Bild UND Text tragen sollen.
     motif: `${opts.concept.photoIdea} — Kernaussage: ${opts.concept.message}`,
     caption: opts.caption,
     kind: opts.concept.posterCode,
     lane: opts.concept.lane,
   });
+
+  if (sizeProblem) {
+    return {
+      pass: false,
+      score: gate.score,
+      notes: [sizeProblem, ...gate.notes],
+      status: "failed",
+      failArea: gate.failArea === "image" ? "both" : "text",
+    };
+  }
 
   return {
     pass: gate.pass,
