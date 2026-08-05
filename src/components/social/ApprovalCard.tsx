@@ -11,7 +11,7 @@ import type { Post } from "@/types";
 import { formatDateTime } from "@/lib/date-utils";
 import { MediaLightbox } from "./MediaLightbox";
 // Zentrale Caption-Logik — eine Quelle der Wahrheit (auch der Cron nutzt diese).
-import { splitCaption, buildCaption } from "@/lib/caption";
+import { splitCaption, buildCaption, AI_DISCLOSURE, hasAiDisclosure } from "@/lib/caption";
 
 type PlatformKey = "instagram" | "facebook" | "tiktok" | "linkedin";
 
@@ -336,6 +336,13 @@ export function ApprovalCard({ post }: { post: Post }) {
                     />
                   ) : (
                     <p className="text-sm whitespace-pre-wrap leading-relaxed">{text}</p>
+                  )}
+                  {/* Pflicht-Kennzeichnung: wird beim Posten automatisch angehängt. */}
+                  {!hasAiDisclosure(text) && (
+                    <p className="mt-1.5 text-xs text-muted-foreground italic">
+                      {AI_DISCLOSURE}
+                      <span className="not-italic"> · wird automatisch angehängt</span>
+                    </p>
                   )}
                 </div>
               ))}

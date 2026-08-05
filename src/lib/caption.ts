@@ -40,8 +40,42 @@ export function splitCaption(caption: string): Partial<Record<Platform, string>>
   return result;
 }
 
-/** Text für genau eine Plattform — fällt auf Instagram bzw. Rohtext zurück. */
+/**
+ * KI-Kennzeichnung — steht am Ende JEDER veröffentlichten Caption, auf allen
+ * Plattformen. Wird nicht in der Datenbank gespeichert, sondern beim
+ * Veröffentlichen angehängt (`captionForPlatform`), damit sie auch bei alten
+ * Posts und von Hand bearbeiteten Texten garantiert dabei ist.
+ */
+export const AI_DISCLOSURE = "Hinweis: Dieser Beitrag wurde mit KI erstellt.";
+
+/**
+ * Erkennt eine bereits vorhandene Kennzeichnung (z. B. von Hand getippt oder
+ * von der KI selbst geschrieben) — verhindert doppelte Hinweise.
+ */
+export function hasAiDisclosure(text: string): boolean {
+  return /\bmit\s+KI\b|\bKI[-\s]generiert|\bKI[-\s]erstellt|\bK[Ii]\s*[-–]\s*Hinweis/i.test(
+    text ?? "",
+  );
+}
+
+/** Hängt die KI-Kennzeichnung an — idempotent, leerer Text bleibt leer. */
+export function withAiDisclosure(text: string): string {
+  const t = (text ?? "").trim();
+  if (!t) return t;
+  if (hasAiDisclosure(t)) return t;
+  return `${t}\n\n${AI_DISCLOSURE}`;
+}
+
+/**
+ * Text für genau eine Plattform — fällt auf Instagram bzw. Rohtext zurück.
+ * Enthält immer die KI-Kennzeichnung (siehe `AI_DISCLOSURE`).
+ */
 export function captionForPlatform(caption: string, platform: Platform): string {
+  return withAiDisclosure(rawCaptionForPlatform(caption, platform));
+}
+
+/** Wie `captionForPlatform`, aber ohne KI-Kennzeichnung (Bearbeiten/Anzeige). */
+export function rawCaptionForPlatform(caption: string, platform: Platform): string {
   const split = splitCaption(caption);
   return split[platform] ?? split.instagram ?? (caption ?? "").trim();
 }

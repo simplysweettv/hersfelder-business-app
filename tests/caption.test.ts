@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { splitCaption, captionForPlatform, buildCaption } from "@/lib/caption";
+import {
+  splitCaption,
+  captionForPlatform,
+  rawCaptionForPlatform,
+  buildCaption,
+  withAiDisclosure,
+  hasAiDisclosure,
+  AI_DISCLOSURE,
+} from "@/lib/caption";
 
 describe("splitCaption", () => {
   it("parst alle Plattform-Abschnitte", () => {
@@ -35,10 +43,38 @@ LI-Text`;
 describe("captionForPlatform", () => {
   const raw = `---INSTAGRAM---\nIG\n\n---FACEBOOK---\nFB`;
   it("liefert den plattformspezifischen Text", () => {
-    expect(captionForPlatform(raw, "facebook")).toBe("FB");
+    expect(rawCaptionForPlatform(raw, "facebook")).toBe("FB");
   });
   it("fällt auf Instagram zurück, wenn Plattform fehlt", () => {
-    expect(captionForPlatform(raw, "tiktok")).toBe("IG");
+    expect(rawCaptionForPlatform(raw, "tiktok")).toBe("IG");
+  });
+  it("hängt die KI-Kennzeichnung auf jeder Plattform an", () => {
+    for (const p of ["instagram", "facebook", "tiktok", "linkedin"] as const) {
+      expect(captionForPlatform(raw, p).endsWith(AI_DISCLOSURE)).toBe(true);
+    }
+  });
+});
+
+describe("KI-Kennzeichnung", () => {
+  it("hängt den Hinweis ans Ende — nach den Hashtags", () => {
+    const out = withAiDisclosure("Text\n\n#hersfelder #schützenfest");
+    expect(out).toBe(`Text\n\n#hersfelder #schützenfest\n\n${AI_DISCLOSURE}`);
+  });
+
+  it("ist idempotent — kein doppelter Hinweis", () => {
+    expect(withAiDisclosure(withAiDisclosure("Text"))).toBe(withAiDisclosure("Text"));
+  });
+
+  it("erkennt selbst formulierte Kennzeichnungen", () => {
+    expect(hasAiDisclosure("Dieses Bild wurde mit KI erstellt.")).toBe(true);
+    expect(hasAiDisclosure("Foto: KI-generiert")).toBe(true);
+    expect(hasAiDisclosure("Ein ganz normaler Post.")).toBe(false);
+    expect(withAiDisclosure("Post. Bild KI-generiert.")).toBe("Post. Bild KI-generiert.");
+  });
+
+  it("lässt leeren Text leer", () => {
+    expect(withAiDisclosure("")).toBe("");
+    expect(withAiDisclosure("   ")).toBe("");
   });
 });
 

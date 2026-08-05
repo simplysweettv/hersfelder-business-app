@@ -13,7 +13,7 @@ import { PublicationStatus, type PublicationRow } from "./PublicationStatus";
 import { PublicationDetail } from "./PublicationDetail";
 import { TrafficLightDot, TrafficLightChip } from "./TrafficLight";
 import { postHealth } from "@/lib/post-health";
-import { splitCaption } from "@/lib/caption";
+import { splitCaption, AI_DISCLOSURE, hasAiDisclosure } from "@/lib/caption";
 import { formatDateTime } from "@/lib/date-utils";
 import type { Post, Platform } from "@/types";
 import { Eye, Images } from "lucide-react";
@@ -178,6 +178,13 @@ export function PostDetailDialog({
                     {PLATFORM_LABELS[platform]}
                   </div>
                   <p className="text-sm whitespace-pre-wrap leading-relaxed">{text}</p>
+                  {/* Pflicht-Kennzeichnung: wird beim Posten automatisch angehängt. */}
+                  {!hasAiDisclosure(text) && (
+                    <p className="mt-1.5 text-xs text-muted-foreground italic">
+                      {AI_DISCLOSURE}
+                      <span className="not-italic"> · wird automatisch angehängt</span>
+                    </p>
+                  )}
                 </div>
               ))
             )}
